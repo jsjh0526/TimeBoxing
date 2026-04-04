@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,7 +52,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -69,28 +72,20 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
 
-private val Overlay = Color(0xCC000000)
-private val Panel = Color(0xFF1E1E1E)
-private val CardSurface = Color(0xFF1E1E1E)
-private val Field = Color(0xFF2A2A2A)
-private val FieldDark = Color(0xFF121212)
-private val Border = Color(0xFF2A2A2A)
+private val Overlay      = Color(0xCC000000)
+private val Panel        = Color(0xFF1E1E1E)
+private val CardSurface  = Color(0xFF1E1E1E)
+private val Field        = Color(0xFF2A2A2A)
+private val FieldDark    = Color(0xFF121212)
+private val Border       = Color(0xFF2A2A2A)
 private val BorderStrong = Color(0xFF333333)
-private val Accent = Color(0xFF8687E7)
-private val TextPrimary = Color.White
+private val Accent       = Color(0xFF8687E7)
+private val TextPrimary  = Color.White
 private val TextSecondary = Color(0xFF99A1AF)
-private val TextMuted = Color(0xFF6A7282)
-private val Danger = Color(0xFFFF5F57)
-private val TagFill = Color(0xFF4A4970)
-private val Success = Color(0xFF7CFF7A)
-
-private val TIME_OPTIONS: List<String> = buildList {
-    for (h in 0..23) {
-        for (m in listOf(0, 15, 30, 45)) {
-            add("%02d:%02d".format(h, m))
-        }
-    }
-}
+private val TextMuted    = Color(0xFF6A7282)
+private val Danger       = Color(0xFFFF5F57)
+private val TagFill      = Color(0xFF4A4970)
+private val Success      = Color(0xFF7CFF7A)
 
 @Immutable
 data class TaskEditorDraft(
@@ -134,11 +129,12 @@ fun newTaskDraft(date: LocalDate, initialTitle: String = "") = TaskEditorDraft(d
 
 private fun applyStartChange(newStart: String, draft: TaskEditorDraft): TaskEditorDraft {
     val startMin = parseTime(newStart)
-    val endMin = parseTime(draft.endText)
+    val endMin   = parseTime(draft.endText)
     return if (endMin <= startMin) {
-        val newEnd = (startMin + 30).coerceAtMost(23 * 60 + 45)
-        val snappedEnd = TIME_OPTIONS.firstOrNull { parseTime(it) >= newEnd } ?: "23:45"
-        draft.copy(startText = newStart, endText = snappedEnd)
+        // endÂç†?start + ?Âç†ÏéåÏò± duration?Âç†ÏéàÏ§à ?Âç†ÏèôÏòô? (Ôß§ÏíñÎÉº 15Âç†?
+        val duration = (endMin - parseTime(draft.startText)).coerceAtLeast(15)
+        val newEndMin = (startMin + duration).coerceAtMost(24 * 60)
+        draft.copy(startText = newStart, endText = formatTime(newEndMin))
     } else {
         draft.copy(startText = newStart)
     }
@@ -153,94 +149,59 @@ fun TaskEditorDialog(
     onChange: (TaskEditorDraft) -> Unit
 ) {
     val bodyScroll = rememberScrollState()
-    val endOptions = remember(draft.startText) {
-        val startMin = parseTime(draft.startText)
-        TIME_OPTIONS.filter { parseTime(it) > startMin }
-    }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        // ?§Î≥¥???¨Îùº?Ä??Dialog ?ÑÏπò Í≥†Ï†ï
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
-        SideEffect {
-            dialogWindow?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
-        }
+        SideEffect { dialogWindow?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING) }
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Overlay)
-                .imePadding()
-        ) {
+        Box(modifier = Modifier.fillMaxSize().background(Overlay).imePadding()) {
             Column(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth()
-                    .heightIn(max = 720.dp)
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.align(Alignment.Center).fillMaxWidth().heightIn(max = 720.dp).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Panel)
-                        .border(0.7.dp, Border, RoundedCornerShape(20.dp))
+                    modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(20.dp))
+                        .background(Panel).border(0.7.dp, Border, RoundedCornerShape(20.dp))
                 ) {
+                    // ?Âç†ÏéàÎúë
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = if (draft.taskId == null) "New Task" else "Edit Task",
                             style = TextStyle(color = TextPrimary, fontSize = 18.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold)
                         )
-                        // [Fix] ?∏ÏΩî??Íπ®ÏßÑ "√ó" Î≥µÏõê
-                        Box(
-                            modifier = Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onDismiss),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "\u00D7", style = TextStyle(color = TextSecondary, fontSize = 28.sp, fontWeight = FontWeight.Light, lineHeight = 28.sp))
+                        Box(modifier = Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onDismiss), contentAlignment = Alignment.Center) {
+                            Text("\u00D7", style = TextStyle(color = TextSecondary, fontSize = 28.sp, fontWeight = FontWeight.Light, lineHeight = 28.sp))
                         }
                     }
-
                     Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(BorderStrong))
 
+                    // ËπÇÎ™É–¶
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .verticalScroll(bodyScroll)
-                            .padding(18.dp),
+                        modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(bodyScroll).padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         EditorLabel("Title")
                         EditorInput(value = draft.title, onValueChange = { onChange(draft.copy(title = it)) }, placeholder = "Task title", autoFocus = draft.taskId == null)
 
-                        EditorLabel("Memo") { MemoIcon(color = TextSecondary, modifier = Modifier.size(14.dp)) }
+                        EditorLabel("Memo") { MemoIcon(TextSecondary, Modifier.size(14.dp)) }
                         EditorInput(value = draft.note, onValueChange = { onChange(draft.copy(note = it)) }, placeholder = "Details...", minLines = 3)
 
-                        EditorLabel("Tags") { TagLabelIcon(color = TextSecondary, modifier = Modifier.size(14.dp)) }
+                        EditorLabel("Tags") { TagLabelIcon(TextSecondary, Modifier.size(14.dp)) }
                         TagEditor(draft = draft, onChange = onChange)
 
-                        SettingSection(
-                            title = "Recurring Habit",
-                            enabled = draft.recurringEnabled,
-                            onToggle = { onChange(draft.copy(recurringEnabled = it)) },
-                            icon = { RecurringIcon(color = Accent, modifier = Modifier.size(18.dp)) }
-                        ) {
+                        // Recurring Habit
+                        SettingSection(title = "Recurring Habit", enabled = draft.recurringEnabled, onToggle = { onChange(draft.copy(recurringEnabled = it)) }, icon = { RecurringIcon(Accent, Modifier.size(18.dp)) }) {
                             val isWeekdaysPreset = draft.recurrenceType == RecurrenceType.WEEKDAYS
-                            val isWeekendPreset = draft.recurrenceType == RecurrenceType.CUSTOM && draft.repeatDays == weekendDays()
-                            val isCustomPreset = draft.recurrenceType == RecurrenceType.CUSTOM && !isWeekendPreset
+                            val isWeekendPreset  = draft.recurrenceType == RecurrenceType.CUSTOM && draft.repeatDays == weekendDays()
+                            val isCustomPreset   = draft.recurrenceType == RecurrenceType.CUSTOM && !isWeekendPreset
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                RecurrenceSegment("Daily", draft.recurrenceType == RecurrenceType.DAILY, { onChange(draft.copy(recurrenceType = RecurrenceType.DAILY, repeatDays = emptySet())) }, Modifier.weight(1f))
+                                RecurrenceSegment("Daily",    draft.recurrenceType == RecurrenceType.DAILY, { onChange(draft.copy(recurrenceType = RecurrenceType.DAILY, repeatDays = emptySet())) }, Modifier.weight(1f))
                                 RecurrenceSegment("Weekdays", isWeekdaysPreset, { onChange(draft.copy(recurrenceType = RecurrenceType.WEEKDAYS, repeatDays = defaultWeeklyDays())) }, Modifier.weight(1f))
-                                RecurrenceSegment("Weekend", isWeekendPreset, { onChange(draft.copy(recurrenceType = RecurrenceType.CUSTOM, repeatDays = weekendDays())) }, Modifier.weight(1f))
-                                RecurrenceSegment("Custom", isCustomPreset, { onChange(draft.copy(recurrenceType = RecurrenceType.CUSTOM, repeatDays = if (draft.repeatDays.isEmpty() || isWeekendPreset) setOf(draft.date.dayOfWeek) else draft.repeatDays)) }, Modifier.weight(1f))
+                                RecurrenceSegment("Weekend",  isWeekendPreset,  { onChange(draft.copy(recurrenceType = RecurrenceType.CUSTOM,   repeatDays = weekendDays())) },       Modifier.weight(1f))
+                                RecurrenceSegment("Custom",   isCustomPreset,   { onChange(draft.copy(recurrenceType = RecurrenceType.CUSTOM,   repeatDays = if (draft.repeatDays.isEmpty() || isWeekendPreset) setOf(draft.date.dayOfWeek) else draft.repeatDays)) }, Modifier.weight(1f))
                             }
                             if (isCustomPreset) {
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -248,7 +209,6 @@ fun TaskEditorDialog(
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                                         listOf(DayOfWeek.SUNDAY, DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY).forEach { day ->
                                             DayCircle(dayLabel(day), day in draft.repeatDays, {
-
                                                 val next = draft.repeatDays.toMutableSet()
                                                 if (!next.add(day) && next.size > 1) next.remove(day)
                                                 if (next.isNotEmpty()) onChange(draft.copy(repeatDays = next))
@@ -259,33 +219,41 @@ fun TaskEditorDialog(
                             }
                         }
 
-                        SettingSection(
-                            title = "Time Block",
-                            enabled = draft.timeBlockEnabled,
-                            onToggle = { onChange(draft.copy(timeBlockEnabled = it)) },
-                            icon = { ClockIcon(color = Success, modifier = Modifier.size(18.dp)) }
-                        ) {
+                        SettingSection(title = "Time Block", enabled = draft.timeBlockEnabled, onToggle = { onChange(draft.copy(timeBlockEnabled = it)) }, icon = { ClockIcon(Success, Modifier.size(18.dp)) }) {
+                            val startMin = parseTime(draft.startText)
+
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                TimeDropdown("START", draft.startText, TIME_OPTIONS, { onChange(applyStartChange(it, draft)) }, Modifier.weight(1f))
-                                // [Fix] ?∏ÏΩî??Íπ®ÏßÑ "?? Î≥µÏõê
+                                TimeDropdownField(
+                                    label = "START",
+                                    value = draft.startText,
+                                    modifier = Modifier.weight(1f),
+                                    options = timeOptions(start = 0, end = 23 * 60 + 45),
+                                    onSelect = { selected -> onChange(applyStartChange(formatTime(selected), draft)) }
+                                )
                                 Text("\u2192", style = TextStyle(color = Accent, fontSize = 18.sp, lineHeight = 28.sp))
-                                TimeDropdown("END", draft.endText, endOptions, { onChange(draft.copy(endText = it)) }, Modifier.weight(1f))
+                                TimeDropdownField(
+                                    label = "END",
+                                    value = draft.endText,
+                                    modifier = Modifier.weight(1f),
+                                    options = timeOptions(start = startMin + 15, end = 24 * 60),
+                                    onSelect = { selected -> onChange(draft.copy(endText = formatTime(selected))) }
+                                )
                             }
+
                             Row(
                                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(FieldDark).border(0.7.dp, Border, RoundedCornerShape(10.dp)).padding(horizontal = 12.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    ClockIcon(color = Accent, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    ClockIcon(Accent, Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
                                     Text("Duration:", style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 19.5.sp))
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(Modifier.width(6.dp))
                                     Text(durationLabel(draft.startText, draft.endText), style = TextStyle(color = Accent, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold))
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text("Alert", style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 19.5.sp))
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(Modifier.width(8.dp))
                                     EditorSwitch(checked = draft.alertEnabled, onToggle = { onChange(draft.copy(alertEnabled = it)) })
                                 }
                             }
@@ -293,10 +261,10 @@ fun TaskEditorDialog(
                     }
                 }
 
+                // ?Âç†ÏéàÎñí Ë∏∞Íæ™Îìâ
                 Row(
                     modifier = Modifier.fillMaxWidth().background(Panel).padding(horizontal = 18.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
                 ) {
                     TrashButton(enabled = onDelete != null, onClick = { onDelete?.invoke() })
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -312,12 +280,85 @@ fun TaskEditorDialog(
 }
 
 @Composable
+private fun TimeDropdownField(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    options: List<Int>,
+    onSelect: (Int) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val initialIndex = remember(value, options) { timeMenuStartIndex(value, options) }
+    val scrollState = rememberScrollState()
+    val itemHeightPx = with(LocalDensity.current) { 48.dp.roundToPx() }
+
+    LaunchedEffect(expanded, initialIndex) {
+        if (expanded && options.isNotEmpty()) scrollState.scrollTo(initialIndex * itemHeightPx)
+    }
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(label, style = TextStyle(color = TextMuted, fontSize = 12.sp, lineHeight = 18.sp, letterSpacing = 0.6.sp, fontWeight = FontWeight.Medium))
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(FieldDark)
+                    .border(0.7.dp, Border, RoundedCornerShape(10.dp))
+                    .clickable { expanded = true },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = value,
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip,
+                    style = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, textAlign = TextAlign.Center)
+                )
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                scrollState = scrollState,
+                modifier = Modifier
+                    .heightIn(max = 288.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(FieldDark)
+            ) {
+                options.forEach { minute ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                formatTime(minute),
+                                style = TextStyle(
+                                    color = if (formatTime(minute) == value) Accent else TextPrimary,
+                                    fontSize = 15.sp,
+                                    lineHeight = 22.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            )
+                        },
+                        onClick = {
+                            expanded = false
+                            onSelect(minute)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+// ?Âç†?Âç†?ÊÄ®ÎìØÎÑª ËÄåÎåÑÎ£∑?Âç†ÏèÄÎìÉ ?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?
+
+@Composable
 private fun EditorLabel(label: String, icon: (@Composable () -> Unit)? = null) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        if (icon != null) {
-            icon()
-            Spacer(modifier = Modifier.width(8.dp))
-        }
+        if (icon != null) { icon(); Spacer(Modifier.width(8.dp)) }
         Text(label, style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 19.5.sp, fontWeight = FontWeight.Medium))
     }
 }
@@ -348,21 +389,18 @@ private fun TagEditor(draft: TaskEditorDraft, onChange: (TaskEditorDraft) -> Uni
                 Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(TagFill).border(0.7.dp, Accent.copy(alpha = 0.35f), RoundedCornerShape(6.dp)).padding(horizontal = 10.dp, vertical = 6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("#$tag", style = TextStyle(color = Accent, fontSize = 12.sp, lineHeight = 18.sp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        // [Fix] ?∏ÏΩî??Íπ®ÏßÑ "√ó" Î≥µÏõê
+                        Spacer(Modifier.width(6.dp))
                         Text("\u00D7", modifier = Modifier.clickable { onChange(draft.copy(tags = draft.tags.filterIndexed { i, _ -> i != index })) }, style = TextStyle(color = TextSecondary, fontSize = 11.sp))
                     }
                 }
             }
             BasicTextField(
                 value = draft.tagInput,
-                onValueChange = { input ->
-                    onChange(draft.copy(tagInput = input))
-                },
+                onValueChange = { onChange(draft.copy(tagInput = it)) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = {
-                    val value = draft.tagInput.trim().removePrefix("#")
-                    if (value.isNotEmpty()) onChange(draft.copy(tags = draft.tags + value, tagInput = ""))
+                    val v = draft.tagInput.trim().removePrefix("#")
+                    if (v.isNotEmpty()) onChange(draft.copy(tags = draft.tags + v, tagInput = ""))
                 }),
                 textStyle = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.5.sp),
                 modifier = Modifier.width(120.dp),
@@ -380,8 +418,7 @@ private fun SettingSection(title: String, enabled: Boolean, onToggle: (Boolean) 
     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(CardSurface).border(0.7.dp, Border, RoundedCornerShape(18.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                icon()
-                Spacer(modifier = Modifier.width(10.dp))
+                icon(); Spacer(Modifier.width(10.dp))
                 Text(title, style = TextStyle(color = TextPrimary, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold))
             }
             EditorSwitch(checked = enabled, onToggle = onToggle)
@@ -415,34 +452,13 @@ private fun DayCircle(label: String, selected: Boolean, onClick: () -> Unit, mod
 }
 
 @Composable
-private fun TimeDropdown(label: String, value: String, options: List<String>, onValueChange: (String) -> Unit, modifier: Modifier = Modifier) {
-    var expanded by remember { mutableStateOf(false) }
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, style = TextStyle(color = TextMuted, fontSize = 12.sp, lineHeight = 18.sp, letterSpacing = 0.6.sp, fontWeight = FontWeight.Medium))
-        Box {
-            Box(modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(10.dp)).background(FieldDark).border(0.7.dp, Border, RoundedCornerShape(10.dp)).clickable { expanded = true }.padding(horizontal = 12.dp), contentAlignment = Alignment.CenterStart) {
-                Text(value, style = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.5.sp, fontWeight = FontWeight.Medium))
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.background(Color(0xFF2A2A2A)).heightIn(max = 240.dp)) {
-                options.forEach { time ->
-                    DropdownMenuItem(
-                        text = { Text(time, style = TextStyle(color = if (time == value) Accent else TextPrimary, fontSize = 14.sp, fontWeight = if (time == value) FontWeight.SemiBold else FontWeight.Normal)) },
-                        onClick = { onValueChange(time); expanded = false }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun TrashButton(enabled: Boolean, onClick: () -> Unit) {
     Box(modifier = Modifier.size(32.dp).clickable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
         TrashIcon(color = if (enabled) Danger else Danger.copy(alpha = 0.35f), modifier = Modifier.size(22.dp))
     }
 }
 
-// ?Ä?Ä Canvas ?ÑÏù¥ÏΩ??Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä
+// ?Âç†?Âç†?Canvas ?Âç†ÏéåÏî†Âç†??Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?
 
 @Composable
 private fun ClockIcon(color: Color, modifier: Modifier = Modifier) {
@@ -465,7 +481,7 @@ private fun RecurringIcon(color: Color, modifier: Modifier = Modifier) {
             cubicTo(size.width * 0.05f, size.height * 0.82f, size.width * 0.05f, size.height * 0.18f, size.width * 0.28f, size.height * 0.18f)
             lineTo(size.width * 0.55f, size.height * 0.18f)
         }
-        drawPath(path = path, color = color, style = Stroke(width = stroke, cap = StrokeCap.Round))
+        drawPath(path, color, style = Stroke(width = stroke, cap = StrokeCap.Round))
         drawLine(color, Offset(size.width * 0.44f, size.height * 0.08f), Offset(size.width * 0.55f, size.height * 0.18f), stroke, StrokeCap.Round)
         drawLine(color, Offset(size.width * 0.55f, size.height * 0.18f), Offset(size.width * 0.44f, size.height * 0.28f), stroke, StrokeCap.Round)
     }
@@ -476,8 +492,8 @@ private fun MemoIcon(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val stroke = 1.5.dp.toPx()
         drawLine(color, Offset(size.width * 0.08f, size.height * 0.22f), Offset(size.width * 0.92f, size.height * 0.22f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.08f, size.height * 0.5f), Offset(size.width * 0.92f, size.height * 0.5f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.08f, size.height * 0.78f), Offset(size.width * 0.6f, size.height * 0.78f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(size.width * 0.08f, size.height * 0.5f),  Offset(size.width * 0.92f, size.height * 0.5f),  stroke, StrokeCap.Round)
+        drawLine(color, Offset(size.width * 0.08f, size.height * 0.78f), Offset(size.width * 0.6f,  size.height * 0.78f), stroke, StrokeCap.Round)
     }
 }
 
@@ -486,15 +502,12 @@ private fun TagLabelIcon(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val stroke = 1.5.dp.toPx()
         val path = Path().apply {
-            moveTo(size.width * 0.08f, size.height * 0.22f)
-            lineTo(size.width * 0.65f, size.height * 0.22f)
-            lineTo(size.width * 0.92f, size.height * 0.5f)
-            lineTo(size.width * 0.65f, size.height * 0.78f)
-            lineTo(size.width * 0.08f, size.height * 0.78f)
-            close()
+            moveTo(size.width * 0.08f, size.height * 0.22f); lineTo(size.width * 0.65f, size.height * 0.22f)
+            lineTo(size.width * 0.92f, size.height * 0.5f);  lineTo(size.width * 0.65f, size.height * 0.78f)
+            lineTo(size.width * 0.08f, size.height * 0.78f); close()
         }
-        drawPath(path = path, color = color, style = Stroke(width = stroke, cap = StrokeCap.Round))
-        drawCircle(color = color, radius = size.minDimension * 0.09f, center = Offset(size.width * 0.26f, size.height * 0.5f), style = Stroke(width = stroke))
+        drawPath(path, color, style = Stroke(width = stroke, cap = StrokeCap.Round))
+        drawCircle(color, size.minDimension * 0.09f, Offset(size.width * 0.26f, size.height * 0.5f), style = Stroke(width = stroke))
     }
 }
 
@@ -502,17 +515,17 @@ private fun TagLabelIcon(color: Color, modifier: Modifier = Modifier) {
 private fun TrashIcon(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val stroke = 1.8.dp.toPx()
-        drawLine(color, Offset(size.width * 0.38f, size.height * 0.1f), Offset(size.width * 0.62f, size.height * 0.1f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(size.width * 0.38f, size.height * 0.1f),  Offset(size.width * 0.62f, size.height * 0.1f),  stroke, StrokeCap.Round)
         drawLine(color, Offset(size.width * 0.14f, size.height * 0.24f), Offset(size.width * 0.86f, size.height * 0.24f), stroke, StrokeCap.Round)
-        drawRoundRect(color = color, topLeft = Offset(size.width * 0.2f, size.height * 0.24f), size = Size(size.width * 0.6f, size.height * 0.66f), cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx()), style = Stroke(width = stroke))
+        drawRoundRect(color, Offset(size.width * 0.2f, size.height * 0.24f), Size(size.width * 0.6f, size.height * 0.66f), CornerRadius(3.dp.toPx()), Stroke(stroke))
         drawLine(color, Offset(size.width * 0.39f, size.height * 0.38f), Offset(size.width * 0.39f, size.height * 0.78f), stroke, StrokeCap.Round)
         drawLine(color, Offset(size.width * 0.61f, size.height * 0.38f), Offset(size.width * 0.61f, size.height * 0.78f), stroke, StrokeCap.Round)
     }
 }
 
-// ?Ä?Ä ?¨Ìçº ?®Ïàò ?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä?Ä
+// ?Âç†?Âç†??Âç†ÏèÄÎùÅ ?Âç†ÏéåÎãî ?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?Âç†?
 
-private fun formatTime(totalMinutes: Int): String =
+internal fun formatTime(totalMinutes: Int): String =
     String.format(Locale.ENGLISH, "%02d:%02d", totalMinutes / 60, totalMinutes % 60)
 
 private fun durationLabel(start: String, end: String): String {
@@ -529,32 +542,54 @@ private fun dayLabel(day: DayOfWeek): String = when (day) {
 fun parseTime(value: String): Int {
     val parts = value.split(":")
     if (parts.size != 2) return 0
-    val hour = parts[0].toIntOrNull() ?: return 0
+    val hour   = parts[0].toIntOrNull() ?: return 0
     val minute = parts[1].toIntOrNull() ?: return 0
-    return (hour.coerceIn(0, 23) * 60) + minute.coerceIn(0, 59)
+    val safeMinute = minute.coerceIn(0, 59)
+    return when {
+        hour == 24 && safeMinute == 0 -> 24 * 60
+        else -> (hour.coerceIn(0, 23) * 60) + safeMinute
+    }
 }
 
+private fun timeOptions(start: Int, end: Int): List<Int> {
+    val safeStart = start.coerceAtLeast(0)
+    val safeEnd = end.coerceAtMost(24 * 60)
+    if (safeStart > safeEnd) return emptyList()
+    return generateSequence(((safeStart + 14) / 15) * 15) { current ->
+        val next = current + 15
+        if (next <= safeEnd) next else null
+    }.takeWhile { it <= safeEnd }.toList()
+}
 
+private fun timeMenuStartIndex(value: String, options: List<Int>): Int {
+    if (options.isEmpty()) return 0
+    val preferredMinute = parseTimeOrNull(value) ?: (12 * 60)
+    val matchedIndex = options.indexOfFirst { it >= preferredMinute }
+    return if (matchedIndex >= 0) matchedIndex else options.lastIndex
+}
+
+private fun parseTimeOrNull(value: String): Int? {
+    val parts = value.split(":")
+    if (parts.size != 2) return null
+    val hour = parts[0].toIntOrNull() ?: return null
+    val minute = parts[1].toIntOrNull() ?: return null
+    if (minute !in 0..59) return null
+    return when {
+        hour == 24 && minute == 0 -> 24 * 60
+        hour !in 0..23 -> null
+        else -> (hour * 60) + minute
+    }
+}
 
 private fun editorRepeatDays(rule: RecurrenceRule?, fallbackDay: DayOfWeek): Set<DayOfWeek> {
     if (rule == null) return emptySet()
     return when {
-        rule.repeatDays.isNotEmpty() -> rule.repeatDays
-        rule.type == RecurrenceType.WEEKDAYS -> defaultWeeklyDays()
-        rule.type == RecurrenceType.CUSTOM -> setOf(fallbackDay)
+        rule.repeatDays.isNotEmpty()          -> rule.repeatDays
+        rule.type == RecurrenceType.WEEKDAYS  -> defaultWeeklyDays()
+        rule.type == RecurrenceType.CUSTOM    -> setOf(fallbackDay)
         else -> emptySet()
     }
 }
 
-private fun defaultWeeklyDays(): Set<DayOfWeek> = setOf(
-    DayOfWeek.MONDAY,
-    DayOfWeek.TUESDAY,
-    DayOfWeek.WEDNESDAY,
-    DayOfWeek.THURSDAY,
-    DayOfWeek.FRIDAY
-)
-
-private fun weekendDays(): Set<DayOfWeek> = setOf(
-    DayOfWeek.SATURDAY,
-    DayOfWeek.SUNDAY
-)
+private fun defaultWeeklyDays(): Set<DayOfWeek> = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
+private fun weekendDays(): Set<DayOfWeek> = setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
