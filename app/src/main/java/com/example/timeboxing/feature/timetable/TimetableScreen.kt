@@ -85,19 +85,18 @@ private val CardBackground   = Color(0xFF3A3A4A)
 private val Big3Badge        = Color(0x33FF9680)
 private val Big3Text         = Color(0xFFFF9680)
 
-private const val VisibleHours        = 6f
-private val CollapsedTrayHeight       = 46.dp
-private val ExpandedTrayHeight        = 222.dp
-private val BlockHorizontalSpacing    = 8.dp
-private val CurrentLineInset          = 0.dp
-private val CurrentLineHorizontalNudge = (-0.7).dp
-private const val AxisWidth           = 52
-private const val SnapMinutes         = 15
-private const val MinimumBlockMinutes = 15
+private const val VisibleHours             = 6f
+private val CollapsedTrayHeight            = 46.dp
+private val ExpandedTrayHeight             = 222.dp
+private val BlockHorizontalSpacing         = 8.dp
+private val CurrentLineInset               = 0.dp
+private val CurrentLineHorizontalNudge     = (-0.7).dp
+private const val AxisWidth                = 52
+private const val SnapMinutes              = 15
+private const val MinimumBlockMinutes      = 15
 
 private data class PositionedBlock(val task: DailyTask, val column: Int, val columnCount: Int)
 
-// DragSession: MOVE만 존재 — resize 제거
 private data class DragSession(
     val taskId: String,
     val originalSchedule: ScheduleBlock,
@@ -335,13 +334,9 @@ private fun TimetableGrid(
                             onOpen = { onOpenTask(block.task.id) },
                             onUnschedule = { onMoveToUnscheduled(block.task.id) },
                             onChangeDuration = { durationMinutes ->
-                                val maxEndMinute = 24 * 60
-                                val newEndMinute = (originalSchedule.startMinute + durationMinutes).coerceAtMost(maxEndMinute)
+                                val newEndMinute = (originalSchedule.startMinute + durationMinutes).coerceAtMost(24 * 60)
                                 if (newEndMinute > originalSchedule.startMinute) {
-                                    onUpdateSchedule(
-                                        block.task.id,
-                                        originalSchedule.copy(endMinute = newEndMinute)
-                                    )
+                                    onUpdateSchedule(block.task.id, originalSchedule.copy(endMinute = newEndMinute))
                                 }
                             },
                             onDragStart = { pointerY -> beginDrag(block.task.id, originalSchedule, pointerY) },
@@ -413,7 +408,14 @@ private fun CurrentLine(minute: Int, hourHeight: Dp, horizontalInset: Dp, horizo
     }
 }
 
-// ResizeHandle 제거 — 시간 조정은 에디터에서
+// ── ScheduledCard ──────────────────────────────────────────────────────────
+// 카드 높이(duration)에 따라 표시 레벨을 단계적으로 조정:
+//
+//  Level 1 (< 36dp) : 제목(작게) + 시간범위 + DurationChip (한 줄)
+//  Level 2 (< 60dp) : 제목 + 시간범위 (위/아래 분리)
+//  Level 3 (< 90dp) : CompletionStub + 제목 + 닫기 + 시간범위
+//  Level 4 (≥ 90dp) : 전체 (stub + 제목 + 태그 + DurationChip + 닫기 + 시간)
+
 @Composable
 private fun ScheduledCard(
     task: DailyTask,
@@ -434,17 +436,20 @@ private fun ScheduledCard(
     var cardTopInRootPx by remember(task.id, gestureSchedule.startMinute, gestureSchedule.endMinute) { mutableStateOf(0f) }
     var durationExpanded by remember(task.id, gestureSchedule.startMinute, gestureSchedule.endMinute) { mutableStateOf(false) }
     val narrow = width < 140.dp
-    val durationOptions = remember(schedule.startMinute) { durationMinuteOptions(schedule.startMinute) }
     val durationMinutes = schedule.durationMinutes
+    val durationOptions = remember(schedule.startMinute) { durationMinuteOptions(schedule.startMinute) }
+    val timeText = "${formatClock(schedule.startMinute)} - ${formatClock(schedule.endMinute)}"
+    val hideTimeText = durationMinutes <= 30
+    val prefersExpandedLayout = durationMinutes >= 45
 
     val (borderWidth, borderColor) = when {
-        showNow && !isDragging -> 1.4.dp to Accent
+        showNow && !isDragging     -> 1.4.dp to Accent
         task.isBig3 && !isDragging -> 1.4.dp to Color.White.copy(alpha = 0.9f)
-        isDragging              -> 0.7.dp to Accent.copy(alpha = 0.45f)
-        else                    -> 0.7.dp to Accent.copy(alpha = 0.2f)
+        isDragging                 -> 0.7.dp to Accent.copy(alpha = 0.45f)
+        else                       -> 0.7.dp to Accent.copy(alpha = 0.2f)
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .onGloballyPositioned { cardTopInRootPx = it.positionInRoot().y }
@@ -461,9 +466,7 @@ private fun ScheduledCard(
             .then(
                 if (readOnly) Modifier else Modifier.pointerInput(task.id, gestureSchedule.startMinute, gestureSchedule.endMinute, viewportTopInRootPx) {
                     detectDragGesturesAfterLongPress(
-                        onDragStart = { offset ->
-                            onDragStart(cardTopInRootPx + offset.y - viewportTopInRootPx)
-                        },
+                        onDragStart = { offset -> onDragStart(cardTopInRootPx + offset.y - viewportTopInRootPx) },
                         onDragCancel = onDragEnd,
                         onDragEnd    = onDragEnd,
                         onDrag = { change, dragAmount ->
@@ -473,38 +476,68 @@ private fun ScheduledCard(
                     )
                 }
             )
-            .padding(10.dp)
     ) {
-        Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(verticalAlignment = Alignment.Top) {
-                    CompletionStub()
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = task.title,
-                                modifier = Modifier.weight(1f, fill = false),
-                                style = TextStyle(color = TextPrimary, fontSize = if (narrow) 12.sp else 14.sp, lineHeight = if (narrow) 15.sp else 17.5.sp, fontWeight = FontWeight.SemiBold),
-                                maxLines = 2, overflow = TextOverflow.Ellipsis
-                            )
-                            if (task.isBig3) {
-                                Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Big3Badge).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                                    Text("Big 3", style = TextStyle(color = Big3Text, fontSize = 9.sp, lineHeight = 13.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.45.sp))
-                                }
-                            }
-                        }
-                        if (!narrow && task.tags.isNotEmpty()) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                task.tags.take(3).forEach { tag ->
-                                    Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color.Black.copy(alpha = 0.1f)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                                        Text("#$tag", style = TextStyle(color = Color.White.copy(alpha = 0.75f), fontSize = 10.sp, lineHeight = 15.sp))
-                                    }
-                                }
-                            }
-                        }
+        val cardH = maxHeight
+
+        when {
+            // ── Level 1: 제목(작게) + 시간범위 + DurationChip (< 36dp) ──
+            // 한 줄에 모두 표시 — 좁아도 duration 조정 가능
+            cardH < 36.dp -> {
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = task.title,
+                        modifier = Modifier.weight(1f),
+                        style = TextStyle(
+                            color = TextPrimary,
+                            fontSize = 10.sp,
+                            lineHeight = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (!hideTimeText) {
+                        Text(
+                            text = timeText,
+                            style = TextStyle(
+                                color = Color.White.copy(alpha = 0.65f),
+                                fontSize = 9.sp,
+                                lineHeight = 12.sp,
+                                fontFamily = FontFamily.Monospace
+                            ),
+                            maxLines = 1
+                        )
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    DurationChip(
+                        durationMinutes = durationMinutes,
+                        expanded = durationExpanded,
+                        readOnly = readOnly || isDragging,
+                        options = durationOptions,
+                        onExpandedChange = { durationExpanded = it },
+                        onSelect = onChangeDuration,
+                        compact = true
+                    )
+                }
+            }
+
+            // ── Level 2: 제목 + 시간 (< 60dp) ─────────────────────────
+            cardH < 60.dp && !prefersExpandedLayout -> {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = task.title,
+                            modifier = Modifier.weight(1f),
+                            style = TextStyle(color = TextPrimary, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.width(8.dp))
                         DurationChip(
                             durationMinutes = durationMinutes,
                             expanded = durationExpanded,
@@ -512,26 +545,126 @@ private fun ScheduledCard(
                             options = durationOptions,
                             onExpandedChange = { durationExpanded = it },
                             onSelect = onChangeDuration,
-                            compact = narrow
+                            compact = true
                         )
-                        if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.6f), onClick = onUnschedule)
+                    }
+                    if (!hideTimeText) {
+                        Text(
+                            text = timeText,
+                            style = TextStyle(color = Color.White.copy(alpha = 0.65f), fontSize = 10.sp, lineHeight = 14.sp, fontFamily = FontFamily.Monospace),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
+                    } else {
+                        Spacer(Modifier.height(1.dp))
                     }
                 }
             }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "${formatClock(schedule.startMinute)} - ${formatClock(schedule.endMinute)}",
-                    style = TextStyle(color = Color.White.copy(alpha = 0.75f), fontSize = if (narrow) 10.sp else 11.sp, lineHeight = 16.5.sp, fontFamily = FontFamily.Monospace)
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (showNow) {
-                        Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Accent.copy(alpha = 0.3f)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                            Text("Now", style = TextStyle(color = Accent, fontSize = 9.sp, lineHeight = 13.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.45.sp))
+
+            // ── Level 3: stub + 제목 + 시간 (< 90dp) ──────────────────
+            cardH < 70.dp && !prefersExpandedLayout -> {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(8.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CompletionStub()
+                        Text(
+                            text = task.title,
+                            modifier = Modifier.weight(1f),
+                            style = TextStyle(color = TextPrimary, fontSize = if (narrow) 12.sp else 13.sp, lineHeight = if (narrow) 15.sp else 16.sp, fontWeight = FontWeight.SemiBold),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
+                        DurationChip(
+                            durationMinutes = durationMinutes,
+                            expanded = durationExpanded,
+                            readOnly = readOnly || isDragging,
+                            options = durationOptions,
+                            onExpandedChange = { durationExpanded = it },
+                            onSelect = onChangeDuration,
+                            compact = true
+                        )
+                        if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.5f), onClick = onUnschedule)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        if (!hideTimeText) {
+                            Text(
+                                text = timeText,
+                                style = TextStyle(color = Color.White.copy(alpha = 0.65f), fontSize = 10.sp, lineHeight = 14.sp, fontFamily = FontFamily.Monospace),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis
+                            )
+                        } else {
+                            Spacer(Modifier.width(1.dp))
                         }
+                        if (showNow) NowBadge()
+                    }
+                }
+            }
+
+            // ── Level 4: 전체 레이아웃 (≥ 90dp) ───────────────────────
+            else -> {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(10.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.Top) {
+                            CompletionStub()
+                            Spacer(Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = task.title,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                        style = TextStyle(color = TextPrimary, fontSize = if (narrow) 12.sp else 14.sp, lineHeight = if (narrow) 15.sp else 17.5.sp, fontWeight = FontWeight.SemiBold),
+                                        maxLines = 2, overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (task.isBig3) {
+                                        Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Big3Badge).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                            Text("Big 3", style = TextStyle(color = Big3Text, fontSize = 9.sp, lineHeight = 13.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.45.sp))
+                                        }
+                                    }
+                                }
+                                if (!narrow && task.tags.isNotEmpty() && durationMinutes >= 60) {
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        task.tags.take(3).forEach { tag ->
+                                            Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color.Black.copy(alpha = 0.1f)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                                Text("#$tag", style = TextStyle(color = Color.White.copy(alpha = 0.75f), fontSize = 10.sp, lineHeight = 15.sp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                DurationChip(
+                                    durationMinutes = durationMinutes,
+                                    expanded = durationExpanded,
+                                    readOnly = readOnly || isDragging,
+                                    options = durationOptions,
+                                    onExpandedChange = { durationExpanded = it },
+                                    onSelect = onChangeDuration,
+                                    compact = narrow
+                                )
+                                if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.6f), onClick = onUnschedule)
+                            }
+                        }
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = timeText,
+                            style = TextStyle(color = Color.White.copy(alpha = 0.75f), fontSize = if (narrow) 10.sp else 11.sp, lineHeight = 16.5.sp, fontFamily = FontFamily.Monospace)
+                        )
+                        if (showNow) NowBadge()
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun NowBadge() {
+    Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Accent.copy(alpha = 0.3f)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+        Text("Now", style = TextStyle(color = Accent, fontSize = 9.sp, lineHeight = 13.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.45.sp))
     }
 }
 
@@ -551,15 +684,15 @@ private fun DurationChip(
                 .clip(RoundedCornerShape(7.dp))
                 .background(Color.Black.copy(alpha = 0.12f))
                 .clickable(enabled = !readOnly) { onExpandedChange(true) }
-                .padding(horizontal = if (compact) 12.dp else 14.dp, vertical = if (compact) 5.dp else 6.dp),
+                .padding(horizontal = if (compact) 6.dp else 14.dp, vertical = if (compact) 3.dp else 6.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = durationLabel(durationMinutes, compact),
                 style = TextStyle(
                     color = TextPrimary.copy(alpha = 0.76f),
-                    fontSize = if (compact) 12.sp else 13.sp,
-                    lineHeight = if (compact) 16.sp else 19.sp,
+                    fontSize = if (compact) 9.sp else 13.sp,
+                    lineHeight = if (compact) 12.sp else 19.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Medium
                 )
@@ -568,28 +701,17 @@ private fun DurationChip(
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { onExpandedChange(false) },
-            modifier = Modifier
-                .heightIn(max = 280.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(HeaderBackground)
+            modifier = Modifier.heightIn(max = 280.dp).clip(RoundedCornerShape(12.dp)).background(HeaderBackground)
         ) {
             options.forEach { option ->
                 DropdownMenuItem(
                     text = {
                         Text(
                             durationLabel(option),
-                            style = TextStyle(
-                                color = if (option == durationMinutes) Accent else TextPrimary,
-                                fontSize = 14.sp,
-                                lineHeight = 20.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
+                            style = TextStyle(color = if (option == durationMinutes) Accent else TextPrimary, fontSize = 14.sp, lineHeight = 20.sp, fontFamily = FontFamily.Monospace)
                         )
                     },
-                    onClick = {
-                        onExpandedChange(false)
-                        onSelect(option)
-                    }
+                    onClick = { onExpandedChange(false); onSelect(option) }
                 )
             }
         }
@@ -784,7 +906,7 @@ private fun formatClock(totalMinutes: Int): String =
     String.format(Locale.ENGLISH, "%02d:%02d", totalMinutes / 60, totalMinutes % 60)
 
 private fun durationLabel(durationMinutes: Int, compact: Boolean = false): String =
-    if (compact) "${durationMinutes}m" else "$durationMinutes min"
+    "${durationMinutes}m"
 
 private fun durationMinuteOptions(startMinute: Int): List<Int> {
     val maxDuration = (24 * 60 - startMinute).coerceAtLeast(MinimumBlockMinutes)
