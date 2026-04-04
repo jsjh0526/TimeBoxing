@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,6 +26,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -125,7 +128,6 @@ fun TimetableScreen(
     val unscheduled = tasks.filter { it.schedule == null }
     val layouts = remember(scheduled) { buildLayouts(scheduled) }
     val scrollState = rememberScrollState()
-    val selectedId = scheduled.firstOrNull { it.isBig3 }?.id.orEmpty()
     val readOnly = !showCurrentTime
     var trayExpanded by rememberSaveable { mutableStateOf(false) }
     var viewportHeightPx by remember { mutableStateOf(0f) }
@@ -156,7 +158,6 @@ fun TimetableScreen(
                     hourHeight = hourHeight,
                     layouts = layouts,
                     currentMinute = currentMinute,
-                    selectedId = selectedId,
                     showCurrentTime = showCurrentTime,
                     readOnly = readOnly,
                     scrollState = scrollState,
@@ -185,7 +186,6 @@ private fun TimetableGrid(
     hourHeight: Dp,
     layouts: List<PositionedBlock>,
     currentMinute: Int,
-    selectedId: String,
     showCurrentTime: Boolean,
     readOnly: Boolean,
     scrollState: ScrollState,
@@ -327,7 +327,6 @@ private fun TimetableGrid(
                             task = block.task,
                             schedule = renderedSchedule,
                             gestureSchedule = originalSchedule,
-                            selected = block.task.id == selectedId && dragSession == null,
                             showNow = showCurrentTime && currentMinute in renderedSchedule.startMinute until renderedSchedule.endMinute,
                             isDragging = session != null,
                             readOnly = readOnly,
@@ -335,6 +334,16 @@ private fun TimetableGrid(
                             viewportTopInRootPx = viewportTopInRootPx,
                             onOpen = { onOpenTask(block.task.id) },
                             onUnschedule = { onMoveToUnscheduled(block.task.id) },
+                            onChangeDuration = { durationMinutes ->
+                                val maxEndMinute = 24 * 60
+                                val newEndMinute = (originalSchedule.startMinute + durationMinutes).coerceAtMost(maxEndMinute)
+                                if (newEndMinute > originalSchedule.startMinute) {
+                                    onUpdateSchedule(
+                                        block.task.id,
+                                        originalSchedule.copy(endMinute = newEndMinute)
+                                    )
+                                }
+                            },
                             onDragStart = { pointerY -> beginDrag(block.task.id, originalSchedule, pointerY) },
                             onDrag = { delta, pointerY -> accumulateDrag(block.task.id, delta, pointerY) },
                             onDragEnd = { commitDrag(block.task.id) }
@@ -410,7 +419,6 @@ private fun ScheduledCard(
     task: DailyTask,
     schedule: ScheduleBlock,
     gestureSchedule: ScheduleBlock,
-    selected: Boolean,
     showNow: Boolean,
     isDragging: Boolean,
     readOnly: Boolean,
@@ -418,15 +426,20 @@ private fun ScheduledCard(
     viewportTopInRootPx: Float,
     onOpen: () -> Unit,
     onUnschedule: () -> Unit,
+    onChangeDuration: (Int) -> Unit,
     onDragStart: (Float) -> Unit,
     onDrag: (Float, Float) -> Unit,
     onDragEnd: () -> Unit
 ) {
     var cardTopInRootPx by remember(task.id, gestureSchedule.startMinute, gestureSchedule.endMinute) { mutableStateOf(0f) }
+    var durationExpanded by remember(task.id, gestureSchedule.startMinute, gestureSchedule.endMinute) { mutableStateOf(false) }
     val narrow = width < 140.dp
+    val durationOptions = remember(schedule.startMinute) { durationMinuteOptions(schedule.startMinute) }
+    val durationMinutes = schedule.durationMinutes
 
     val (borderWidth, borderColor) = when {
-        selected && !isDragging -> 1.4.dp to Accent
+        showNow && !isDragging -> 1.4.dp to Accent
+        task.isBig3 && !isDragging -> 1.4.dp to Color.White.copy(alpha = 0.9f)
         isDragging              -> 0.7.dp to Accent.copy(alpha = 0.45f)
         else                    -> 0.7.dp to Accent.copy(alpha = 0.2f)
     }
@@ -437,7 +450,7 @@ private fun ScheduledCard(
             .onGloballyPositioned { cardTopInRootPx = it.positionInRoot().y }
             .graphicsLayer { if (isDragging) { scaleX = 1.015f; scaleY = 1.015f } }
             .then(
-                if (selected && !isDragging) Modifier.shadow(0.dp, RoundedCornerShape(8.dp), ambientColor = Accent.copy(0.5f), spotColor = Accent.copy(0.5f))
+                if (showNow && !isDragging) Modifier.shadow(0.dp, RoundedCornerShape(8.dp), ambientColor = Accent.copy(0.5f), spotColor = Accent.copy(0.5f))
                 else if (isDragging) Modifier.shadow(20.dp, RoundedCornerShape(8.dp))
                 else Modifier
             )
@@ -482,7 +495,7 @@ private fun ScheduledCard(
                             }
                         }
                         if (!narrow && task.tags.isNotEmpty()) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 task.tags.take(3).forEach { tag ->
                                     Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color.Black.copy(alpha = 0.1f)).padding(horizontal = 6.dp, vertical = 2.dp)) {
                                         Text("#$tag", style = TextStyle(color = Color.White.copy(alpha = 0.75f), fontSize = 10.sp, lineHeight = 15.sp))
@@ -491,7 +504,18 @@ private fun ScheduledCard(
                             }
                         }
                     }
-                    if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.6f), onClick = onUnschedule)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        DurationChip(
+                            durationMinutes = durationMinutes,
+                            expanded = durationExpanded,
+                            readOnly = readOnly || isDragging,
+                            options = durationOptions,
+                            onExpandedChange = { durationExpanded = it },
+                            onSelect = onChangeDuration,
+                            compact = narrow
+                        )
+                        if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.6f), onClick = onUnschedule)
+                    }
                 }
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -499,11 +523,74 @@ private fun ScheduledCard(
                     text = "${formatClock(schedule.startMinute)} - ${formatClock(schedule.endMinute)}",
                     style = TextStyle(color = Color.White.copy(alpha = 0.75f), fontSize = if (narrow) 10.sp else 11.sp, lineHeight = 16.5.sp, fontFamily = FontFamily.Monospace)
                 )
-                if (showNow) {
-                    Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Accent.copy(alpha = 0.3f)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                        Text("Now", style = TextStyle(color = Accent, fontSize = 9.sp, lineHeight = 13.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.45.sp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (showNow) {
+                        Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Accent.copy(alpha = 0.3f)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                            Text("Now", style = TextStyle(color = Accent, fontSize = 9.sp, lineHeight = 13.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.45.sp))
+                        }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DurationChip(
+    durationMinutes: Int,
+    expanded: Boolean,
+    readOnly: Boolean,
+    options: List<Int>,
+    onExpandedChange: (Boolean) -> Unit,
+    onSelect: (Int) -> Unit,
+    compact: Boolean = false
+) {
+    Box {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(7.dp))
+                .background(Color.Black.copy(alpha = 0.12f))
+                .clickable(enabled = !readOnly) { onExpandedChange(true) }
+                .padding(horizontal = if (compact) 12.dp else 14.dp, vertical = if (compact) 5.dp else 6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = durationLabel(durationMinutes, compact),
+                style = TextStyle(
+                    color = TextPrimary.copy(alpha = 0.76f),
+                    fontSize = if (compact) 12.sp else 13.sp,
+                    lineHeight = if (compact) 16.sp else 19.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) },
+            modifier = Modifier
+                .heightIn(max = 280.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(HeaderBackground)
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            durationLabel(option),
+                            style = TextStyle(
+                                color = if (option == durationMinutes) Accent else TextPrimary,
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        )
+                    },
+                    onClick = {
+                        onExpandedChange(false)
+                        onSelect(option)
+                    }
+                )
             }
         }
     }
@@ -695,3 +782,14 @@ private fun buildLayouts(tasks: List<DailyTask>): List<PositionedBlock> {
 
 private fun formatClock(totalMinutes: Int): String =
     String.format(Locale.ENGLISH, "%02d:%02d", totalMinutes / 60, totalMinutes % 60)
+
+private fun durationLabel(durationMinutes: Int, compact: Boolean = false): String =
+    if (compact) "${durationMinutes}m" else "$durationMinutes min"
+
+private fun durationMinuteOptions(startMinute: Int): List<Int> {
+    val maxDuration = (24 * 60 - startMinute).coerceAtLeast(MinimumBlockMinutes)
+    return generateSequence(MinimumBlockMinutes) { current ->
+        val next = current + SnapMinutes
+        if (next <= maxDuration) next else null
+    }.toList()
+}
