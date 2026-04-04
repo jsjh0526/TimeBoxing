@@ -1,4 +1,4 @@
-﻿package com.example.timeboxing.feature.todo
+package com.example.timeboxing.feature.todo
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -27,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -43,7 +44,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +55,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.example.timeboxing.domain.model.DailyTask
 import com.example.timeboxing.domain.model.DailyTaskSource
 import com.example.timeboxing.domain.model.RecurrenceRule
@@ -59,10 +63,12 @@ import com.example.timeboxing.domain.model.RecurrenceType
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
+import kotlin.math.roundToInt
 
-// ?�?� ?�상 ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+// ── 색상 ───────────────────────────────────────────────────────────────────
 private val ScreenBackground = Color(0xFF121212)
 private val CardBackground   = Color(0xFF2A2A2A)
+private val CardDragging     = Color(0xFF3A3A3A)   // 드래그 중: 살짝 밝은 배경
 private val CardMuted        = Color(0xFF363636)
 private val Accent           = Color(0xFF8687E7)
 private val TextPrimary      = Color.White
@@ -77,19 +83,17 @@ private val RecurringSection = Color(0xFFE5DDA8)
 private val RecurringFill    = Color(0x1A8687E7)
 private val RecurringText    = Color(0xFF8687E7)
 
-// ?�?� ?�자???�큰 ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
-private val SCREEN_PAD   = 24.dp
-private val SECTION_GAP  = 32.dp
-private val HEADER_GAP   = 16.dp
-private val ITEM_GAP     = 12.dp
-private val CARD_RADIUS  = 10.dp
-private val CARD_PAD_H   = 12.dp
-private val CARD_PAD_V   = 14.dp
+// ── 디자인 토큰 ─────────────────────────────────────────────────────────────
+private val SCREEN_PAD         = 24.dp
+private val SECTION_GAP        = 32.dp
+private val HEADER_GAP         = 16.dp
+private val ITEM_GAP           = 12.dp
+private val CARD_RADIUS        = 10.dp
+private val CARD_PAD_H         = 12.dp
+private val CARD_PAD_V         = 14.dp
 private val CARD_MIN_H         = 72.dp
 private val CARD_COMPACT_MIN_H = 56.dp
-private val DRAG_HANDLE_W     = 16.dp
-
-// Drag handle width is intentionally slimmer than the checkbox.`nprivate val DRAG_HANDLE_W = 16.dp
+private val DRAG_HANDLE_W      = 16.dp
 
 @Composable
 fun TodoScreen(
@@ -103,10 +107,12 @@ fun TodoScreen(
     onToggleBig3: (String) -> Unit,
     onToggleComplete: (String) -> Unit,
     onOpenTask: (String) -> Unit,
-    onReorderTask: (String, String) -> Unit
+    // (taskId, toIndex) — drag 완료 시 섹션 내 최종 위치로 이동
+    onReorderTask: (String, Int) -> Unit
 ) {
     var otherHabitsExpanded by remember { mutableStateOf(false) }
-    var dragInProgress by remember { mutableStateOf(false) }
+    // 어느 섹션이든 드래그 중이면 LazyColumn 스크롤 막기
+    var globalDragging by remember { mutableStateOf(false) }
 
     val big3 = tasks.filter { it.isBig3 }
     val brainDump = tasks.filter { !it.isBig3 && it.source != DailyTaskSource.RECURRING }
@@ -119,8 +125,8 @@ fun TodoScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(ScreenBackground),
-        contentPadding = PaddingValues(start = SCREEN_PAD, end = SCREEN_PAD, top = 8.dp, bottom = 120.dp),
-        userScrollEnabled = !dragInProgress
+        userScrollEnabled = !globalDragging,
+        contentPadding = PaddingValues(start = SCREEN_PAD, end = SCREEN_PAD, top = 8.dp, bottom = 120.dp)
     ) {
         item {
             Text(
@@ -131,68 +137,66 @@ fun TodoScreen(
         item { Spacer(Modifier.height(HEADER_GAP)) }
         item { InputRow(onQuickAddTask = onQuickAddTask, onOpenAddTaskEditor = onOpenAddTaskEditor) }
 
+        // TODAY'S BIG 3
         item { Spacer(Modifier.height(SECTION_GAP)) }
         item { Big3Header() }
         item { Spacer(Modifier.height(HEADER_GAP)) }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
-                if (big3.isEmpty()) EmptySectionHint("Star tasks below to prioritize")
-                else big3.forEachIndexed { index, task ->
-                    TaskCard(
-                        task = task, bordered = true,
-                        recurrenceRule = task.templateId?.let { recurrenceByTemplateId[it] },
-                        onToggleBig3 = onToggleBig3, onToggleComplete = onToggleComplete, onOpenTask = onOpenTask,
-                        onDragStart = { dragInProgress = true }, onDragEnd = { dragInProgress = false },
-                        onMoveUp   = { if (index > 0)             onReorderTask(task.id, big3[index - 1].id) },
-                        onMoveDown = { if (index < big3.lastIndex) onReorderTask(big3[index + 1].id, task.id) }
-                    )
-                }
-            }
+            if (big3.isEmpty()) EmptySectionHint("Star tasks below to prioritize")
+            else DraggableSection(
+                tasks = big3,
+                bordered = true,
+                recurrenceByTemplateId = recurrenceByTemplateId,
+                onToggleBig3 = onToggleBig3,
+                onToggleComplete = onToggleComplete,
+                onOpenTask = onOpenTask,
+                onSetDragging = { globalDragging = it },
+                onReorder = onReorderTask
+            )
         }
 
+        // BRAIN DUMP
         item { Spacer(Modifier.height(SECTION_GAP)) }
         item { SectionHeader("BRAIN DUMP", TextSecondary, brainDump.size) }
         item { Spacer(Modifier.height(HEADER_GAP)) }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
-                if (brainDump.isEmpty()) EmptySectionHint("No tasks yet. Add one above!")
-                else brainDump.forEachIndexed { index, task ->
-                    TaskCard(
-                        task = task, bordered = false, recurrenceRule = null,
-                        onToggleBig3 = onToggleBig3, onToggleComplete = onToggleComplete, onOpenTask = onOpenTask,
-                        onDragStart = { dragInProgress = true }, onDragEnd = { dragInProgress = false },
-                        onMoveUp   = { if (index > 0)                 onReorderTask(task.id, brainDump[index - 1].id) },
-                        onMoveDown = { if (index < brainDump.lastIndex) onReorderTask(brainDump[index + 1].id, task.id) }
-                    )
-                }
-            }
+            if (brainDump.isEmpty()) EmptySectionHint("No tasks yet. Add one above!")
+            else DraggableSection(
+                tasks = brainDump,
+                bordered = false,
+                recurrenceByTemplateId = recurrenceByTemplateId,
+                onToggleBig3 = onToggleBig3,
+                onToggleComplete = onToggleComplete,
+                onOpenTask = onOpenTask,
+                onSetDragging = { globalDragging = it },
+                onReorder = onReorderTask
+            )
         }
 
+        // RECURRING HABITS
         item { Spacer(Modifier.height(SECTION_GAP)) }
         item { SectionHeader("RECURRING HABITS", RecurringSection, recurring.size) }
         item { Spacer(Modifier.height(HEADER_GAP)) }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
-                if (recurring.isEmpty()) EmptySectionHint("No recurring habits for today.")
-                else recurring.forEachIndexed { index, task ->
-                    TaskCard(
-                        task = task, bordered = false,
-                        recurrenceRule = task.templateId?.let { recurrenceByTemplateId[it] },
-                        onToggleBig3 = onToggleBig3, onToggleComplete = onToggleComplete, onOpenTask = onOpenTask,
-                        onDragStart = { dragInProgress = true }, onDragEnd = { dragInProgress = false },
-                        onMoveUp   = { if (index > 0)                  onReorderTask(task.id, recurring[index - 1].id) },
-                        onMoveDown = { if (index < recurring.lastIndex) onReorderTask(recurring[index + 1].id, task.id) }
-                    )
-                }
-            }
+            if (recurring.isEmpty()) EmptySectionHint("No recurring habits for today.")
+            else DraggableSection(
+                tasks = recurring,
+                bordered = false,
+                recurrenceByTemplateId = recurrenceByTemplateId,
+                onToggleBig3 = onToggleBig3,
+                onToggleComplete = onToggleComplete,
+                onOpenTask = onOpenTask,
+                onSetDragging = { globalDragging = it },
+                onReorder = onReorderTask
+            )
         }
 
+        // OTHER HABITS
         if (otherHabits.isNotEmpty()) {
             item { Spacer(Modifier.height(HEADER_GAP)) }
             item {
                 OtherHabitsHeader(
-                    count = otherHabits.size,
-                    expanded = otherHabitsExpanded,
+                    count = otherHabits.size, expanded = otherHabitsExpanded,
                     onToggle = { otherHabitsExpanded = !otherHabitsExpanded }
                 )
             }
@@ -215,7 +219,158 @@ fun TodoScreen(
     }
 }
 
-// ?�?� ?�력�??�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+// ── 드래그 가능 섹션 ────────────────────────────────────────────────────────
+// 설계 원칙:
+// 1. long press → 카드가 시각적으로 뜸 (graphicsLayer: scale + shadow + 배경색)
+// 2. 드래그 중 reorder 없음 → 릴리즈 시 target index로 한 번 커밋 ("잡아서 놓는" UX)
+// 3. zIndex(10f) → 뜬 카드가 다른 카드 위에 그려짐
+// 4. 삽입 위치 표시줄(indicator)로 어디 놓일지 시각적 피드백
+
+@Composable
+private fun DraggableSection(
+    tasks: List<DailyTask>,
+    bordered: Boolean,
+    recurrenceByTemplateId: Map<String, RecurrenceRule?>,
+    onToggleBig3: (String) -> Unit,
+    onToggleComplete: (String) -> Unit,
+    onOpenTask: (String) -> Unit,
+    onSetDragging: (Boolean) -> Unit,
+    onReorder: (taskId: String, toIndex: Int) -> Unit
+) {
+    val density = LocalDensity.current
+    // 카드 한 칸 높이 추정 (min + gap). 카드가 더 크면 오차 있지만 UX상 허용
+    val fallbackHeightPx = with(density) { CARD_MIN_H.toPx() }
+    val itemGapPx = with(density) { ITEM_GAP.toPx() }
+    val dragShadowPx = with(density) { 24.dp.toPx() }
+    val measuredHeights = remember(tasks.map { it.id }) { mutableStateMapOf<String, Int>() }
+
+    // 드래그 중인 카드 인덱스 (-1 = 드래그 없음)
+    var draggingFrom by remember { mutableStateOf(-1) }
+    // 손가락이 이동한 누적 Y (px)
+    var dragTotalY by remember { mutableStateOf(0f) }
+
+    // 현재 드래그 기반 target index (시각 indicator용)
+    val cardHeights = tasks.map { task -> (measuredHeights[task.id]?.toFloat() ?: fallbackHeightPx) }
+    val cardTops = buildList(tasks.size) {
+        var currentTop = 0f
+        tasks.forEachIndexed { index, _ ->
+            add(currentTop)
+            currentTop += cardHeights[index]
+            if (index < tasks.lastIndex) currentTop += itemGapPx
+        }
+    }
+    val totalHeightPx = if (tasks.isEmpty()) 0f else cardTops.last() + cardHeights.last()
+    val draggedHeightPx = if (draggingFrom in tasks.indices) cardHeights[draggingFrom] else 0f
+    val draggedSlotPx = if (draggingFrom >= 0) draggedHeightPx + itemGapPx else 0f
+
+    // 드래그 중 카드를 섹션 경계 내로 Y clamp (자연스러운 이동 범위 제한)
+    val clampedDragY = if (draggingFrom in tasks.indices) {
+        val minY = -cardTops[draggingFrom]
+        val maxY = (totalHeightPx - draggedHeightPx) - cardTops[draggingFrom]
+        dragTotalY.coerceIn(minY, maxY)
+    } else 0f
+
+    // 섀도우 elevation (px 필요)
+    val targetIndex = if (draggingFrom in tasks.indices) {
+        val centers = cardTops.mapIndexed { index, top -> top + cardHeights[index] / 2f }
+        val draggedCenterY = centers[draggingFrom] + clampedDragY
+        var candidate = draggingFrom
+
+        while (candidate < tasks.lastIndex) {
+            val boundary = (centers[candidate] + centers[candidate + 1]) / 2f
+            if (draggedCenterY > boundary) candidate++ else break
+        }
+        while (candidate > 0) {
+            val boundary = (centers[candidate - 1] + centers[candidate]) / 2f
+            if (draggedCenterY < boundary) candidate-- else break
+        }
+
+        candidate.coerceIn(0, tasks.lastIndex)
+    } else -1
+
+    // onSetDragging, onReorder 참조 안정화
+    val latestOnSetDragging by rememberUpdatedState(onSetDragging)
+    val latestOnReorder by rememberUpdatedState(onReorder)
+
+    Column {
+        tasks.forEachIndexed { index, task ->
+            val isDragging = draggingFrom == index
+
+            // 카드 위 삽입 indicator
+            val displacedY = when {
+                draggingFrom < 0 || isDragging -> 0f
+                draggingFrom < targetIndex && index in (draggingFrom + 1)..targetIndex -> -draggedSlotPx
+                draggingFrom > targetIndex && index in targetIndex until draggingFrom -> draggedSlotPx
+                else -> 0f
+            }
+            if (index > 0) {
+                Spacer(Modifier.height(ITEM_GAP))
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { coordinates ->
+                        measuredHeights[task.id] = coordinates.size.height
+                    }
+                    .zIndex(if (isDragging) 10f else if (displacedY != 0f) 1f else 0f)
+                    .graphicsLayer {
+                        if (isDragging) {
+                            translationY = clampedDragY
+                            scaleX = 1.03f
+                            scaleY = 1.03f
+                            shadowElevation = dragShadowPx
+                            shape = RoundedCornerShape(CARD_RADIUS)
+                            clip = true
+                        } else if (displacedY != 0f) {
+                            translationY = displacedY
+                        }
+                    }
+            ) {
+                TaskCard(
+                    task = task,
+                    bordered = bordered,
+                    isDragging = isDragging,
+                    recurrenceRule = task.templateId?.let { recurrenceByTemplateId[it] },
+                    onToggleBig3 = onToggleBig3,
+                    onToggleComplete = onToggleComplete,
+                    // 드래그 중 다른 카드 탭 방지
+                    onOpenTask = if (draggingFrom >= 0 && !isDragging) ({}) else onOpenTask,
+                    onDragStart = {
+                        draggingFrom = index
+                        dragTotalY = 0f
+                        latestOnSetDragging(true)
+                    },
+                    onDrag = { delta -> dragTotalY += delta },
+                    onDragEnd = {
+                        val from = draggingFrom
+                        if (from >= 0) {
+                            val to = targetIndex
+                            if (from != to) latestOnReorder(tasks[from].id, to)
+                        }
+                        draggingFrom = -1
+                        dragTotalY = 0f
+                        latestOnSetDragging(false)
+                    }
+                )
+            }
+
+            // 카드 아래 삽입 indicator
+        }
+    }
+}
+
+@Composable
+private fun InsertionIndicator() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(2.dp)
+            .background(Accent.copy(alpha = 0.7f), RoundedCornerShape(1.dp))
+    )
+}
+
+// ── 입력창 ─────────────────────────────────────────────────────────────────
 
 @Composable
 private fun InputRow(onQuickAddTask: (String) -> Unit, onOpenAddTaskEditor: (String) -> Unit) {
@@ -252,7 +407,7 @@ private fun InputRow(onQuickAddTask: (String) -> Unit, onOpenAddTaskEditor: (Str
     }
 }
 
-// ?�?� ?�션 ?�더 ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+// ── 섹션 헤더 ──────────────────────────────────────────────────────────────
 
 @Composable
 private fun Big3Header() {
@@ -279,40 +434,42 @@ private fun EmptySectionHint(message: String) {
     }
 }
 
-// ?�?� ?�스??카드 ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+// ── 태스크 카드 ────────────────────────────────────────────────────────────
 
 @Composable
 private fun TaskCard(
     task: DailyTask,
     bordered: Boolean,
+    isDragging: Boolean,
     recurrenceRule: RecurrenceRule?,
     onToggleBig3: (String) -> Unit,
     onToggleComplete: (String) -> Unit,
     onOpenTask: (String) -> Unit,
     onDragStart: () -> Unit,
-    onDragEnd: () -> Unit,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit
+    onDrag: (Float) -> Unit,
+    onDragEnd: () -> Unit
 ) {
     val isRecurring = task.source == DailyTaskSource.RECURRING
-    val cardAlpha = if (task.isCompleted) 0.52f else 1f
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = CARD_MIN_H)
             .then(
-                if (bordered) Modifier.shadow(6.dp, RoundedCornerShape(CARD_RADIUS), ambientColor = if (task.isCompleted) Accent.copy(0.04f) else Accent.copy(0.12f), spotColor = if (task.isCompleted) Accent.copy(0.04f) else Accent.copy(0.12f))
-                else Modifier
+                if (bordered && !isDragging) Modifier.shadow(
+                    6.dp, RoundedCornerShape(CARD_RADIUS),
+                    ambientColor = Accent.copy(0.12f), spotColor = Accent.copy(0.12f)
+                ) else Modifier
             )
             .clip(RoundedCornerShape(CARD_RADIUS))
-            .background(CardBackground)
-            .then(if (bordered) Modifier.border(1.dp, if (task.isCompleted) Accent.copy(0.55f) else Accent, RoundedCornerShape(CARD_RADIUS)) else Modifier)
-            .alpha(cardAlpha)
+            .background(if (isDragging) CardDragging else CardBackground)
+            .then(if (bordered) Modifier.border(1.dp, Accent, RoundedCornerShape(CARD_RADIUS)) else Modifier)
+            .alpha(if (task.isCompleted) 0.52f else 1f)
             .clickable { onOpenTask(task.id) }
             .padding(horizontal = CARD_PAD_H, vertical = CARD_PAD_V)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            DragHandle(onDragStart = onDragStart, onDragEnd = onDragEnd, onMoveUp = onMoveUp, onMoveDown = onMoveDown)
+            DragHandle(onDragStart = onDragStart, onDrag = onDrag, onDragEnd = onDragEnd)
             Spacer(Modifier.width(6.dp))
             CompletionCircle(completed = task.isCompleted, onClick = { onToggleComplete(task.id) })
             Spacer(Modifier.width(14.dp))
@@ -321,19 +478,14 @@ private fun TaskCard(
                     text = task.title,
                     style = TextStyle(
                         color = if (task.isCompleted) TextMuted else TextPrimary,
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium,
                         textDecoration = TextDecoration.None
                     ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
                 if (task.tags.isNotEmpty()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        task.tags.forEach { tag ->
-                            TagChip("#$tag", TagBackground)
-                        }
+                        task.tags.forEach { tag -> TagChip("#$tag") }
                     }
                 }
                 if (isRecurring) RecurringBadge(rule = recurrenceRule)
@@ -350,7 +502,7 @@ private fun TaskCard(
     }
 }
 
-// ?�?� 컴팩??카드 (Other Habits) ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+// ── 컴팩트 카드 (Other Habits) ─────────────────────────────────────────────
 
 @Composable
 private fun CompactCard(
@@ -359,14 +511,13 @@ private fun CompactCard(
     onToggleComplete: (String) -> Unit,
     onOpenTask: (String) -> Unit
 ) {
-    val cardAlpha = if (task.isCompleted) 0.52f else 1f
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = CARD_COMPACT_MIN_H)
+            .alpha(if (task.isCompleted) 0.52f else 0.5f)
             .clip(RoundedCornerShape(CARD_RADIUS))
             .background(CardBackground)
-            .alpha(cardAlpha)
             .clickable { onOpenTask(task.id) }
             .padding(horizontal = CARD_PAD_H, vertical = CARD_PAD_V)
     ) {
@@ -380,54 +531,42 @@ private fun CompactCard(
                     text = task.title,
                     style = TextStyle(
                         color = if (task.isCompleted) TextMuted else TextPrimary,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium,
                         textDecoration = TextDecoration.None
                     ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    recurrenceLabel(recurrenceRule),
-                    style = TextStyle(color = TextMuted, fontSize = 10.sp, lineHeight = 15.sp)
-                )
+                Text(recurrenceLabel(recurrenceRule), style = TextStyle(color = TextMuted, fontSize = 10.sp, lineHeight = 15.sp))
             }
         }
     }
 }
 
-// ?�?� ?�래�??�들 ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+// ── 드래그 핸들 ────────────────────────────────────────────────────────────
+// 역할: long press 감지 + 드래그 delta 전달만 담당
+// 실제 reorder 결정은 DraggableSection의 onDragEnd에서 처리
 
 @Composable
 private fun DragHandle(
     onDragStart: () -> Unit,
-    onDragEnd: () -> Unit,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit
+    onDrag: (Float) -> Unit,
+    onDragEnd: () -> Unit
 ) {
-    val density = LocalDensity.current
-    val threshold = with(density) { 20.dp.toPx() }
-
     val latestOnDragStart by rememberUpdatedState(onDragStart)
+    val latestOnDrag      by rememberUpdatedState(onDrag)
     val latestOnDragEnd   by rememberUpdatedState(onDragEnd)
-    val latestOnMoveUp    by rememberUpdatedState(onMoveUp)
-    val latestOnMoveDown  by rememberUpdatedState(onMoveDown)
 
     Box(
         modifier = Modifier
-            .size(width = DRAG_HANDLE_W, height = 44.dp)  // ?�비 ?�큰 ?�용 (16dp)
+            .size(width = DRAG_HANDLE_W, height = 44.dp)
             .pointerInput(Unit) {
-                var dragY = 0f
                 detectDragGesturesAfterLongPress(
-                    onDragStart  = { latestOnDragStart(); dragY = 0f },
-                    onDragEnd    = { latestOnDragEnd();   dragY = 0f },
-                    onDragCancel = { latestOnDragEnd();   dragY = 0f },
+                    onDragStart  = { latestOnDragStart() },
+                    onDragEnd    = { latestOnDragEnd() },
+                    onDragCancel = { latestOnDragEnd() },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        dragY += dragAmount.y
-                        while (dragY >  threshold) { latestOnMoveDown(); dragY -= threshold }
-                        while (dragY < -threshold) { latestOnMoveUp();   dragY += threshold }
+                        latestOnDrag(dragAmount.y)
                     }
                 )
             },
@@ -444,7 +583,7 @@ private fun DragHandle(
     }
 }
 
-// ?�?� 기�? 컴포?�트 ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+// ── 기타 컴포넌트 ──────────────────────────────────────────────────────────
 
 @Composable
 private fun Big3Toggle(selected: Boolean, onClick: () -> Unit) {
@@ -513,7 +652,7 @@ private fun RecurringBadge(rule: RecurrenceRule?) {
     }
 }
 
-// ?�?� Canvas ?�이�??�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+// ── Canvas 아이콘 ──────────────────────────────────────────────────────────
 
 @Composable
 private fun CheckIcon(color: Color) {
@@ -560,7 +699,7 @@ private fun ChevronDownIcon(color: Color) {
     }
 }
 
-// ?�?� ?�퍼 ?�수 ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+// ── 헬퍼 함수 ──────────────────────────────────────────────────────────────
 
 private fun formatClock(totalMinutes: Int): String =
     String.format(Locale.ENGLISH, "%d:%02d", totalMinutes / 60, totalMinutes % 60)
@@ -574,9 +713,9 @@ private fun recurrenceLabel(rule: RecurrenceRule?): String {
             val ordered = listOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
             val selected = ordered.filter { it in rule.repeatDays }
             when {
-                selected.isEmpty()          -> "Custom"
-                selected.size == 7          -> "Every Day"
-                selected == ordered.take(5) -> "Weekdays"
+                selected.isEmpty()                                        -> "Custom"
+                selected.size == 7                                        -> "Every Day"
+                selected == ordered.take(5)                               -> "Weekdays"
                 selected == listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) -> "Weekend"
                 else -> selected.joinToString(" ") { dayShort(it) }
             }
@@ -595,6 +734,3 @@ private fun RecurrenceRule.occursOn(dayOfWeek: DayOfWeek): Boolean = when (type)
     RecurrenceType.WEEKDAYS -> dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
     RecurrenceType.CUSTOM   -> dayOfWeek in repeatDays
 }
-
-
-

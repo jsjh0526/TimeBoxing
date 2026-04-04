@@ -69,10 +69,7 @@ fun TimeBoxingApp() {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             bottomBar = {
-                AppBottomBar(
-                    currentTab = appState.currentTab,
-                    onTabSelected = appState::selectTab
-                )
+                AppBottomBar(currentTab = appState.currentTab, onTabSelected = appState::selectTab)
             }
         ) { innerPadding ->
             val contentModifier = Modifier
@@ -97,7 +94,8 @@ fun TimeBoxingApp() {
                     modifier = contentModifier,
                     tasks = appState.todayTodoTasks,
                     date = LocalDate.now(),
-                    recurrenceByTemplateId = repository.getTemplates().associate { it.id to it.recurrenceRule },
+                    // [Fix] AppState에 캐시된 map 사용 — 매 recompose마다 getTemplates() 호출 제거
+                    recurrenceByTemplateId = appState.recurrenceByTemplateId,
                     otherHabits = buildOtherHabits(
                         date = LocalDate.now(),
                         templateProvider = repository
@@ -107,7 +105,8 @@ fun TimeBoxingApp() {
                     onToggleBig3 = appState::toggleBig3,
                     onToggleComplete = { appState.toggleCompleted(it, LocalDate.now()) },
                     onOpenTask = { appState.openTaskEditor(it, LocalDate.now()) },
-                    onReorderTask = appState::reorderTodayTodoTask
+                    // (taskId, toIndex) — DraggableSection이 drag end 시 한 번만 호출
+                    onReorderTask = { id, toIndex -> appState.reorderTodayTodoTask(id, toIndex) }
                 )
 
                 AppTab.TIMETABLE -> TimetableScreen(
@@ -142,40 +141,20 @@ fun TimeBoxingApp() {
 
 @Composable
 private fun AppBottomBar(currentTab: AppTab, onTabSelected: (AppTab) -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(NavBackground)
-    ) {
+    Box(modifier = Modifier.fillMaxWidth().background(NavBackground)) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(NavBackground)
-                .navigationBarsPadding()
+            modifier = Modifier.fillMaxWidth().background(NavBackground).navigationBarsPadding()
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(78.dp)
-                    .background(NavBackground),
+                modifier = Modifier.fillMaxWidth().height(78.dp).background(NavBackground),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AppTab.entries.forEach { tab ->
-                    BottomBarItem(
-                        tab = tab,
-                        selected = currentTab == tab,
-                        onClick = { onTabSelected(tab) }
-                    )
+                    BottomBarItem(tab = tab, selected = currentTab == tab, onClick = { onTabSelected(tab) })
                 }
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(NavDivider)
-                    .align(Alignment.TopCenter)
-            )
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(NavDivider).align(Alignment.TopCenter))
         }
     }
 }
@@ -184,23 +163,12 @@ private fun AppBottomBar(currentTab: AppTab, onTabSelected: (AppTab) -> Unit) {
 private fun BottomBarItem(tab: AppTab, selected: Boolean, onClick: () -> Unit) {
     val color = if (selected) NavActive else NavInactive
     Column(
-        modifier = Modifier
-            .width(76.dp)
-            .clickable(onClick = onClick)
-            .padding(top = 12.dp, bottom = 10.dp),
+        modifier = Modifier.width(76.dp).clickable(onClick = onClick).padding(top = 12.dp, bottom = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         TabIcon(tab = tab, color = color)
-        Text(
-            text = tab.label,
-            style = TextStyle(
-                color = color,
-                fontSize = 11.sp,
-                lineHeight = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
-        )
+        Text(text = tab.label, style = TextStyle(color = color, fontSize = 11.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium))
     }
 }
 
@@ -211,31 +179,20 @@ private fun TabIcon(tab: AppTab, color: Color) {
         when (tab) {
             AppTab.HOME -> {
                 val path = Path().apply {
-                    moveTo(size.width * 0.18f, size.height * 0.48f)
-                    lineTo(size.width * 0.5f, size.height * 0.18f)
-                    lineTo(size.width * 0.82f, size.height * 0.48f)
-                    lineTo(size.width * 0.82f, size.height * 0.82f)
-                    lineTo(size.width * 0.18f, size.height * 0.82f)
-                    close()
+                    moveTo(size.width * 0.18f, size.height * 0.48f); lineTo(size.width * 0.5f, size.height * 0.18f)
+                    lineTo(size.width * 0.82f, size.height * 0.48f); lineTo(size.width * 0.82f, size.height * 0.82f)
+                    lineTo(size.width * 0.18f, size.height * 0.82f); close()
                 }
                 drawPath(path = path, color = color, style = Stroke(width = stroke))
                 drawLine(color, Offset(size.width * 0.42f, size.height * 0.82f), Offset(size.width * 0.42f, size.height * 0.58f), stroke, StrokeCap.Round)
                 drawLine(color, Offset(size.width * 0.58f, size.height * 0.82f), Offset(size.width * 0.58f, size.height * 0.58f), stroke, StrokeCap.Round)
             }
-
             AppTab.TODO -> {
                 drawCheckRow(color, stroke, 0.28f)
                 drawCheckRow(color, stroke, 0.68f)
             }
-
             AppTab.TIMETABLE -> {
-                drawRoundRect(
-                    color = color,
-                    topLeft = Offset(size.width * 0.16f, size.height * 0.18f),
-                    size = Size(size.width * 0.58f, size.height * 0.54f),
-                    style = Stroke(width = stroke),
-                    cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
-                )
+                drawRoundRect(color = color, topLeft = Offset(size.width * 0.16f, size.height * 0.18f), size = Size(size.width * 0.58f, size.height * 0.54f), style = Stroke(width = stroke), cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()))
                 drawLine(color, Offset(size.width * 0.16f, size.height * 0.36f), Offset(size.width * 0.74f, size.height * 0.36f), stroke, StrokeCap.Round)
                 drawLine(color, Offset(size.width * 0.3f, size.height * 0.1f), Offset(size.width * 0.3f, size.height * 0.26f), stroke, StrokeCap.Round)
                 drawLine(color, Offset(size.width * 0.6f, size.height * 0.1f), Offset(size.width * 0.6f, size.height * 0.26f), stroke, StrokeCap.Round)
@@ -244,23 +201,14 @@ private fun TabIcon(tab: AppTab, color: Color) {
                 drawLine(color, clockCenter, Offset(clockCenter.x, size.height * 0.61f), stroke, StrokeCap.Round)
                 drawLine(color, clockCenter, Offset(size.width * 0.8f, size.height * 0.7f), stroke, StrokeCap.Round)
             }
-
             AppTab.SETTINGS -> {
-                val center = center
-                val outerRadius = size.minDimension * 0.22f
-                val innerRadius = size.minDimension * 0.09f
-                drawCircle(color = color, radius = outerRadius, center = center, style = Stroke(width = stroke))
-                drawCircle(color = color, radius = innerRadius, center = center, style = Stroke(width = stroke))
+                val c = center; val outerR = size.minDimension * 0.22f; val innerR = size.minDimension * 0.09f
+                drawCircle(color, outerR, c, style = Stroke(stroke))
+                drawCircle(color, innerR, c, style = Stroke(stroke))
                 listOf(0f, 60f, 120f, 180f, 240f, 300f).forEach { angle ->
-                    val radians = Math.toRadians(angle.toDouble())
-                    val start = Offset(
-                        x = (center.x + kotlin.math.cos(radians).toFloat() * size.minDimension * 0.33f),
-                        y = (center.y + kotlin.math.sin(radians).toFloat() * size.minDimension * 0.33f)
-                    )
-                    val end = Offset(
-                        x = (center.x + kotlin.math.cos(radians).toFloat() * size.minDimension * 0.43f),
-                        y = (center.y + kotlin.math.sin(radians).toFloat() * size.minDimension * 0.43f)
-                    )
+                    val rad = Math.toRadians(angle.toDouble())
+                    val start = Offset(c.x + kotlin.math.cos(rad).toFloat() * size.minDimension * 0.33f, c.y + kotlin.math.sin(rad).toFloat() * size.minDimension * 0.33f)
+                    val end = Offset(c.x + kotlin.math.cos(rad).toFloat() * size.minDimension * 0.43f, c.y + kotlin.math.sin(rad).toFloat() * size.minDimension * 0.43f)
                     drawLine(color, start, end, stroke, StrokeCap.Round)
                 }
             }
@@ -274,10 +222,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCheckRow(color:
     drawLine(color, Offset(size.width * 0.44f, size.height * yFactor), Offset(size.width * 0.84f, size.height * yFactor), stroke, StrokeCap.Round)
 }
 
-private fun buildOtherHabits(
-    date: LocalDate,
-    templateProvider: TemplateProvider
-): List<DailyTask> {
+private fun buildOtherHabits(date: LocalDate, templateProvider: TemplateProvider): List<DailyTask> {
     return templateProvider.getTemplates()
         .filter { template ->
             val rule = template.recurrenceRule
@@ -287,40 +232,17 @@ private fun buildOtherHabits(
         .map { template -> template.toOtherHabitTask(date) }
 }
 
-private fun TaskTemplate.toOtherHabitTask(date: LocalDate): DailyTask {
-    return DailyTask(
-        id = "template-$id",
-        templateId = id,
-        date = date,
-        title = title,
-        note = note,
-        tags = tags,
-        schedule = defaultSchedule,
-        source = DailyTaskSource.RECURRING
-    )
-}
+private fun TaskTemplate.toOtherHabitTask(date: LocalDate): DailyTask = DailyTask(
+    id = "template-$id", templateId = id, date = date,
+    title = title, note = note, tags = tags, schedule = defaultSchedule,
+    source = DailyTaskSource.RECURRING
+)
 
-private fun RecurrenceRule.occursOn(dayOfWeek: java.time.DayOfWeek): Boolean {
-    return when (type) {
-        RecurrenceType.DAILY -> true
-        RecurrenceType.WEEKDAYS -> {
-            if (repeatDays.isNotEmpty()) {
-                dayOfWeek in repeatDays
-            } else {
-                dayOfWeek !in setOf(java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY)
-            }
-        }
-        RecurrenceType.CUSTOM -> dayOfWeek in repeatDays
+private fun RecurrenceRule.occursOn(dayOfWeek: java.time.DayOfWeek): Boolean = when (type) {
+    RecurrenceType.DAILY    -> true
+    RecurrenceType.WEEKDAYS -> {
+        if (repeatDays.isNotEmpty()) dayOfWeek in repeatDays
+        else dayOfWeek !in setOf(java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY)
     }
+    RecurrenceType.CUSTOM -> dayOfWeek in repeatDays
 }
-
-
-
-
-
-
-
-
-
-
-
