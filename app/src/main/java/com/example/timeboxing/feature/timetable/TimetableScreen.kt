@@ -326,6 +326,7 @@ private fun TimetableGrid(
                             task = block.task,
                             schedule = renderedSchedule,
                             gestureSchedule = originalSchedule,
+                            isOverlapping = block.columnCount > 1,
                             showNow = showCurrentTime && currentMinute in renderedSchedule.startMinute until renderedSchedule.endMinute,
                             isDragging = session != null,
                             readOnly = readOnly,
@@ -421,6 +422,7 @@ private fun ScheduledCard(
     task: DailyTask,
     schedule: ScheduleBlock,
     gestureSchedule: ScheduleBlock,
+    isOverlapping: Boolean,
     showNow: Boolean,
     isDragging: Boolean,
     readOnly: Boolean,
@@ -441,6 +443,7 @@ private fun ScheduledCard(
     val timeText = "${formatClock(schedule.startMinute)} - ${formatClock(schedule.endMinute)}"
     val hideTimeText = durationMinutes <= 30
     val prefersExpandedLayout = durationMinutes >= 45
+    val overlapCompact = isOverlapping
 
     val (borderWidth, borderColor) = when {
         showNow && !isDragging     -> 1.4.dp to Accent
@@ -479,7 +482,37 @@ private fun ScheduledCard(
     ) {
         val cardH = maxHeight
 
-        when {
+        if (overlapCompact) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = task.title,
+                    modifier = Modifier.weight(1f),
+                    style = TextStyle(
+                        color = TextPrimary,
+                        fontSize = if (width < 130.dp) 12.sp else 13.sp,
+                        lineHeight = if (width < 130.dp) 15.sp else 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                DurationChip(
+                    durationMinutes = durationMinutes,
+                    expanded = durationExpanded,
+                    readOnly = readOnly || isDragging,
+                    options = durationOptions,
+                    onExpandedChange = { durationExpanded = it },
+                    onSelect = onChangeDuration,
+                    compact = width < 150.dp
+                )
+            }
+        } else when {
             // ── Level 1: 제목(작게) + 시간범위 + DurationChip (< 36dp) ──
             // 한 줄에 모두 표시 — 좁아도 duration 조정 가능
             cardH < 36.dp -> {
