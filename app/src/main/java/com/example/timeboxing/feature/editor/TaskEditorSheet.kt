@@ -1,4 +1,4 @@
-package com.example.timeboxing.feature.editor
+﻿package com.example.timeboxing.feature.editor
 
 import android.view.WindowManager
 import androidx.compose.foundation.Canvas
@@ -130,7 +130,7 @@ private fun applyStartChange(newStart: String, draft: TaskEditorDraft): TaskEdit
     val startMin = parseTime(newStart)
     val endMin   = parseTime(draft.endText)
     return if (endMin <= startMin) {
-        // end를 start + 기존 duration으로 유지 (최소 15분)
+        // 종료 시간이 시작 시간보다 앞서면 기존 지속시간을 유지합니다.
         val duration  = (endMin - parseTime(draft.startText)).coerceAtLeast(15)
         val newEndMin = (startMin + duration).coerceAtMost(24 * 60)
         draft.copy(startText = newStart, endText = formatTime(newEndMin))
@@ -279,7 +279,7 @@ fun TaskEditorDialog(
     }
 }
 
-// ── 시간 드롭다운 필드 ─────────────────────────────────────────────────────
+// 시간 선택 드롭다운 필드
 
 @Composable
 private fun TimeDropdownField(
@@ -339,7 +339,7 @@ private fun TimeDropdownField(
     }
 }
 
-// ── 공통 컴포넌트 ──────────────────────────────────────────────────────────
+// 공통 UI 컴포넌트
 
 @Composable
 private fun EditorLabel(label: String, icon: (@Composable () -> Unit)? = null) {
@@ -444,7 +444,7 @@ private fun TrashButton(enabled: Boolean, onClick: () -> Unit) {
     }
 }
 
-// ── Canvas 아이콘 ──────────────────────────────────────────────────────────
+// 아이콘 캔버스
 
 @Composable
 private fun ClockIcon(color: Color, modifier: Modifier = Modifier) {
@@ -509,7 +509,7 @@ private fun TrashIcon(color: Color, modifier: Modifier = Modifier) {
     }
 }
 
-// ── 헬퍼 함수 ──────────────────────────────────────────────────────────────
+// ?? ?ы띁 ?⑥닔 ??????????????????????????????????????????????????????????????
 
 internal fun formatTime(totalMinutes: Int): String =
     String.format(Locale.ENGLISH, "%02d:%02d", totalMinutes / 60, totalMinutes % 60)

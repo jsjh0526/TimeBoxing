@@ -1,4 +1,4 @@
-package com.example.timeboxing.feature.timetable
+﻿package com.example.timeboxing.feature.timetable
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ScrollState
@@ -409,13 +409,13 @@ private fun CurrentLine(minute: Int, hourHeight: Dp, horizontalInset: Dp, horizo
     }
 }
 
-// ── ScheduledCard ──────────────────────────────────────────────────────────
-// 카드 높이(duration)에 따라 표시 레벨을 단계적으로 조정:
-//
-//  Level 1 (< 36dp) : 제목(작게) + 시간범위 + DurationChip (한 줄)
-//  Level 2 (< 60dp) : 제목 + 시간범위 (위/아래 분리)
-//  Level 3 (< 90dp) : CompletionStub + 제목 + 닫기 + 시간범위
-//  Level 4 (≥ 90dp) : 전체 (stub + 제목 + 태그 + DurationChip + 닫기 + 시간)
+// ScheduledCard
+// ScheduledCard 레이아웃 규칙
+// - 겹침 카드: 제목과 지속시간만 표시
+// - Level 1 (< 36dp): 제목, 시간, 지속시간
+// - Level 2 (< 60dp, 비확장): 제목, 지속시간, 필요 시 시간
+// - Level 3 (< 70dp, 비확장): 스텁, 제목, 지속시간, 닫기, 필요 시 시간
+// - Level 4 (그 외): 전체 레이아웃
 
 @Composable
 private fun ScheduledCard(
@@ -513,8 +513,7 @@ private fun ScheduledCard(
                 )
             }
         } else when {
-            // ── Level 1: 제목(작게) + 시간범위 + DurationChip (< 36dp) ──
-            // 한 줄에 모두 표시 — 좁아도 duration 조정 가능
+            // Level 1: 제목, 시간, 지속시간 (< 36dp)
             cardH < 36.dp -> {
                 Row(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
@@ -557,7 +556,7 @@ private fun ScheduledCard(
                 }
             }
 
-            // ── Level 2: 제목 + 시간 (< 60dp) ─────────────────────────
+            // Level 2: 제목, 지속시간, 필요 시 시간 (< 60dp)
             cardH < 60.dp && !prefersExpandedLayout -> {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
@@ -593,7 +592,7 @@ private fun ScheduledCard(
                 }
             }
 
-            // ── Level 3: stub + 제목 + 시간 (< 90dp) ──────────────────
+            // Level 3: 스텁, 제목, 지속시간, 닫기, 필요 시 시간 (< 70dp)
             cardH < 70.dp && !prefersExpandedLayout -> {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(8.dp),
@@ -633,7 +632,7 @@ private fun ScheduledCard(
                 }
             }
 
-            // ── Level 4: 전체 레이아웃 (≥ 90dp) ───────────────────────
+            // Level 4: 전체 레이아웃
             else -> {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(10.dp),
@@ -867,7 +866,7 @@ private fun ChevronUpIcon(color: Color, expanded: Boolean) {
     }
 }
 
-// ── 헬퍼 ────────────────────────────────────────────────────────────────────
+// 시간표 계산 유틸리티
 
 private fun snappedMinuteDelta(deltaPx: Float, pixelsPerHour: Float): Int {
     val rawSteps = ((deltaPx / pixelsPerHour) * 60f) / SnapMinutes

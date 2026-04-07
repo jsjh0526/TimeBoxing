@@ -1,4 +1,4 @@
-package com.example.timeboxing.feature.todo
+﻿package com.example.timeboxing.feature.todo
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -65,10 +65,10 @@ import java.time.LocalDate
 import java.util.Locale
 import kotlin.math.roundToInt
 
-// ── 색상 ───────────────────────────────────────────────────────────────────
+// ?? ?됱긽 ???????????????????????????????????????????????????????????????????
 private val ScreenBackground = Color(0xFF121212)
 private val CardBackground   = Color(0xFF2A2A2A)
-private val CardDragging     = Color(0xFF3A3A3A)   // 드래그 중: 살짝 밝은 배경
+private val CardDragging     = Color(0xFF3A3A3A)   // ?쒕옒洹?以? ?댁쭩 諛앹? 諛곌꼍
 private val CardMuted        = Color(0xFF363636)
 private val Accent           = Color(0xFF8687E7)
 private val TextPrimary      = Color.White
@@ -83,7 +83,7 @@ private val RecurringSection = Color(0xFFE5DDA8)
 private val RecurringFill    = Color(0x1A8687E7)
 private val RecurringText    = Color(0xFF8687E7)
 
-// ── 디자인 토큰 ─────────────────────────────────────────────────────────────
+// ?? ?붿옄???좏겙 ?????????????????????????????????????????????????????????????
 private val SCREEN_PAD         = 24.dp
 private val SECTION_GAP        = 32.dp
 private val HEADER_GAP         = 16.dp
@@ -107,11 +107,11 @@ fun TodoScreen(
     onToggleBig3: (String) -> Unit,
     onToggleComplete: (String) -> Unit,
     onOpenTask: (String) -> Unit,
-    // (taskId, toIndex) — drag 완료 시 섹션 내 최종 위치로 이동
+    // (taskId, toIndex) ??drag ?꾨즺 ???뱀뀡 ??理쒖쥌 ?꾩튂濡??대룞
     onReorderTask: (String, Int) -> Unit
 ) {
     var otherHabitsExpanded by remember { mutableStateOf(false) }
-    // 어느 섹션이든 드래그 중이면 LazyColumn 스크롤 막기
+    // ?대뒓 ?뱀뀡?대뱺 ?쒕옒洹?以묒씠硫?LazyColumn ?ㅽ겕濡?留됯린
     var globalDragging by remember { mutableStateOf(false) }
 
     val big3 = tasks.filter { it.isBig3 }
@@ -219,13 +219,11 @@ fun TodoScreen(
     }
 }
 
-// ── 드래그 가능 섹션 ────────────────────────────────────────────────────────
-// 설계 원칙:
-// 1. long press → 카드가 시각적으로 뜸 (graphicsLayer: scale + shadow + 배경색)
-// 2. 드래그 중 reorder 없음 → 릴리즈 시 target index로 한 번 커밋 ("잡아서 놓는" UX)
-// 3. zIndex(10f) → 뜬 카드가 다른 카드 위에 그려짐
-// 4. 삽입 위치 표시줄(indicator)로 어디 놓일지 시각적 피드백
-
+// ?? ?쒕옒洹?媛???뱀뀡 ????????????????????????????????????????????????????????
+// ?ㅺ퀎 ?먯튃:
+// 1. long press ??移대뱶媛 ?쒓컖?곸쑝濡???(graphicsLayer: scale + shadow + 諛곌꼍??
+// 2. ?쒕옒洹?以?reorder ?놁쓬 ??由대━利???target index濡???踰?而ㅻ컠 ("?≪븘???볥뒗" UX)
+// 3. zIndex(10f) ????移대뱶媛 ?ㅻⅨ 移대뱶 ?꾩뿉 洹몃젮吏?// 4. ?쎌엯 ?꾩튂 ?쒖떆以?indicator)濡??대뵒 ?볦씪吏 ?쒓컖???쇰뱶諛?
 @Composable
 private fun DraggableSection(
     tasks: List<DailyTask>,
@@ -238,18 +236,18 @@ private fun DraggableSection(
     onReorder: (taskId: String, toIndex: Int) -> Unit
 ) {
     val density = LocalDensity.current
-    // 카드 한 칸 높이 추정 (min + gap). 카드가 더 크면 오차 있지만 UX상 허용
+    // 移대뱶 ??移??믪씠 異붿젙 (min + gap). 移대뱶媛 ???щ㈃ ?ㅼ감 ?덉?留?UX???덉슜
     val fallbackHeightPx = with(density) { CARD_MIN_H.toPx() }
     val itemGapPx = with(density) { ITEM_GAP.toPx() }
     val dragShadowPx = with(density) { 24.dp.toPx() }
     val measuredHeights = remember(tasks.map { it.id }) { mutableStateMapOf<String, Int>() }
 
-    // 드래그 중인 카드 인덱스 (-1 = 드래그 없음)
+    // ?쒕옒洹?以묒씤 移대뱶 ?몃뜳??(-1 = ?쒕옒洹??놁쓬)
     var draggingFrom by remember { mutableStateOf(-1) }
-    // 손가락이 이동한 누적 Y (px)
+    // ?먭??쎌씠 ?대룞???꾩쟻 Y (px)
     var dragTotalY by remember { mutableStateOf(0f) }
 
-    // 현재 드래그 기반 target index (시각 indicator용)
+    // ?꾩옱 ?쒕옒洹?湲곕컲 target index (?쒓컖 indicator??
     val cardHeights = tasks.map { task -> (measuredHeights[task.id]?.toFloat() ?: fallbackHeightPx) }
     val cardTops = buildList(tasks.size) {
         var currentTop = 0f
@@ -263,14 +261,14 @@ private fun DraggableSection(
     val draggedHeightPx = if (draggingFrom in tasks.indices) cardHeights[draggingFrom] else 0f
     val draggedSlotPx = if (draggingFrom >= 0) draggedHeightPx + itemGapPx else 0f
 
-    // 드래그 중 카드를 섹션 경계 내로 Y clamp (자연스러운 이동 범위 제한)
+    // ?쒕옒洹?以?移대뱶瑜??뱀뀡 寃쎄퀎 ?대줈 Y clamp (?먯뿰?ㅻ윭???대룞 踰붿쐞 ?쒗븳)
     val clampedDragY = if (draggingFrom in tasks.indices) {
         val minY = -cardTops[draggingFrom]
         val maxY = (totalHeightPx - draggedHeightPx) - cardTops[draggingFrom]
         dragTotalY.coerceIn(minY, maxY)
     } else 0f
 
-    // 섀도우 elevation (px 필요)
+    // ??꾩슦 elevation (px ?꾩슂)
     val targetIndex = if (draggingFrom in tasks.indices) {
         val centers = cardTops.mapIndexed { index, top -> top + cardHeights[index] / 2f }
         val draggedCenterY = centers[draggingFrom] + clampedDragY
@@ -288,15 +286,14 @@ private fun DraggableSection(
         candidate.coerceIn(0, tasks.lastIndex)
     } else -1
 
-    // onSetDragging, onReorder 참조 안정화
+    // 최신 드래그 콜백 참조를 유지합니다.
     val latestOnSetDragging by rememberUpdatedState(onSetDragging)
     val latestOnReorder by rememberUpdatedState(onReorder)
-
     Column {
         tasks.forEachIndexed { index, task ->
             val isDragging = draggingFrom == index
 
-            // 카드 위 삽입 indicator
+            // 드래그 중 주변 카드 이동량 계산
             val displacedY = when {
                 draggingFrom < 0 || isDragging -> 0f
                 draggingFrom < targetIndex && index in (draggingFrom + 1)..targetIndex -> -draggedSlotPx
@@ -334,7 +331,7 @@ private fun DraggableSection(
                     recurrenceRule = task.templateId?.let { recurrenceByTemplateId[it] },
                     onToggleBig3 = onToggleBig3,
                     onToggleComplete = onToggleComplete,
-                    // 드래그 중 다른 카드 탭 방지
+                    // 드래그 중에는 다른 카드를 열지 않습니다.
                     onOpenTask = if (draggingFrom >= 0 && !isDragging) ({}) else onOpenTask,
                     onDragStart = {
                         draggingFrom = index
@@ -355,7 +352,7 @@ private fun DraggableSection(
                 )
             }
 
-            // 카드 아래 삽입 indicator
+            // 삽입 indicator는 나중에 실제 렌더링에 연결할 예정입니다.
         }
     }
 }
@@ -370,7 +367,7 @@ private fun InsertionIndicator() {
     )
 }
 
-// ── 입력창 ─────────────────────────────────────────────────────────────────
+// 빠른 입력
 
 @Composable
 private fun InputRow(onQuickAddTask: (String) -> Unit, onOpenAddTaskEditor: (String) -> Unit) {
@@ -407,7 +404,7 @@ private fun InputRow(onQuickAddTask: (String) -> Unit, onOpenAddTaskEditor: (Str
     }
 }
 
-// ── 섹션 헤더 ──────────────────────────────────────────────────────────────
+// ?? ?뱀뀡 ?ㅻ뜑 ??????????????????????????????????????????????????????????????
 
 @Composable
 private fun Big3Header() {
@@ -434,7 +431,7 @@ private fun EmptySectionHint(message: String) {
     }
 }
 
-// ── 태스크 카드 ────────────────────────────────────────────────────────────
+// ?? ?쒖뒪??移대뱶 ????????????????????????????????????????????????????????????
 
 @Composable
 private fun TaskCard(
@@ -502,7 +499,7 @@ private fun TaskCard(
     }
 }
 
-// ── 컴팩트 카드 (Other Habits) ─────────────────────────────────────────────
+// ?? 而댄뙥??移대뱶 (Other Habits) ?????????????????????????????????????????????
 
 @Composable
 private fun CompactCard(
@@ -542,9 +539,9 @@ private fun CompactCard(
     }
 }
 
-// ── 드래그 핸들 ────────────────────────────────────────────────────────────
-// 역할: long press 감지 + 드래그 delta 전달만 담당
-// 실제 reorder 결정은 DraggableSection의 onDragEnd에서 처리
+// ?? ?쒕옒洹??몃뱾 ????????????????????????????????????????????????????????????
+// ??븷: long press 媛먯? + ?쒕옒洹?delta ?꾨떖留??대떦
+// ?ㅼ젣 reorder 寃곗젙? DraggableSection??onDragEnd?먯꽌 泥섎━
 
 @Composable
 private fun DragHandle(
@@ -583,7 +580,7 @@ private fun DragHandle(
     }
 }
 
-// ── 기타 컴포넌트 ──────────────────────────────────────────────────────────
+// ?? 湲고? 而댄룷?뚰듃 ??????????????????????????????????????????????????????????
 
 @Composable
 private fun Big3Toggle(selected: Boolean, onClick: () -> Unit) {
@@ -652,7 +649,7 @@ private fun RecurringBadge(rule: RecurrenceRule?) {
     }
 }
 
-// ── Canvas 아이콘 ──────────────────────────────────────────────────────────
+// ?? Canvas ?꾩씠肄???????????????????????????????????????????????????????????
 
 @Composable
 private fun CheckIcon(color: Color) {
@@ -699,7 +696,7 @@ private fun ChevronDownIcon(color: Color) {
     }
 }
 
-// ── 헬퍼 함수 ──────────────────────────────────────────────────────────────
+// ?? ?ы띁 ?⑥닔 ??????????????????????????????????????????????????????????????
 
 private fun formatClock(totalMinutes: Int): String =
     String.format(Locale.ENGLISH, "%d:%02d", totalMinutes / 60, totalMinutes % 60)
