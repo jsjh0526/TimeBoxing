@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,8 +50,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -120,7 +119,7 @@ fun DailyTask.toEditorDraft(existingRule: RecurrenceRule? = null): TaskEditorDra
         repeatDays = editorRepeatDays(rule, date.dayOfWeek),
         timeBlockEnabled = schedule != null,
         startText = schedule?.let { formatTime(it.startMinute) } ?: "09:00",
-        endText = schedule?.let { formatTime(it.endMinute) } ?: "09:30",
+        endText   = schedule?.let { formatTime(it.endMinute) }   ?: "09:30",
         alertEnabled = schedule?.reminderEnabled == true
     )
 }
@@ -131,8 +130,8 @@ private fun applyStartChange(newStart: String, draft: TaskEditorDraft): TaskEdit
     val startMin = parseTime(newStart)
     val endMin   = parseTime(draft.endText)
     return if (endMin <= startMin) {
-        // end占?start + ?占쎌옱 duration?占쎈줈 ?占쏙옙? (理쒖냼 15占?
-        val duration = (endMin - parseTime(draft.startText)).coerceAtLeast(15)
+        // end를 start + 기존 duration으로 유지 (최소 15분)
+        val duration  = (endMin - parseTime(draft.startText)).coerceAtLeast(15)
         val newEndMin = (startMin + duration).coerceAtMost(24 * 60)
         draft.copy(startText = newStart, endText = formatTime(newEndMin))
     } else {
@@ -163,7 +162,7 @@ fun TaskEditorDialog(
                     modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(20.dp))
                         .background(Panel).border(0.7.dp, Border, RoundedCornerShape(20.dp))
                 ) {
-                    // ?占쎈뜑
+                    // 헤더
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
@@ -178,7 +177,7 @@ fun TaskEditorDialog(
                     }
                     Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(BorderStrong))
 
-                    // 蹂몃Ц
+                    // 본문
                     Column(
                         modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(bodyScroll).padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -198,10 +197,10 @@ fun TaskEditorDialog(
                             val isWeekendPreset  = draft.recurrenceType == RecurrenceType.CUSTOM && draft.repeatDays == weekendDays()
                             val isCustomPreset   = draft.recurrenceType == RecurrenceType.CUSTOM && !isWeekendPreset
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                RecurrenceSegment("Daily",    draft.recurrenceType == RecurrenceType.DAILY, { onChange(draft.copy(recurrenceType = RecurrenceType.DAILY, repeatDays = emptySet())) }, Modifier.weight(1f))
-                                RecurrenceSegment("Weekdays", isWeekdaysPreset, { onChange(draft.copy(recurrenceType = RecurrenceType.WEEKDAYS, repeatDays = defaultWeeklyDays())) }, Modifier.weight(1f))
-                                RecurrenceSegment("Weekend",  isWeekendPreset,  { onChange(draft.copy(recurrenceType = RecurrenceType.CUSTOM,   repeatDays = weekendDays())) },       Modifier.weight(1f))
-                                RecurrenceSegment("Custom",   isCustomPreset,   { onChange(draft.copy(recurrenceType = RecurrenceType.CUSTOM,   repeatDays = if (draft.repeatDays.isEmpty() || isWeekendPreset) setOf(draft.date.dayOfWeek) else draft.repeatDays)) }, Modifier.weight(1f))
+                                RecurrenceSegment("Daily",    draft.recurrenceType == RecurrenceType.DAILY, { onChange(draft.copy(recurrenceType = RecurrenceType.DAILY,    repeatDays = emptySet())) },                                                                                                                    Modifier.weight(1f))
+                                RecurrenceSegment("Weekdays", isWeekdaysPreset,                             { onChange(draft.copy(recurrenceType = RecurrenceType.WEEKDAYS, repeatDays = defaultWeeklyDays())) },                                                                                                            Modifier.weight(1f))
+                                RecurrenceSegment("Weekend",  isWeekendPreset,                              { onChange(draft.copy(recurrenceType = RecurrenceType.CUSTOM,   repeatDays = weekendDays())) },                                                                                                                   Modifier.weight(1f))
+                                RecurrenceSegment("Custom",   isCustomPreset,                               { onChange(draft.copy(recurrenceType = RecurrenceType.CUSTOM,   repeatDays = if (draft.repeatDays.isEmpty() || isWeekendPreset) setOf(draft.date.dayOfWeek) else draft.repeatDays)) },                         Modifier.weight(1f))
                             }
                             if (isCustomPreset) {
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -219,23 +218,24 @@ fun TaskEditorDialog(
                             }
                         }
 
+                        // Time Block
                         SettingSection(title = "Time Block", enabled = draft.timeBlockEnabled, onToggle = { onChange(draft.copy(timeBlockEnabled = it)) }, icon = { ClockIcon(Success, Modifier.size(18.dp)) }) {
                             val startMin = parseTime(draft.startText)
 
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 TimeDropdownField(
-                                    label = "START",
-                                    value = draft.startText,
+                                    label    = "START",
+                                    value    = draft.startText,
                                     modifier = Modifier.weight(1f),
-                                    options = timeOptions(start = 0, end = 23 * 60 + 45),
+                                    options  = timeOptions(start = 0, end = 23 * 60 + 45),
                                     onSelect = { selected -> onChange(applyStartChange(formatTime(selected), draft)) }
                                 )
                                 Text("\u2192", style = TextStyle(color = Accent, fontSize = 18.sp, lineHeight = 28.sp))
                                 TimeDropdownField(
-                                    label = "END",
-                                    value = draft.endText,
+                                    label    = "END",
+                                    value    = draft.endText,
                                     modifier = Modifier.weight(1f),
-                                    options = timeOptions(start = startMin + 15, end = 24 * 60),
+                                    options  = timeOptions(start = startMin + 15, end = 24 * 60),
                                     onSelect = { selected -> onChange(draft.copy(endText = formatTime(selected))) }
                                 )
                             }
@@ -261,7 +261,7 @@ fun TaskEditorDialog(
                     }
                 }
 
-                // ?占쎈떒 踰꾪듉
+                // 하단 버튼
                 Row(
                     modifier = Modifier.fillMaxWidth().background(Panel).padding(horizontal = 18.dp, vertical = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
@@ -279,6 +279,8 @@ fun TaskEditorDialog(
     }
 }
 
+// ── 시간 드롭다운 필드 ─────────────────────────────────────────────────────
+
 @Composable
 private fun TimeDropdownField(
     label: String,
@@ -289,7 +291,7 @@ private fun TimeDropdownField(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val initialIndex = remember(value, options) { timeMenuStartIndex(value, options) }
-    val scrollState = rememberScrollState()
+    val scrollState  = rememberScrollState()
     val itemHeightPx = with(LocalDensity.current) { 48.dp.roundToPx() }
 
     LaunchedEffect(expanded, initialIndex) {
@@ -298,62 +300,46 @@ private fun TimeDropdownField(
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(label, style = TextStyle(color = TextMuted, fontSize = 12.sp, lineHeight = 18.sp, letterSpacing = 0.6.sp, fontWeight = FontWeight.Medium))
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.TopCenter
-        ) {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(FieldDark)
+                modifier = Modifier.fillMaxWidth().height(44.dp)
+                    .clip(RoundedCornerShape(10.dp)).background(FieldDark)
                     .border(0.7.dp, Border, RoundedCornerShape(10.dp))
                     .clickable { expanded = true },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = value,
-                    modifier = Modifier.fillMaxWidth(),
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Clip,
-                    style = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, textAlign = TextAlign.Center)
+                    text      = value,
+                    modifier  = Modifier.fillMaxWidth(),
+                    maxLines  = 1,
+                    softWrap  = false,
+                    overflow  = TextOverflow.Clip,
+                    style     = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, textAlign = TextAlign.Center)
                 )
             }
             DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                scrollState = scrollState,
-                modifier = Modifier
-                    .heightIn(max = 288.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(FieldDark)
+                expanded          = expanded,
+                onDismissRequest  = { expanded = false },
+                scrollState       = scrollState,
+                modifier          = Modifier.heightIn(max = 288.dp).clip(RoundedCornerShape(12.dp)).background(FieldDark)
             ) {
                 options.forEach { minute ->
                     DropdownMenuItem(
                         text = {
                             Text(
                                 formatTime(minute),
-                                style = TextStyle(
-                                    color = if (formatTime(minute) == value) Accent else TextPrimary,
-                                    fontSize = 15.sp,
-                                    lineHeight = 22.sp,
-                                    fontFamily = FontFamily.Monospace
-                                )
+                                style = TextStyle(color = if (formatTime(minute) == value) Accent else TextPrimary, fontSize = 15.sp, lineHeight = 22.sp, fontFamily = FontFamily.Monospace)
                             )
                         },
-                        onClick = {
-                            expanded = false
-                            onSelect(minute)
-                        }
+                        onClick = { expanded = false; onSelect(minute) }
                     )
                 }
             }
         }
     }
 }
-// ?占?占?怨듯넻 而댄룷?占쏀듃 ?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?
+
+// ── 공통 컴포넌트 ──────────────────────────────────────────────────────────
 
 @Composable
 private fun EditorLabel(label: String, icon: (@Composable () -> Unit)? = null) {
@@ -371,8 +357,8 @@ private fun EditorInput(value: String, onValueChange: (String) -> Unit, placehol
         BasicTextField(
             value = value, onValueChange = onValueChange,
             textStyle = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.5.sp),
-            minLines = minLines,
-            modifier = Modifier.fillMaxWidth().then(if (autoFocus) Modifier.focusRequester(focusRequester) else Modifier),
+            minLines  = minLines,
+            modifier  = Modifier.fillMaxWidth().then(if (autoFocus) Modifier.focusRequester(focusRequester) else Modifier),
             decorationBox = { inner ->
                 if (value.isEmpty()) Text(placeholder, style = TextStyle(color = TextMuted, fontSize = 15.sp, lineHeight = 22.5.sp))
                 inner()
@@ -403,7 +389,7 @@ private fun TagEditor(draft: TaskEditorDraft, onChange: (TaskEditorDraft) -> Uni
                     if (v.isNotEmpty()) onChange(draft.copy(tags = draft.tags + v, tagInput = ""))
                 }),
                 textStyle = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.5.sp),
-                modifier = Modifier.width(120.dp),
+                modifier  = Modifier.width(120.dp),
                 decorationBox = { inner ->
                     if (draft.tagInput.isEmpty()) Text("Add tag...", style = TextStyle(color = TextMuted, fontSize = 15.sp))
                     inner()
@@ -458,7 +444,7 @@ private fun TrashButton(enabled: Boolean, onClick: () -> Unit) {
     }
 }
 
-// ?占?占?Canvas ?占쎌씠占??占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?
+// ── Canvas 아이콘 ──────────────────────────────────────────────────────────
 
 @Composable
 private fun ClockIcon(color: Color, modifier: Modifier = Modifier) {
@@ -466,7 +452,7 @@ private fun ClockIcon(color: Color, modifier: Modifier = Modifier) {
         val stroke = 1.6.dp.toPx()
         drawCircle(color = color, style = Stroke(width = stroke))
         drawLine(color, center, Offset(center.x, size.height * 0.22f), stroke, StrokeCap.Round)
-        drawLine(color, center, Offset(size.width * 0.7f, center.y), stroke, StrokeCap.Round)
+        drawLine(color, center, Offset(size.width * 0.7f, center.y),   stroke, StrokeCap.Round)
     }
 }
 
@@ -523,7 +509,7 @@ private fun TrashIcon(color: Color, modifier: Modifier = Modifier) {
     }
 }
 
-// ?占?占??占쏀띁 ?占쎌닔 ?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?占?
+// ── 헬퍼 함수 ──────────────────────────────────────────────────────────────
 
 internal fun formatTime(totalMinutes: Int): String =
     String.format(Locale.ENGLISH, "%02d:%02d", totalMinutes / 60, totalMinutes % 60)
@@ -534,9 +520,9 @@ private fun durationLabel(start: String, end: String): String {
 }
 
 private fun dayLabel(day: DayOfWeek): String = when (day) {
-    DayOfWeek.SUNDAY -> "S"; DayOfWeek.MONDAY -> "M"; DayOfWeek.TUESDAY -> "T"
-    DayOfWeek.WEDNESDAY -> "W"; DayOfWeek.THURSDAY -> "T"; DayOfWeek.FRIDAY -> "F"
-    DayOfWeek.SATURDAY -> "S"
+    DayOfWeek.SUNDAY    -> "S"; DayOfWeek.MONDAY    -> "M"; DayOfWeek.TUESDAY   -> "T"
+    DayOfWeek.WEDNESDAY -> "W"; DayOfWeek.THURSDAY  -> "T"; DayOfWeek.FRIDAY    -> "F"
+    DayOfWeek.SATURDAY  -> "S"
 }
 
 fun parseTime(value: String): Int {
@@ -553,7 +539,7 @@ fun parseTime(value: String): Int {
 
 private fun timeOptions(start: Int, end: Int): List<Int> {
     val safeStart = start.coerceAtLeast(0)
-    val safeEnd = end.coerceAtMost(24 * 60)
+    val safeEnd   = end.coerceAtMost(24 * 60)
     if (safeStart > safeEnd) return emptyList()
     return generateSequence(((safeStart + 14) / 15) * 15) { current ->
         val next = current + 15
@@ -564,14 +550,14 @@ private fun timeOptions(start: Int, end: Int): List<Int> {
 private fun timeMenuStartIndex(value: String, options: List<Int>): Int {
     if (options.isEmpty()) return 0
     val preferredMinute = parseTimeOrNull(value) ?: (12 * 60)
-    val matchedIndex = options.indexOfFirst { it >= preferredMinute }
+    val matchedIndex    = options.indexOfFirst { it >= preferredMinute }
     return if (matchedIndex >= 0) matchedIndex else options.lastIndex
 }
 
 private fun parseTimeOrNull(value: String): Int? {
     val parts = value.split(":")
     if (parts.size != 2) return null
-    val hour = parts[0].toIntOrNull() ?: return null
+    val hour   = parts[0].toIntOrNull() ?: return null
     val minute = parts[1].toIntOrNull() ?: return null
     if (minute !in 0..59) return null
     return when {
@@ -584,12 +570,15 @@ private fun parseTimeOrNull(value: String): Int? {
 private fun editorRepeatDays(rule: RecurrenceRule?, fallbackDay: DayOfWeek): Set<DayOfWeek> {
     if (rule == null) return emptySet()
     return when {
-        rule.repeatDays.isNotEmpty()          -> rule.repeatDays
-        rule.type == RecurrenceType.WEEKDAYS  -> defaultWeeklyDays()
-        rule.type == RecurrenceType.CUSTOM    -> setOf(fallbackDay)
+        rule.repeatDays.isNotEmpty()         -> rule.repeatDays
+        rule.type == RecurrenceType.WEEKDAYS -> defaultWeeklyDays()
+        rule.type == RecurrenceType.CUSTOM   -> setOf(fallbackDay)
         else -> emptySet()
     }
 }
 
-private fun defaultWeeklyDays(): Set<DayOfWeek> = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
-private fun weekendDays(): Set<DayOfWeek> = setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+private fun defaultWeeklyDays(): Set<DayOfWeek> =
+    setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
+
+private fun weekendDays(): Set<DayOfWeek> =
+    setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)

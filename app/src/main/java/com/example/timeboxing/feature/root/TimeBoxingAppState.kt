@@ -47,14 +47,19 @@ class TimeBoxingAppState(
     var editorDraft       by mutableStateOf<TaskEditorDraft?>(null)
         private set
 
-    // [Fix] getTemplates()를 매 recompose마다 호출하지 않도록 AppState에 캐시
+    // [Fix 11] getTemplates()를 매 recompose마다 호출하지 않도록 AppState에 캐시
     var recurrenceByTemplateId by mutableStateOf<Map<String, RecurrenceRule?>>(emptyMap())
+        private set
+
+    // [Fix 11] otherHabits도 AppState에 캐시 (TimeBoxingApp에서 매 recompose마다 getTemplates() 호출 방지)
+    var otherHabits by mutableStateOf<List<DailyTask>>(emptyList())
         private set
 
     val currentTime: LocalTime get() = LocalTime.now()
 
     init {
         refreshRecurrenceMap()
+        refreshOtherHabits(today)
     }
 
     fun selectTab(tab: AppTab) {
@@ -115,9 +120,11 @@ class TimeBoxingAppState(
         val order = sectionOrders.getOrPut(sectionKey) {
             sectionTaskIds(sectionKey, todayTodoTasks).toMutableList()
         }
-        // order에 없는 ID 동기화
-        sectionTaskIds(sectionKey, todayTodoTasks).forEach { id -> if (id !in order) order.add(id) }
-        order.removeAll { it !in sectionTaskIds(sectionKey, todayTodoTasks) }
+
+        // [Fix 9] sectionTaskIds() 1번만 계산해서 재사용
+        val currentIds = sectionTaskIds(sectionKey, todayTodoTasks)
+        currentIds.forEach { id -> if (id !in order) order.add(id) }
+        order.removeAll { it !in currentIds }
 
         if (taskId !in order) return
         order.remove(taskId)
@@ -188,6 +195,7 @@ class TimeBoxingAppState(
         syncSectionOrders(today, fresh)
         todayTodoTasks = applyAllSectionOrders(today, fresh)
         refreshRecurrenceMap()
+        refreshOtherHabits(today)
     }
 
     private fun refreshSelectedDate() {
@@ -197,6 +205,17 @@ class TimeBoxingAppState(
     private fun refreshRecurrenceMap() {
         recurrenceByTemplateId =
             templateProvider?.getTemplates()?.associate { it.id to it.recurrenceRule }.orEmpty()
+    }
+
+    private fun refreshOtherHabits(date: LocalDate) {
+        val templates = templateProvider?.getTemplates() ?: return
+        otherHabits = templates
+            .filter { template ->
+                val rule = template.recurrenceRule
+                rule != null && !rule.occursOn(date.dayOfWeek)
+            }
+            .sortedBy { it.title }
+            .map { template -> template.toOtherHabitTask(date) }
     }
 
     private fun syncSectionOrders(date: LocalDate, tasks: List<DailyTask>) {
@@ -243,6 +262,23 @@ class TimeBoxingAppState(
             else -> "recurring"
         }
     }
+}
+
+// ── 확장 함수 (AppState 내부 전용) ──────────────────────────────────────────
+
+private fun TaskTemplate.toOtherHabitTask(date: LocalDate): DailyTask = DailyTask(
+    id = "template-$id", templateId = id, date = date,
+    title = title, note = note, tags = tags, schedule = defaultSchedule,
+    source = DailyTaskSource.RECURRING
+)
+
+private fun RecurrenceRule.occursOn(dayOfWeek: java.time.DayOfWeek): Boolean = when (type) {
+    RecurrenceType.DAILY    -> true
+    RecurrenceType.WEEKDAYS -> {
+        if (repeatDays.isNotEmpty()) dayOfWeek in repeatDays
+        else dayOfWeek !in setOf(java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY)
+    }
+    RecurrenceType.CUSTOM -> dayOfWeek in repeatDays
 }
 
 private fun TaskTemplate.toTemplateEditorDraft(date: LocalDate): TaskEditorDraft {
