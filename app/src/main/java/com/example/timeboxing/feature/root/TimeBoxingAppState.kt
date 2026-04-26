@@ -47,19 +47,15 @@ class TimeBoxingAppState(
     var editorDraft       by mutableStateOf<TaskEditorDraft?>(null)
         private set
 
-    // [Fix 11] getTemplates()를 매 recompose마다 호출하지 않도록 AppState에 캐시
     var recurrenceByTemplateId by mutableStateOf<Map<String, RecurrenceRule?>>(emptyMap())
         private set
-
-    // [Fix 11] otherHabits도 AppState에 캐시 (TimeBoxingApp에서 매 recompose마다 getTemplates() 호출 방지)
     var otherHabits by mutableStateOf<List<DailyTask>>(emptyList())
         private set
 
     val currentTime: LocalTime get() = LocalTime.now()
 
     init {
-        refreshRecurrenceMap()
-        refreshOtherHabits(today)
+        refreshTemplateCache(today)
     }
 
     fun selectTab(tab: AppTab) {
@@ -117,12 +113,11 @@ class TimeBoxingAppState(
     fun reorderTodayTodoTask(taskId: String, toIndex: Int) {
         val sectionKey = inferSectionKey(taskId, todayTodoTasks) ?: return
         val sectionOrders = sectionOrderByDate.getOrPut(today) { mutableMapOf() }
-        val order = sectionOrders.getOrPut(sectionKey) {
-            sectionTaskIds(sectionKey, todayTodoTasks).toMutableList()
-        }
 
-        // [Fix 9] sectionTaskIds() 1번만 계산해서 재사용
+        // Fix: currentIds를 먼저 계산해서 getOrPut 람다와 이후 동기화 모두 재사용
         val currentIds = sectionTaskIds(sectionKey, todayTodoTasks)
+        val order = sectionOrders.getOrPut(sectionKey) { currentIds.toMutableList() }
+
         currentIds.forEach { id -> if (id !in order) order.add(id) }
         order.removeAll { it !in currentIds }
 
@@ -194,28 +189,29 @@ class TimeBoxingAppState(
         todayTasks = fresh
         syncSectionOrders(today, fresh)
         todayTodoTasks = applyAllSectionOrders(today, fresh)
-        refreshRecurrenceMap()
-        refreshOtherHabits(today)
+        // Fix: getTemplates() 1번만 호출해서 recurrenceMap + otherHabits 동시 갱신
+        refreshTemplateCache(today)
     }
 
     private fun refreshSelectedDate() {
         selectedDateTasks = repository.getTasks(selectedDate)
     }
 
-    private fun refreshRecurrenceMap() {
-        recurrenceByTemplateId =
-            templateProvider?.getTemplates()?.associate { it.id to it.recurrenceRule }.orEmpty()
-    }
-
-    private fun refreshOtherHabits(date: LocalDate) {
+    /**
+     * getTemplates()를 1번만 호출해서 recurrenceByTemplateId와 otherHabits를 동시에 갱신.
+     * 기존: refreshRecurrenceMap() + refreshOtherHabits() → getTemplates() 2번 호출
+     * 수정: refreshTemplateCache() → getTemplates() 1번 호출
+     */
+    private fun refreshTemplateCache(date: LocalDate) {
         val templates = templateProvider?.getTemplates() ?: return
+        recurrenceByTemplateId = templates.associate { it.id to it.recurrenceRule }
         otherHabits = templates
             .filter { template ->
                 val rule = template.recurrenceRule
                 rule != null && !rule.occursOn(date.dayOfWeek)
             }
             .sortedBy { it.title }
-            .map { template -> template.toOtherHabitTask(date) }
+            .map { it.toOtherHabitTask(date) }
     }
 
     private fun syncSectionOrders(date: LocalDate, tasks: List<DailyTask>) {
@@ -241,7 +237,6 @@ class TimeBoxingAppState(
             result += ordered.mapNotNull { taskById[it] }
         }
 
-        // carry_over 등 어느 섹션에도 속하지 않는 태스크
         val included = result.map { it.id }.toSet()
         result += tasks.filter { it.id !in included }
         return result

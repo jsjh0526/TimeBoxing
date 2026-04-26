@@ -60,17 +60,17 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 
 private val ScreenBackground = Color(0xFF121212)
-private val CardBackground = Color(0xFF1E1E1E)
-private val CardBorder = Color(0xFF2A2A2A)
-private val CardInner = Color(0xFF121212)
-private val Accent = Color(0xFF8687E7)
-private val AccentDark = Color(0xFF6B6BC5)
-private val Muted = Color(0xFF6A7282)
-private val Secondary = Color(0xFF99A1AF)
-private val Tertiary = Color(0xFF4A5565)
-private val Priority = Color(0xFFFF9680)
+private val CardBackground   = Color(0xFF1E1E1E)
+private val CardBorder       = Color(0xFF2A2A2A)
+private val CardInner        = Color(0xFF121212)
+private val Accent           = Color(0xFF8687E7)
+private val AccentDark       = Color(0xFF6B6BC5)
+private val Muted            = Color(0xFF6A7282)
+private val Secondary        = Color(0xFF99A1AF)
+private val Tertiary         = Color(0xFF4A5565)
+private val Priority         = Color(0xFFFF9680)
 private val Big3CheckboxRing = Color(0xFF4A5565)
-private val TagBackground = Color(0xFF444444)
+private val TagBackground    = Color(0xFF444444)
 
 @Composable
 fun HomeScreen(
@@ -94,12 +94,12 @@ fun HomeScreen(
     }
 
     val currentMinute = liveTime.hour * 60 + liveTime.minute
-    val scheduled = tasks.filter { it.schedule != null }.sortedBy { it.schedule!!.startMinute }
-    val unscheduled = tasks.filter { it.schedule == null && it.source != DailyTaskSource.RECURRING }
-    val currentTask = scheduled.firstOrNull { currentMinute in it.schedule!!.startMinute until it.schedule!!.endMinute }
-    val nextTask = scheduled.firstOrNull { it.schedule!!.startMinute > currentMinute }
-    val big3 = tasks.filter { it.isBig3 }.take(3)
-    val upcoming = scheduled
+    val scheduled     = tasks.filter { it.schedule != null }.sortedBy { it.schedule!!.startMinute }
+    val unscheduled   = tasks.filter { it.schedule == null && it.source != DailyTaskSource.RECURRING }
+    val currentTask   = scheduled.firstOrNull { currentMinute in it.schedule!!.startMinute until it.schedule!!.endMinute }
+    val nextTask      = scheduled.firstOrNull { it.schedule!!.startMinute > currentMinute }
+    val big3          = tasks.filter { it.isBig3 }.take(3)
+    val upcoming      = scheduled
         .filter { task ->
             task.schedule!!.startMinute > currentMinute &&
                 task.schedule!!.startMinute < currentMinute + (6 * 60)
@@ -115,7 +115,7 @@ fun HomeScreen(
         item {
             NowCard(
                 task = currentTask, currentMinute = currentMinute,
-                onOpenTask = { currentTask?.let { onOpenTask(it.id) } },
+                onOpenTask     = { currentTask?.let { onOpenTask(it.id) } },
                 onMarkComplete = { currentTask?.let { onMarkTaskComplete(it.id) } }
             )
         }
@@ -169,7 +169,7 @@ private fun NowCard(task: DailyTask?, currentMinute: Int, onOpenTask: () -> Unit
         return
     }
 
-    val schedule = task.schedule ?: return
+    val schedule  = task.schedule ?: return
     val remaining = maxOf(schedule.endMinute - currentMinute, 0)
 
     Box(modifier = Modifier.fillMaxWidth().height(204.dp).clip(RoundedCornerShape(16.dp)).background(Brush.linearGradient(listOf(Accent, AccentDark), start = Offset.Zero, end = Offset(900f, 500f))).clickable(onClick = onOpenTask)) {
@@ -252,7 +252,6 @@ private fun Big3Row(index: Int, task: DailyTask, onOpenTask: () -> Unit, onMarkC
                         maxLines = 1, overflow = TextOverflow.Ellipsis
                     )
                 }
-                // [Fix] "?" 깨짐 ?�정 - ?�니코드 ?�살???�???�전???�스???�용
                 task.schedule?.let {
                     Text(
                         "${formatClock(it.startMinute)}  ${it.durationMinutes}min",
@@ -394,8 +393,8 @@ private fun HomeCompletionToggle(completed: Boolean, modifier: Modifier = Modifi
 private fun CheckIcon(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val stroke = 1.8.dp.toPx()
-        drawLine(color, Offset(size.width * 0.2f, size.height * 0.55f), Offset(size.width * 0.42f, size.height * 0.76f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.42f, size.height * 0.76f), Offset(size.width * 0.8f, size.height * 0.26f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(size.width * 0.2f,  size.height * 0.55f), Offset(size.width * 0.42f, size.height * 0.76f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(size.width * 0.42f, size.height * 0.76f), Offset(size.width * 0.8f,  size.height * 0.26f), stroke, StrokeCap.Round)
     }
 }
 
@@ -443,7 +442,7 @@ private fun ClockIcon(color: Color, modifier: Modifier = Modifier) {
         val stroke = 1.6.dp.toPx()
         drawCircle(color = color, style = Stroke(width = stroke))
         drawLine(color, center, Offset(center.x, size.height * 0.28f), stroke, StrokeCap.Round)
-        drawLine(color, center, Offset(size.width * 0.7f, center.y), stroke, StrokeCap.Round)
+        drawLine(color, center, Offset(size.width * 0.7f, center.y),   stroke, StrokeCap.Round)
     }
 }
 
@@ -452,11 +451,11 @@ private fun ChevronIcon(expanded: Boolean, color: Color) {
     Canvas(modifier = Modifier.size(18.dp)) {
         val stroke = 1.8.dp.toPx()
         if (expanded) {
-            drawLine(color, Offset(size.width * 0.25f, size.height * 0.38f), Offset(size.width * 0.5f, size.height * 0.62f), stroke, StrokeCap.Round)
-            drawLine(color, Offset(size.width * 0.5f, size.height * 0.62f), Offset(size.width * 0.75f, size.height * 0.38f), stroke, StrokeCap.Round)
+            drawLine(color, Offset(size.width * 0.25f, size.height * 0.38f), Offset(size.width * 0.5f,  size.height * 0.62f), stroke, StrokeCap.Round)
+            drawLine(color, Offset(size.width * 0.5f,  size.height * 0.62f), Offset(size.width * 0.75f, size.height * 0.38f), stroke, StrokeCap.Round)
         } else {
-            drawLine(color, Offset(size.width * 0.38f, size.height * 0.25f), Offset(size.width * 0.62f, size.height * 0.5f), stroke, StrokeCap.Round)
-            drawLine(color, Offset(size.width * 0.62f, size.height * 0.5f), Offset(size.width * 0.38f, size.height * 0.75f), stroke, StrokeCap.Round)
+            drawLine(color, Offset(size.width * 0.38f, size.height * 0.25f), Offset(size.width * 0.62f, size.height * 0.5f),  stroke, StrokeCap.Round)
+            drawLine(color, Offset(size.width * 0.62f, size.height * 0.5f),  Offset(size.width * 0.38f, size.height * 0.75f), stroke, StrokeCap.Round)
         }
     }
 }
@@ -477,7 +476,7 @@ private fun PlusIcon(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val stroke = 1.8.dp.toPx()
         drawLine(color, Offset(center.x, size.height * 0.2f), Offset(center.x, size.height * 0.8f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.2f, center.y), Offset(size.width * 0.8f, center.y), stroke, StrokeCap.Round)
+        drawLine(color, Offset(size.width * 0.2f, center.y), Offset(size.width * 0.8f, center.y),  stroke, StrokeCap.Round)
     }
 }
 
@@ -485,12 +484,12 @@ private fun PlusIcon(color: Color, modifier: Modifier = Modifier) {
 private fun StarIcon(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val path = Path().apply {
-            moveTo(size.width * 0.5f, size.height * 0.08f)
+            moveTo(size.width * 0.5f,  size.height * 0.08f)
             lineTo(size.width * 0.62f, size.height * 0.36f)
             lineTo(size.width * 0.92f, size.height * 0.38f)
             lineTo(size.width * 0.69f, size.height * 0.58f)
             lineTo(size.width * 0.77f, size.height * 0.9f)
-            lineTo(size.width * 0.5f, size.height * 0.72f)
+            lineTo(size.width * 0.5f,  size.height * 0.72f)
             lineTo(size.width * 0.23f, size.height * 0.9f)
             lineTo(size.width * 0.31f, size.height * 0.58f)
             lineTo(size.width * 0.08f, size.height * 0.38f)
@@ -501,10 +500,19 @@ private fun StarIcon(color: Color, modifier: Modifier = Modifier) {
     }
 }
 
-private fun sectionTitle(color: Color): TextStyle = TextStyle(color = color, fontSize = 13.sp, lineHeight = 19.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.65.sp)
-private fun titleStyle(size: TextUnit, weight: FontWeight): TextStyle = TextStyle(color = Color.White, fontSize = size, lineHeight = size * 1.25f, fontWeight = weight)
-private fun bodyStyle(size: TextUnit, color: Color, weight: FontWeight = FontWeight.Normal): TextStyle = TextStyle(color = color, fontSize = size, lineHeight = size * 1.5f, fontWeight = weight)
-private fun formatClock(totalMinutes: Int): String = String.format(Locale.ENGLISH, "%d:%02d", totalMinutes / 60, totalMinutes % 60)
-private fun formatRange(schedule: ScheduleBlock): String = "${formatClock(schedule.startMinute)} - ${formatClock(schedule.endMinute)}"
+// ── 헬퍼 ──────────────────────────────────────────────────────────────────
 
+private fun sectionTitle(color: Color): TextStyle =
+    TextStyle(color = color, fontSize = 13.sp, lineHeight = 19.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.65.sp)
 
+private fun titleStyle(size: TextUnit, weight: FontWeight): TextStyle =
+    TextStyle(color = Color.White, fontSize = size, lineHeight = size * 1.25f, fontWeight = weight)
+
+private fun bodyStyle(size: TextUnit, color: Color, weight: FontWeight = FontWeight.Normal): TextStyle =
+    TextStyle(color = color, fontSize = size, lineHeight = size * 1.5f, fontWeight = weight)
+
+private fun formatClock(totalMinutes: Int): String =
+    String.format(Locale.ENGLISH, "%d:%02d", totalMinutes / 60, totalMinutes % 60)
+
+private fun formatRange(schedule: ScheduleBlock): String =
+    "${formatClock(schedule.startMinute)} - ${formatClock(schedule.endMinute)}"
