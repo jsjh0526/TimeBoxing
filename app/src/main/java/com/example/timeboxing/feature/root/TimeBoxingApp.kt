@@ -8,13 +8,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -89,7 +89,6 @@ fun TimeBoxingApp() {
                     tasks                   = appState.todayTodoTasks,
                     date                    = LocalDate.now(),
                     recurrenceByTemplateId  = appState.recurrenceByTemplateId,
-                    // [Fix 11] AppState 캐시 사용 — 매 recompose마다 getTemplates() 호출 제거
                     otherHabits             = appState.otherHabits,
                     onQuickAddTask          = { appState.quickAddTask(it, LocalDate.now()) },
                     onOpenAddTaskEditor     = { appState.openNewTaskEditor(date = LocalDate.now(), initialTitle = it) },
@@ -100,18 +99,19 @@ fun TimeBoxingApp() {
                 )
 
                 AppTab.TIMETABLE -> TimetableScreen(
-                    modifier         = contentModifier,
-                    tasks            = appState.selectedDateTasks,
-                    date             = appState.selectedDate,
-                    currentTime      = appState.currentTime,
-                    showCurrentTime  = appState.selectedDate == LocalDate.now(),
-                    onPreviousDay    = { appState.moveSelectedDateBy(-1) },
-                    onNextDay        = { appState.moveSelectedDateBy(1) },
-                    onToday          = { appState.openTimetable() },
-                    onOpenTask       = { appState.openTaskEditor(it, appState.selectedDate) },
+                    modifier            = contentModifier,
+                    tasks               = appState.selectedDateTasks,
+                    date                = appState.selectedDate,
+                    currentTime         = appState.currentTime,
+                    showCurrentTime     = appState.selectedDate == LocalDate.now(),
+                    onPreviousDay       = { appState.moveSelectedDateBy(-1) },
+                    onNextDay           = { appState.moveSelectedDateBy(1) },
+                    onToday             = appState::goToToday,
+                    onOpenTask          = { appState.openTaskEditor(it, appState.selectedDate) },
+                    onToggleComplete    = { appState.toggleCompleted(it, appState.selectedDate) },
                     onMoveToUnscheduled = { appState.moveToUnscheduled(it, appState.selectedDate) },
-                    onUpdateSchedule = { taskId, schedule -> appState.updateSchedule(taskId, appState.selectedDate, schedule) },
-                    onAddTask        = { appState.openNewTaskEditor(appState.selectedDate) }
+                    onUpdateSchedule    = { taskId, schedule -> appState.updateSchedule(taskId, appState.selectedDate, schedule) },
+                    onAddTask           = { appState.openNewTaskEditor(appState.selectedDate) }
                 )
 
                 AppTab.SETTINGS -> SettingsScreen(modifier = contentModifier)
@@ -136,11 +136,15 @@ private fun AppBottomBar(currentTab: AppTab, onTabSelected: (AppTab) -> Unit) {
         Box(modifier = Modifier.fillMaxWidth().background(NavBackground).navigationBarsPadding()) {
             Row(
                 modifier = Modifier.fillMaxWidth().height(78.dp).background(NavBackground),
-                horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment     = Alignment.CenterVertically
             ) {
                 AppTab.entries.forEach { tab ->
-                    BottomBarItem(tab = tab, selected = currentTab == tab, onClick = { onTabSelected(tab) })
+                    BottomBarItem(
+                        tab = tab,
+                        selected = currentTab == tab,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onTabSelected(tab) }
+                    )
                 }
             }
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(NavDivider).align(Alignment.TopCenter))
@@ -149,10 +153,10 @@ private fun AppBottomBar(currentTab: AppTab, onTabSelected: (AppTab) -> Unit) {
 }
 
 @Composable
-private fun BottomBarItem(tab: AppTab, selected: Boolean, onClick: () -> Unit) {
+private fun BottomBarItem(tab: AppTab, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val color = if (selected) NavActive else NavInactive
     Column(
-        modifier              = Modifier.width(76.dp).clickable(onClick = onClick).padding(top = 12.dp, bottom = 10.dp),
+        modifier              = modifier.fillMaxHeight().clickable(onClick = onClick).padding(top = 12.dp, bottom = 10.dp),
         horizontalAlignment   = Alignment.CenterHorizontally,
         verticalArrangement   = Arrangement.spacedBy(8.dp)
     ) {

@@ -28,11 +28,13 @@ class RoomTaskRepository(
 
     override fun getTasks(date: LocalDate): List<DailyTask> {
         ensureDate(date)
+        syncRecurringForDate(date)
         return dailyTaskDao.getByDate(date.toString()).map { it.toDomain() }
     }
 
     override fun getTask(date: LocalDate, taskId: String): DailyTask? {
         ensureDate(date)
+        syncRecurringForDate(date)
         return dailyTaskDao.getById(date.toString(), taskId)?.toDomain()
     }
 
@@ -47,9 +49,6 @@ class RoomTaskRepository(
     override fun toggleCompleted(date: LocalDate, taskId: String) {
         val current = getTask(date, taskId) ?: return
         dailyTaskDao.upsert(current.copy(isCompleted = !current.isCompleted).toEntity())
-        if (current.source != DailyTaskSource.RECURRING) {
-            resyncCarryOverFrom(date)
-        }
     }
 
     override fun toggleBig3(date: LocalDate, taskId: String) {
@@ -63,6 +62,13 @@ class RoomTaskRepository(
 
     override fun setSchedule(date: LocalDate, taskId: String, schedule: ScheduleBlock?) {
         val current = getTask(date, taskId) ?: return
+        val templateId = current.templateId
+        if (current.source == DailyTaskSource.RECURRING && templateId != null) {
+            val template = templateDao.getById(templateId)?.toDomain() ?: return
+            templateDao.upsert(template.copy(defaultSchedule = schedule).toEntity())
+            syncTemplateAcrossCachedDates(templateId)
+            return
+        }
         dailyTaskDao.upsert(current.copy(schedule = schedule).toEntity())
     }
 
@@ -75,7 +81,6 @@ class RoomTaskRepository(
             source = DailyTaskSource.ONE_OFF
         )
         dailyTaskDao.upsert(task.toEntity())
-        resyncCarryOverFrom(date)
         return task
     }
 
@@ -129,7 +134,6 @@ class RoomTaskRepository(
             schedule = input.schedule,
             source = when {
                 templateId != null -> DailyTaskSource.RECURRING
-                existing?.source == DailyTaskSource.CARRY_OVER -> DailyTaskSource.CARRY_OVER
                 else -> DailyTaskSource.ONE_OFF
             }
         )
@@ -138,7 +142,6 @@ class RoomTaskRepository(
         if (templateId != null) {
             syncTemplateAcrossCachedDates(templateId)
         }
-        resyncCarryOverFrom(input.date)
 
         return updated
     }
@@ -151,7 +154,6 @@ class RoomTaskRepository(
             templateDao.deleteById(existing.templateId)
             dailyTaskDao.deleteByTemplateId(existing.templateId)
         }
-        resyncCarryOverFrom(date)
     }
 
     private fun seedIfNeeded() {
@@ -172,6 +174,36 @@ class RoomTaskRepository(
         }
     }
 
+    private fun syncRecurringForDate(date: LocalDate) {
+        val dateIso = date.toString()
+        val existing = dailyTaskDao.getByDate(dateIso).map { it.toDomain() }
+        dailyTaskDao.deleteByDateAndSource(dateIso, DailyTaskSource.CARRY_OVER.name)
+        val existingByTemplateId = existing.mapNotNull { task ->
+            task.templateId?.let { templateId -> templateId to task }
+        }.toMap()
+        val templates = templateDao.getAll().map { it.toDomain() }
+        val activeTemplateIds = templates
+            .filter { it.occursOn(date.dayOfWeek) }
+            .map { it.id }
+            .toSet()
+
+        existing
+            .filter { it.source == DailyTaskSource.RECURRING && it.templateId !in activeTemplateIds }
+            .forEach { dailyTaskDao.deleteById(dateIso, it.id) }
+
+        templates
+            .filter { it.id in activeTemplateIds }
+            .forEach { template ->
+                val previous = existingByTemplateId[template.id]
+                dailyTaskDao.upsert(
+                    template.toDailyTask(date).copy(
+                        isCompleted = previous?.isCompleted ?: false,
+                        isBig3 = previous?.isBig3 ?: false
+                    ).toEntity()
+                )
+            }
+    }
+
     private fun syncTemplateAcrossCachedDates(templateId: String) {
         val template = templateDao.getById(templateId)?.toDomain() ?: return
         dailyTaskDao.getCachedDates().map(LocalDate::parse).forEach { date ->
@@ -190,57 +222,14 @@ class RoomTaskRepository(
         }
     }
 
-    private fun resyncCarryOverFrom(startDate: LocalDate) {
-        val cachedDates = dailyTaskDao.getCachedDates().map(LocalDate::parse).sorted()
-        cachedDates
-            .filter { it.isAfter(startDate) }
-            .forEach { date ->
-                val dateIso = date.toString()
-                val previousDateIso = date.minusDays(1).toString()
-                dailyTaskDao.deleteByDateAndSource(dateIso, DailyTaskSource.CARRY_OVER.name)
-                val previousTasks = dailyTaskDao.getByDate(previousDateIso).map { it.toDomain() }
-                val carryOvers = previousTasks
-                    .filter { it.source != DailyTaskSource.RECURRING && !it.isCompleted }
-                    .map { task ->
-                        task.copy(
-                            id = "carry-$date-${task.id}",
-                            date = date,
-                            isBig3 = false,
-                            isCompleted = false,
-                            schedule = null,
-                            source = DailyTaskSource.CARRY_OVER
-                        )
-                    }
-                if (carryOvers.isNotEmpty()) {
-                    dailyTaskDao.upsertAll(carryOvers.map { it.toEntity() })
-                }
-            }
-    }
-
     private fun buildPastTasks(date: LocalDate): List<DailyTask> {
         return templateDao.getAll().map { it.toDomain() }
             .mapNotNull { template -> if (template.occursOn(date.dayOfWeek)) template.toDailyTask(date) else null }
     }
 
     private fun buildFutureTasks(date: LocalDate): List<DailyTask> {
-        val previousDate = date.minusDays(1)
-        ensureDate(previousDate)
-        val previousDay = dailyTaskDao.getByDate(previousDate.toString()).map { it.toDomain() }
-        val recurring = templateDao.getAll().map { it.toDomain() }
+        return templateDao.getAll().map { it.toDomain() }
             .mapNotNull { template -> if (template.occursOn(date.dayOfWeek)) template.toDailyTask(date) else null }
-        val carryOvers = previousDay
-            .filter { it.source != DailyTaskSource.RECURRING && !it.isCompleted }
-            .map { task ->
-                task.copy(
-                    id = "carry-$date-${task.id}",
-                    date = date,
-                    isBig3 = false,
-                    isCompleted = false,
-                    schedule = null,
-                    source = DailyTaskSource.CARRY_OVER
-                )
-            }
-        return recurring + carryOvers
     }
 
     private fun seedTemplates(): List<TaskTemplate> = listOf(

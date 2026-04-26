@@ -602,7 +602,13 @@ private fun CompletionCircle(completed: Boolean, onClick: () -> Unit) {
 private fun OtherHabitsHeader(count: Int, expanded: Boolean, onToggle: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Divider))
-        Row(modifier = Modifier.clickable(onClick = onToggle), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .clickable(onClick = onToggle),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             if (expanded) ChevronUpIcon(TextMuted) else ChevronDownIcon(TextMuted)
             Spacer(Modifier.width(6.dp))
             Text("Other Habits", style = TextStyle(color = TextMuted, fontSize = 14.sp, lineHeight = 20.sp))

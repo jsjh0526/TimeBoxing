@@ -29,7 +29,6 @@ class TimeBoxingAppState(
 ) {
     private val templateProvider = repository as? TemplateProvider
 
-    // 섹션별 순서: date → sectionKey → ordered taskId list
     private val sectionOrderByDate = mutableMapOf<LocalDate, MutableMap<String, MutableList<String>>>()
 
     private val today: LocalDate get() = LocalDate.now()
@@ -105,16 +104,10 @@ class TimeBoxingAppState(
         refreshAll()
     }
 
-    /**
-     * 드래그 완료 시 순서 변경.
-     * [taskId]를 해당 섹션 내 [toIndex] 위치로 이동.
-     * TodoScreen의 DraggableSection이 drag end 시 한 번만 호출.
-     */
     fun reorderTodayTodoTask(taskId: String, toIndex: Int) {
         val sectionKey = inferSectionKey(taskId, todayTodoTasks) ?: return
         val sectionOrders = sectionOrderByDate.getOrPut(today) { mutableMapOf() }
 
-        // Fix: currentIds를 먼저 계산해서 getOrPut 람다와 이후 동기화 모두 재사용
         val currentIds = sectionTaskIds(sectionKey, todayTodoTasks)
         val order = sectionOrders.getOrPut(sectionKey) { currentIds.toMutableList() }
 
@@ -150,6 +143,11 @@ class TimeBoxingAppState(
 
     fun dismissEditor() { editorDraft = null }
 
+    fun goToToday() {
+        selectedDate = today
+        refreshSelectedDate()
+    }
+
     fun saveEditor() {
         val draft = editorDraft ?: return
         if (draft.title.isBlank()) return
@@ -180,8 +178,6 @@ class TimeBoxingAppState(
         refreshAll()
     }
 
-    // ── private ─────────────────────────────────────────────────────────────
-
     private fun refreshAll() { refreshToday(); refreshSelectedDate() }
 
     private fun refreshToday() {
@@ -189,7 +185,6 @@ class TimeBoxingAppState(
         todayTasks = fresh
         syncSectionOrders(today, fresh)
         todayTodoTasks = applyAllSectionOrders(today, fresh)
-        // Fix: getTemplates() 1번만 호출해서 recurrenceMap + otherHabits 동시 갱신
         refreshTemplateCache(today)
     }
 
@@ -197,11 +192,6 @@ class TimeBoxingAppState(
         selectedDateTasks = repository.getTasks(selectedDate)
     }
 
-    /**
-     * getTemplates()를 1번만 호출해서 recurrenceByTemplateId와 otherHabits를 동시에 갱신.
-     * 기존: refreshRecurrenceMap() + refreshOtherHabits() → getTemplates() 2번 호출
-     * 수정: refreshTemplateCache() → getTemplates() 1번 호출
-     */
     private fun refreshTemplateCache(date: LocalDate) {
         val templates = templateProvider?.getTemplates() ?: return
         recurrenceByTemplateId = templates.associate { it.id to it.recurrenceRule }
@@ -258,8 +248,6 @@ class TimeBoxingAppState(
         }
     }
 }
-
-// ── 확장 함수 (AppState 내부 전용) ──────────────────────────────────────────
 
 private fun TaskTemplate.toOtherHabitTask(date: LocalDate): DailyTask = DailyTask(
     id = "template-$id", templateId = id, date = date,

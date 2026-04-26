@@ -369,7 +369,16 @@ private fun EditorInput(value: String, onValueChange: (String) -> Unit, placehol
 
 @Composable
 private fun TagEditor(draft: TaskEditorDraft, onChange: (TaskEditorDraft) -> Unit) {
-    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Field).padding(horizontal = 8.dp, vertical = 8.dp)) {
+    val focusRequester = remember { FocusRequester() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Field)
+            .clickable { focusRequester.requestFocus() }
+            .padding(horizontal = 8.dp, vertical = 8.dp)
+    ) {
         Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             draft.tags.forEachIndexed { index, tag ->
                 Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(TagFill).border(0.7.dp, Accent.copy(alpha = 0.35f), RoundedCornerShape(6.dp)).padding(horizontal = 10.dp, vertical = 6.dp)) {
@@ -389,7 +398,7 @@ private fun TagEditor(draft: TaskEditorDraft, onChange: (TaskEditorDraft) -> Uni
                     if (v.isNotEmpty()) onChange(draft.copy(tags = draft.tags + v, tagInput = ""))
                 }),
                 textStyle = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.5.sp),
-                modifier  = Modifier.width(120.dp),
+                modifier  = Modifier.width(180.dp).focusRequester(focusRequester),
                 decorationBox = { inner ->
                     if (draft.tagInput.isEmpty()) Text("Add tag...", style = TextStyle(color = TextMuted, fontSize = 15.sp))
                     inner()
