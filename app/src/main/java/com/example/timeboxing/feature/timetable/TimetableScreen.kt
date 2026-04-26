@@ -94,6 +94,7 @@ private val CurrentLineHorizontalNudge     = (-0.7).dp
 private const val AxisWidth                = 52
 private const val SnapMinutes              = 15
 private const val MinimumBlockMinutes      = 15
+private const val DefaultDropDurationMinutes = 60
 
 private data class PositionedBlock(val task: DailyTask, val column: Int, val columnCount: Int)
 
@@ -107,6 +108,12 @@ private data class DragSession(
 
 private data class PreviewFrame(val topPx: Float, val heightPx: Float)
 
+private data class TrayDragSession(
+    val task: DailyTask,
+    val pointerYInRoot: Float,
+    val snappedSchedule: ScheduleBlock?
+)
+
 @Composable
 fun TimetableScreen(
     modifier: Modifier = Modifier,
@@ -116,6 +123,7 @@ fun TimetableScreen(
     showCurrentTime: Boolean,
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
+    onToday: () -> Unit,
     onOpenTask: (String) -> Unit,
     onMoveToUnscheduled: (String) -> Unit,
     onUpdateSchedule: (String, ScheduleBlock) -> Unit,
@@ -134,21 +142,84 @@ fun TimetableScreen(
 
     Column(modifier = modifier.fillMaxSize().background(ScreenBackground)) {
         TopHeader(currentTime = currentTime)
-        DateHeader(date = date, onPreviousDay = onPreviousDay, onNextDay = onNextDay)
+        DateHeader(date = date, showTodayButton = !showCurrentTime, onPreviousDay = onPreviousDay, onNextDay = onNextDay, onToday = onToday)
         if (readOnly) ReadOnlyNotice()
         BoxWithConstraints(modifier = Modifier.weight(1f).background(PanelBackground)) {
             val hourHeight = ((maxHeight - CollapsedTrayHeight).coerceAtLeast(1.dp)) / VisibleHours
+            val expandedTrayMaxHeight = minOf(ExpandedTrayHeight, maxHeight * 0.5f)
             val initialScrollHour = if (showCurrentTime) maxOf((currentMinute / 60) - 2, 0) else 13
+            val pixelsPerHour = with(density) { hourHeight.toPx() }
+            val edgeZonePx = with(density) { 56.dp.toPx() }
+            val maxAutoScrollStepPx = with(density) { 22.dp.toPx() }
+            var trayDragSession by remember { mutableStateOf<TrayDragSession?>(null) }
+
+            fun trayDropSchedule(pointerYInRoot: Float): ScheduleBlock? {
+                if (viewportHeightPx <= 0f || pixelsPerHour <= 0f) return null
+                val pointerYInViewport = pointerYInRoot - viewportTopInRootPx
+                if (pointerYInViewport !in 0f..viewportHeightPx) return null
+                val contentY = pointerYInViewport + scrollState.value
+                val snappedStart = minuteFromContentY(contentY, pixelsPerHour)
+                    .coerceIn(0, (24 * 60) - DefaultDropDurationMinutes)
+                return ScheduleBlock(
+                    startMinute = snappedStart,
+                    endMinute = snappedStart + DefaultDropDurationMinutes
+                )
+            }
+
+            fun updateTrayDrag(task: DailyTask, pointerYInRoot: Float) {
+                trayDragSession = TrayDragSession(
+                    task = task,
+                    pointerYInRoot = pointerYInRoot,
+                    snappedSchedule = trayDropSchedule(pointerYInRoot)
+                )
+            }
+
+            fun finishTrayDrag(taskId: String) {
+                val session = trayDragSession ?: return
+                trayDragSession = null
+                val schedule = session.snappedSchedule
+                if (session.task.id == taskId && schedule != null) {
+                    onUpdateSchedule(taskId, schedule)
+                }
+            }
 
             LaunchedEffect(date, showCurrentTime, hourHeight) {
                 val initialScrollPx = with(density) { (hourHeight * initialScrollHour.toFloat()).roundToPx() }
                 scrollState.scrollTo(initialScrollPx)
             }
 
+            LaunchedEffect(trayDragSession?.task?.id, viewportHeightPx) {
+                if (viewportHeightPx <= 0f) return@LaunchedEffect
+                while (true) {
+                    val session = trayDragSession ?: break
+                    if (session.snappedSchedule == null) {
+                        delay(16)
+                        continue
+                    }
+                    val pointerYInViewport = session.pointerYInRoot - viewportTopInRootPx
+                    val scrollDeltaPx = autoScrollDeltaPx(
+                        pointerYInViewport = pointerYInViewport,
+                        viewportHeightPx = viewportHeightPx,
+                        edgeZonePx = edgeZonePx,
+                        maxStepPx = maxAutoScrollStepPx
+                    )
+                    if (scrollDeltaPx != 0f) {
+                        scrollState.scrollBy(scrollDeltaPx)
+                        val latest = trayDragSession
+                        if (latest?.task?.id == session.task.id) {
+                            trayDragSession = latest.copy(
+                                snappedSchedule = trayDropSchedule(latest.pointerYInRoot)
+                            )
+                        }
+                    }
+                    delay(16)
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = if (trayExpanded) ExpandedTrayHeight else CollapsedTrayHeight)
+                    .padding(bottom = if (trayExpanded) expandedTrayMaxHeight else CollapsedTrayHeight)
                     .onSizeChanged { viewportHeightPx = it.height.toFloat() }
                     .onGloballyPositioned { viewportTopInRootPx = it.positionInRoot().y }
                     .verticalScroll(scrollState)
@@ -162,6 +233,8 @@ fun TimetableScreen(
                     scrollState = scrollState,
                     viewportHeightPx = viewportHeightPx,
                     viewportTopInRootPx = viewportTopInRootPx,
+                    trayPreviewTask = trayDragSession?.task,
+                    trayPreviewSchedule = trayDragSession?.snappedSchedule,
                     onOpenTask = onOpenTask,
                     onMoveToUnscheduled = onMoveToUnscheduled,
                     onUpdateSchedule = onUpdateSchedule
@@ -171,10 +244,14 @@ fun TimetableScreen(
                 tasks = unscheduled,
                 expanded = trayExpanded,
                 readOnly = readOnly,
+                maxExpandedHeight = expandedTrayMaxHeight,
                 modifier = Modifier.align(Alignment.BottomCenter),
                 onToggle = { trayExpanded = !trayExpanded },
                 onOpenTask = onOpenTask,
-                onAddTask = onAddTask
+                onAddTask = onAddTask,
+                onDragStart = { task, pointerYInRoot -> updateTrayDrag(task, pointerYInRoot) },
+                onDrag = { task, pointerYInRoot -> updateTrayDrag(task, pointerYInRoot) },
+                onDragEnd = { taskId -> finishTrayDrag(taskId) }
             )
         }
     }
@@ -190,6 +267,8 @@ private fun TimetableGrid(
     scrollState: ScrollState,
     viewportHeightPx: Float,
     viewportTopInRootPx: Float,
+    trayPreviewTask: DailyTask?,
+    trayPreviewSchedule: ScheduleBlock?,
     onOpenTask: (String) -> Unit,
     onMoveToUnscheduled: (String) -> Unit,
     onUpdateSchedule: (String, ScheduleBlock) -> Unit
@@ -347,6 +426,58 @@ private fun TimetableGrid(
                     }
                 }
             }
+
+            if (trayPreviewTask != null && trayPreviewSchedule != null) {
+                val previewFrame = trayPreviewSchedule.previewFrame(pixelsPerHour)
+                val top = with(density) { previewFrame.topPx.toDp() }
+                val height = with(density) { previewFrame.heightPx.toDp() }
+                val spacing = BlockHorizontalSpacing
+                Box(
+                    modifier = Modifier
+                        .padding(start = AxisWidth.dp + spacing, top = top)
+                        .width(contentWidth - spacing * 2)
+                        .height(height)
+                        .zIndex(20f)
+                ) {
+                    TrayDropPreviewCard(task = trayPreviewTask, schedule = trayPreviewSchedule)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrayDropPreviewCard(task: DailyTask, schedule: ScheduleBlock) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                scaleX = 1.01f
+                scaleY = 1.01f
+            }
+            .shadow(18.dp, RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF494962))
+            .border(1.4.dp, Accent, RoundedCornerShape(8.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        CompletionStub()
+        Text(
+            text = task.title,
+            modifier = Modifier.weight(1f),
+            style = TextStyle(color = TextPrimary, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = "${formatClock(schedule.startMinute)} - ${formatClock(schedule.endMinute)}",
+            style = TextStyle(color = Color.White.copy(alpha = 0.72f), fontSize = 10.sp, lineHeight = 14.sp, fontFamily = FontFamily.Monospace),
+            maxLines = 1
+        )
+        Box(modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(Color.Black.copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 3.dp)) {
+            Text(durationLabel(schedule.durationMinutes), style = TextStyle(color = TextPrimary.copy(alpha = 0.76f), fontSize = 10.sp, lineHeight = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium))
         }
     }
 }
@@ -363,7 +494,13 @@ private fun TopHeader(currentTime: LocalTime) {
 }
 
 @Composable
-private fun DateHeader(date: LocalDate, onPreviousDay: () -> Unit, onNextDay: () -> Unit) {
+private fun DateHeader(
+    date: LocalDate,
+    showTodayButton: Boolean,
+    onPreviousDay: () -> Unit,
+    onNextDay: () -> Unit,
+    onToday: () -> Unit
+) {
     Column(modifier = Modifier.fillMaxWidth().background(HeaderBackground)) {
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(GridLineHalf))
         Row(
@@ -374,10 +511,31 @@ private fun DateHeader(date: LocalDate, onPreviousDay: () -> Unit, onNextDay: ()
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")), style = TextStyle(color = TextPrimary, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold))
                 Text(date.format(DateTimeFormatter.ofPattern("EEEE", Locale.ENGLISH)), style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.3.sp))
+                if (showTodayButton) {
+                    TodayPill(onClick = onToday)
+                }
             }
             CircleArrow(direction = 1, onClick = onNextDay)
         }
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(GridLineHalf))
+    }
+}
+
+@Composable
+private fun TodayPill(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Accent.copy(alpha = 0.18f))
+            .border(0.7.dp, Accent.copy(alpha = 0.45f), RoundedCornerShape(999.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 3.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            "Today",
+            style = TextStyle(color = Accent, fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp)
+        )
     }
 }
 
@@ -760,13 +918,24 @@ private fun BottomTray(
     tasks: List<DailyTask>,
     expanded: Boolean,
     readOnly: Boolean,
+    maxExpandedHeight: Dp,
     modifier: Modifier = Modifier,
     onToggle: () -> Unit,
     onOpenTask: (String) -> Unit,
-    onAddTask: () -> Unit
+    onAddTask: () -> Unit,
+    onDragStart: (DailyTask, Float) -> Unit,
+    onDrag: (DailyTask, Float) -> Unit,
+    onDragEnd: (String) -> Unit
 ) {
-    Column(modifier = modifier.fillMaxWidth().background(Color(0xFF1E1E1E)).animateContentSize()) {
-        Box(modifier = Modifier.fillMaxWidth().height(2.dp).background(AxisBackground))
+    val trayScroll = rememberScrollState()
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (expanded) Modifier.heightIn(max = maxExpandedHeight) else Modifier)
+            .background(Color(0xFF1E1E1E))
+            .animateContentSize()
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth().height(44.dp).clickable(onClick = onToggle).padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
@@ -783,14 +952,40 @@ private fun BottomTray(
             ChevronUpIcon(TextSecondary, expanded = expanded)
         }
         if (expanded) {
-            Column(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .verticalScroll(trayScroll)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 if (tasks.isEmpty()) {
                     Text("All tasks are scheduled.", style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 18.sp))
                 } else {
                     tasks.forEach { task ->
+                        var itemTopInRootPx by remember(task.id) { mutableStateOf(0f) }
                         Row(
-                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF2A2A2A))
-                                .clickable(enabled = !readOnly) { onOpenTask(task.id) }.padding(horizontal = 14.dp, vertical = 14.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onGloballyPositioned { itemTopInRootPx = it.positionInRoot().y }
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF2A2A2A))
+                                .clickable(enabled = !readOnly) { onOpenTask(task.id) }
+                                .then(
+                                    if (readOnly) Modifier else Modifier.pointerInput(task.id, itemTopInRootPx) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart = { offset -> onDragStart(task, itemTopInRootPx + offset.y) },
+                                            onDragCancel = { onDragEnd(task.id) },
+                                            onDragEnd = { onDragEnd(task.id) },
+                                            onDrag = { change, _ ->
+                                                change.consume()
+                                                onDrag(task, itemTopInRootPx + change.position.y)
+                                            }
+                                        )
+                                    }
+                                )
+                                .padding(horizontal = 14.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(Accent.copy(alpha = 0.35f)))
@@ -870,6 +1065,11 @@ private fun ChevronUpIcon(color: Color, expanded: Boolean) {
 
 private fun snappedMinuteDelta(deltaPx: Float, pixelsPerHour: Float): Int {
     val rawSteps = ((deltaPx / pixelsPerHour) * 60f) / SnapMinutes
+    return rawSteps.roundToInt() * SnapMinutes
+}
+
+private fun minuteFromContentY(contentYPx: Float, pixelsPerHour: Float): Int {
+    val rawSteps = ((contentYPx / pixelsPerHour) * 60f) / SnapMinutes
     return rawSteps.roundToInt() * SnapMinutes
 }
 

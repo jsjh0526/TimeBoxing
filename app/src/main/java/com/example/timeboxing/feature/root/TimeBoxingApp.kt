@@ -107,6 +107,7 @@ fun TimeBoxingApp() {
                     showCurrentTime  = appState.selectedDate == LocalDate.now(),
                     onPreviousDay    = { appState.moveSelectedDateBy(-1) },
                     onNextDay        = { appState.moveSelectedDateBy(1) },
+                    onToday          = { appState.openTimetable() },
                     onOpenTask       = { appState.openTaskEditor(it, appState.selectedDate) },
                     onMoveToUnscheduled = { appState.moveToUnscheduled(it, appState.selectedDate) },
                     onUpdateSchedule = { taskId, schedule -> appState.updateSchedule(taskId, appState.selectedDate, schedule) },
