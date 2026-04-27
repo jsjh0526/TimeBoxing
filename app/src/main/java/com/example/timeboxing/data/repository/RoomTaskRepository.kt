@@ -11,6 +11,7 @@ import com.example.timeboxing.domain.model.RecurrenceType
 import com.example.timeboxing.domain.model.ScheduleBlock
 import com.example.timeboxing.domain.model.TaskEditInput
 import com.example.timeboxing.domain.model.TaskTemplate
+import com.example.timeboxing.domain.model.occursOn
 import com.example.timeboxing.domain.repository.TaskRepository
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -382,21 +383,6 @@ private fun TaskTemplate.toDailyTask(date: LocalDate): DailyTask = DailyTask(
     schedule = defaultSchedule,
     source = DailyTaskSource.RECURRING
 )
-
-private fun TaskTemplate.occursOn(dayOfWeek: DayOfWeek): Boolean {
-    val rule = recurrenceRule ?: return false
-    return when (rule.type) {
-        RecurrenceType.DAILY -> true
-        RecurrenceType.WEEKDAYS -> {
-            if (rule.repeatDays.isNotEmpty()) {
-                dayOfWeek in rule.repeatDays
-            } else {
-                dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
-            }
-        }
-        RecurrenceType.CUSTOM -> dayOfWeek in rule.repeatDays
-    }
-}
 
 private fun List<String>.serialize(): String = joinToString("|")
 private fun String.deserializeTags(): List<String> = if (isBlank()) emptyList() else split("|").filter { it.isNotBlank() }

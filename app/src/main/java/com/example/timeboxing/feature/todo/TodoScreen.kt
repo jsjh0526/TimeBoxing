@@ -60,6 +60,7 @@ import com.example.timeboxing.domain.model.DailyTask
 import com.example.timeboxing.domain.model.DailyTaskSource
 import com.example.timeboxing.domain.model.RecurrenceRule
 import com.example.timeboxing.domain.model.RecurrenceType
+import com.example.timeboxing.domain.model.occursOn
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
@@ -722,8 +723,3 @@ private fun dayShort(day: DayOfWeek): String = when (day) {
     DayOfWeek.SATURDAY  -> "Sat"; DayOfWeek.SUNDAY    -> "Sun"
 }
 
-private fun RecurrenceRule.occursOn(dayOfWeek: DayOfWeek): Boolean = when (type) {
-    RecurrenceType.DAILY    -> true
-    RecurrenceType.WEEKDAYS -> dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
-    RecurrenceType.CUSTOM   -> dayOfWeek in repeatDays
-}

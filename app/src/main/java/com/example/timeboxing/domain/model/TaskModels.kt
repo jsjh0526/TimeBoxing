@@ -15,6 +15,18 @@ data class RecurrenceRule(
     val repeatDays: Set<DayOfWeek> = emptySet()
 )
 
+fun RecurrenceRule.occursOn(dayOfWeek: DayOfWeek): Boolean = when (type) {
+    RecurrenceType.DAILY -> true
+    RecurrenceType.WEEKDAYS -> {
+        if (repeatDays.isNotEmpty()) {
+            dayOfWeek in repeatDays
+        } else {
+            dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+        }
+    }
+    RecurrenceType.CUSTOM -> dayOfWeek in repeatDays
+}
+
 data class ScheduleBlock(
     val startMinute: Int,
     val endMinute: Int,
@@ -38,6 +50,10 @@ data class TaskTemplate(
     val recurrenceRule: RecurrenceRule? = null,
     val defaultSchedule: ScheduleBlock? = null
 )
+
+fun TaskTemplate.occursOn(dayOfWeek: DayOfWeek): Boolean {
+    return recurrenceRule?.occursOn(dayOfWeek) ?: false
+}
 
 enum class DailyTaskSource {
     ONE_OFF,

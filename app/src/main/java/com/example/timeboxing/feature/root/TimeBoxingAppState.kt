@@ -14,6 +14,7 @@ import com.example.timeboxing.domain.model.RecurrenceType
 import com.example.timeboxing.domain.model.ScheduleBlock
 import com.example.timeboxing.domain.model.TaskEditInput
 import com.example.timeboxing.domain.model.TaskTemplate
+import com.example.timeboxing.domain.model.occursOn
 import com.example.timeboxing.domain.repository.TaskRepository
 import com.example.timeboxing.feature.editor.TaskEditorDraft
 import com.example.timeboxing.feature.editor.newTaskDraft
@@ -254,15 +255,6 @@ private fun TaskTemplate.toOtherHabitTask(date: LocalDate): DailyTask = DailyTas
     title = title, note = note, tags = tags, schedule = defaultSchedule,
     source = DailyTaskSource.RECURRING
 )
-
-private fun RecurrenceRule.occursOn(dayOfWeek: java.time.DayOfWeek): Boolean = when (type) {
-    RecurrenceType.DAILY    -> true
-    RecurrenceType.WEEKDAYS -> {
-        if (repeatDays.isNotEmpty()) dayOfWeek in repeatDays
-        else dayOfWeek !in setOf(java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY)
-    }
-    RecurrenceType.CUSTOM -> dayOfWeek in repeatDays
-}
 
 private fun TaskTemplate.toTemplateEditorDraft(date: LocalDate): TaskEditorDraft {
     val rule = recurrenceRule ?: RecurrenceRule(RecurrenceType.DAILY)

@@ -7,8 +7,8 @@ import com.example.timeboxing.domain.model.RecurrenceType
 import com.example.timeboxing.domain.model.ScheduleBlock
 import com.example.timeboxing.domain.model.TaskEditInput
 import com.example.timeboxing.domain.model.TaskTemplate
+import com.example.timeboxing.domain.model.occursOn
 import com.example.timeboxing.domain.repository.TaskRepository
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.UUID
 
@@ -266,19 +266,5 @@ class InMemoryTaskRepository(
         )
     }
 
-    private fun TaskTemplate.occursOn(dayOfWeek: DayOfWeek): Boolean {
-        val rule = recurrenceRule ?: return false
-        return when (rule.type) {
-            RecurrenceType.DAILY -> true
-            RecurrenceType.WEEKDAYS -> {
-                if (rule.repeatDays.isNotEmpty()) {
-                    dayOfWeek in rule.repeatDays
-                } else {
-                    dayOfWeek !in setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
-                }
-            }
-            RecurrenceType.CUSTOM -> dayOfWeek in rule.repeatDays
-        }
-    }
 }
 
