@@ -51,6 +51,8 @@ class TimeBoxingAppState(
         private set
     var otherHabits by mutableStateOf<List<DailyTask>>(emptyList())
         private set
+    var yesterdayIncompleteTasks by mutableStateOf<List<DailyTask>>(emptyList())
+        private set
 
     val currentTime: LocalTime get() = LocalTime.now()
 
@@ -149,6 +151,11 @@ class TimeBoxingAppState(
         refreshSelectedDate()
     }
 
+    fun carryOverYesterdayIncompleteTasks() {
+        repository.carryOverIncompleteTasks(today.minusDays(1), today)
+        refreshAll()
+    }
+
     fun saveEditor() {
         val draft = editorDraft ?: return
         if (draft.title.isBlank()) return
@@ -186,6 +193,13 @@ class TimeBoxingAppState(
         todayTasks = fresh
         syncSectionOrders(today, fresh)
         todayTodoTasks = applyAllSectionOrders(today, fresh)
+        yesterdayIncompleteTasks = repository.getTasks(today.minusDays(1))
+            .filter { task ->
+                task.source != DailyTaskSource.RECURRING &&
+                    !task.isCompleted &&
+                    task.title.isNotBlank()
+            }
+            .filterNot { task -> fresh.any { it.id == "carry-${task.id}-$today" } }
         refreshTemplateCache(today)
     }
 

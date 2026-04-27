@@ -16,5 +16,6 @@ interface TaskRepository {
     fun addTask(date: LocalDate, title: String): DailyTask
     fun upsertTask(input: TaskEditInput): DailyTask
     fun deleteTask(date: LocalDate, taskId: String)
+    fun carryOverIncompleteTasks(fromDate: LocalDate, toDate: LocalDate): Int
 }
 

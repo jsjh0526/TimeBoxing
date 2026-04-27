@@ -18,7 +18,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -40,6 +44,9 @@ import com.example.timeboxing.feature.home.HomeScreen
 import com.example.timeboxing.feature.settings.SettingsScreen
 import com.example.timeboxing.feature.timetable.TimetableScreen
 import com.example.timeboxing.feature.todo.TodoScreen
+import com.example.timeboxing.notification.ReminderScheduler
+import com.example.timeboxing.notification.ReminderSettings
+import com.example.timeboxing.notification.ReminderSettingsStore
 import java.time.LocalDate
 
 private val NavBackground = Color(0xFF1E1E1E)
@@ -58,6 +65,25 @@ fun TimeBoxingApp() {
         )
     }
     val appState = rememberTimeBoxingAppState(repository)
+    val reminderSettingsStore = remember(context) { ReminderSettingsStore(context) }
+    var reminderSettings by remember { mutableStateOf(reminderSettingsStore.read()) }
+
+    fun updateReminderSettings(next: ReminderSettings) {
+        reminderSettingsStore.write(next)
+        reminderSettings = next
+        ReminderScheduler.createChannels(context)
+        if (!next.notificationsEnabled) ReminderScheduler.cancelAll(context)
+    }
+
+    LaunchedEffect(appState.todayTasks, reminderSettings) {
+        ReminderScheduler.syncTasks(context, LocalDate.now(), appState.todayTasks, reminderSettings)
+    }
+
+    LaunchedEffect(appState.selectedDate, appState.selectedDateTasks, reminderSettings) {
+        if (appState.selectedDate != LocalDate.now()) {
+            ReminderScheduler.syncTasks(context, appState.selectedDate, appState.selectedDateTasks, reminderSettings)
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -90,8 +116,10 @@ fun TimeBoxingApp() {
                     date                    = LocalDate.now(),
                     recurrenceByTemplateId  = appState.recurrenceByTemplateId,
                     otherHabits             = appState.otherHabits,
+                    yesterdayIncompleteTasks = appState.yesterdayIncompleteTasks,
                     onQuickAddTask          = { appState.quickAddTask(it, LocalDate.now()) },
                     onOpenAddTaskEditor     = { appState.openNewTaskEditor(date = LocalDate.now(), initialTitle = it) },
+                    onCarryOverYesterday    = appState::carryOverYesterdayIncompleteTasks,
                     onToggleBig3            = appState::toggleBig3,
                     onToggleComplete        = { appState.toggleCompleted(it, LocalDate.now()) },
                     onOpenTask              = { appState.openTaskEditor(it, LocalDate.now()) },
@@ -114,7 +142,11 @@ fun TimeBoxingApp() {
                     onAddTask           = { appState.openNewTaskEditor(appState.selectedDate) }
                 )
 
-                AppTab.SETTINGS -> SettingsScreen(modifier = contentModifier)
+                AppTab.SETTINGS -> SettingsScreen(
+                    modifier = contentModifier,
+                    reminderSettings = reminderSettings,
+                    onReminderSettingsChange = ::updateReminderSettings
+                )
             }
         }
 

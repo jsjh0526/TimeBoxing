@@ -181,6 +181,37 @@ class InMemoryTaskRepository(
         }
     }
 
+    override fun carryOverIncompleteTasks(fromDate: LocalDate, toDate: LocalDate): Int {
+        ensureDate(fromDate)
+        ensureDate(toDate)
+        syncRecurringForDate(fromDate)
+        syncRecurringForDate(toDate)
+        val carried = tasksByDate.getValue(fromDate)
+            .filter { task ->
+                task.source != DailyTaskSource.RECURRING &&
+                    !task.isCompleted &&
+                    task.title.isNotBlank()
+            }
+            .map { task ->
+                task.copy(
+                    id = "carry-${task.id}-$toDate",
+                    templateId = null,
+                    date = toDate,
+                    isBig3 = false,
+                    isCompleted = false,
+                    schedule = null,
+                    source = DailyTaskSource.CARRY_OVER
+                )
+            }
+        val current = tasksByDate.getValue(toDate).toMutableList()
+        carried.forEach { task ->
+            val index = current.indexOfFirst { it.id == task.id }
+            if (index >= 0) current[index] = task else current.add(task)
+        }
+        tasksByDate[toDate] = current
+        return carried.size
+    }
+
     private fun syncTemplateAcrossCachedDates(templateId: String) {
         val template = templates[templateId] ?: return
         tasksByDate.keys.toList().forEach { date ->
@@ -204,7 +235,6 @@ class InMemoryTaskRepository(
 
     private fun syncRecurringForDate(date: LocalDate) {
         val current = tasksByDate.getValue(date).toMutableList()
-        current.removeAll { it.source == DailyTaskSource.CARRY_OVER }
         val existingByTemplateId = current.mapNotNull { task ->
             task.templateId?.let { templateId -> templateId to task }
         }.toMap()

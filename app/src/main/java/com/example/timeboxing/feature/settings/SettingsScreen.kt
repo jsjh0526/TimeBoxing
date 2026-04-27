@@ -1,4 +1,4 @@
-﻿package com.example.timeboxing.feature.settings
+package com.example.timeboxing.feature.settings
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -21,10 +21,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +34,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.timeboxing.notification.ReminderSettings
 
 private val ScreenBackground = Color(0xFF121212)
 private val CardBackground = Color(0xFF1E1E1E)
@@ -47,17 +44,13 @@ private val Green = Color(0xFF7AE582)
 private val TextPrimary = Color.White
 private val TextSecondary = Color(0xFF6A7282)
 private val ButtonText = Color(0xFFD1D5DC)
-private val InnerBackground = Color(0xFF2A2A2A)
 
 @Composable
 fun SettingsScreen(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    reminderSettings: ReminderSettings,
+    onReminderSettingsChange: (ReminderSettings) -> Unit
 ) {
-    var taskStartAlert by remember { mutableStateOf(true) }
-    var taskEndAlert by remember { mutableStateOf(true) }
-    var alertSound by remember { mutableStateOf(true) }
-    var autoSync by remember { mutableStateOf(true) }
-
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -89,64 +82,66 @@ fun SettingsScreen(
                 icon = { BellIcon(Accent) }
             ) {
                 ToggleRow(
-                    title = "Task Start Alert",
-                    subtitle = "Notify when a task begins",
-                    checked = taskStartAlert,
-                    onToggle = { taskStartAlert = it }
+                    title = "Notifications",
+                    subtitle = "Allow alerts for time blocks",
+                    checked = reminderSettings.notificationsEnabled,
+                    onToggle = { onReminderSettingsChange(reminderSettings.copy(notificationsEnabled = it)) }
                 )
                 ToggleRow(
-                    title = "Task End Alert",
-                    subtitle = "Notify when a task ends",
-                    checked = taskEndAlert,
-                    onToggle = { taskEndAlert = it }
+                    title = "Sound",
+                    subtitle = "Play sound when a reminder fires",
+                    checked = reminderSettings.soundEnabled,
+                    enabled = reminderSettings.notificationsEnabled,
+                    onToggle = { onReminderSettingsChange(reminderSettings.copy(soundEnabled = it)) }
                 )
                 ToggleRow(
-                    title = "Alert Sound",
-                    subtitle = "Play sound with notifications",
-                    checked = alertSound,
-                    onToggle = { alertSound = it },
+                    title = "Vibration",
+                    subtitle = "Vibrate with reminders",
+                    checked = reminderSettings.vibrationEnabled,
+                    enabled = reminderSettings.notificationsEnabled,
+                    onToggle = { onReminderSettingsChange(reminderSettings.copy(vibrationEnabled = it)) },
                     showDivider = false
                 )
             }
         }
         item {
             SectionCard(
-                title = "Data & Sync",
+                title = "Data Management",
                 icon = { StackIcon(Green) }
             ) {
-                SignedInCard()
-                Spacer(modifier = Modifier.height(16.dp))
-                Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(CardBorder))
-                Spacer(modifier = Modifier.height(16.dp))
-                ToggleRow(
-                    title = "Auto Sync",
-                    subtitle = "Sync data automatically",
-                    checked = autoSync,
-                    onToggle = { autoSync = it },
-                    showDivider = false,
-                    horizontalPadding = 0.dp
-                )
-                Spacer(modifier = Modifier.height(20.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(start = 4.dp)) {
                     Text(
-                        text = "Last Sync",
+                        text = "Local data tools",
                         style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium)
                     )
                     Text(
-                        text = "Never synced",
+                        text = "Cleanup and reset controls will live here.",
                         style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp)
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                ActionButton(label = "Sync Now", filled = true, icon = { SyncIcon(Color.White) })
-                Spacer(modifier = Modifier.height(12.dp))
-                ActionButton(label = "Sign Out", filled = false, icon = { LogoutIcon(ButtonText) })
+                ActionButton(label = "Coming Soon", filled = false, icon = { StackIcon(ButtonText) })
+            }
+        }
+        item {
+            SectionCard(
+                title = "App Info",
+                icon = { InfoIcon(Accent) }
+            ) {
+                ToggleRow(
+                    title = "Local First",
+                    subtitle = "Tasks are stored on this device",
+                    checked = true,
+                    enabled = false,
+                    onToggle = {},
+                    showDivider = false
+                )
             }
         }
         item {
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
                 Text(
-                    text = "Harvard Timeboxing v1.0.0",
+                    text = "TimeBoxing v1.0.0",
                     style = TextStyle(color = Color(0xFF4A5565), fontSize = 12.sp, lineHeight = 18.sp)
                 )
             }
@@ -197,12 +192,14 @@ private fun ToggleRow(
     checked: Boolean,
     onToggle: (Boolean) -> Unit,
     showDivider: Boolean = true,
-    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp
+    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
+    enabled: Boolean = true
 ) {
     Column {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable(enabled = enabled) { onToggle(!checked) }
                 .padding(horizontal = horizontalPadding),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -217,7 +214,7 @@ private fun ToggleRow(
                     style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp)
                 )
             }
-            TogglePill(checked = checked, onToggle = onToggle)
+            TogglePill(checked = checked, enabled = enabled, onToggle = onToggle)
         }
         if (showDivider) {
             Spacer(modifier = Modifier.height(14.dp))
@@ -228,14 +225,14 @@ private fun ToggleRow(
 }
 
 @Composable
-private fun TogglePill(checked: Boolean, onToggle: (Boolean) -> Unit) {
+private fun TogglePill(checked: Boolean, enabled: Boolean, onToggle: (Boolean) -> Unit) {
     Box(
         modifier = Modifier
             .width(44.dp)
             .height(24.dp)
             .clip(RoundedCornerShape(999.dp))
-            .background(if (checked) Accent else Color(0xFF4A4A4A))
-            .clickable { onToggle(!checked) }
+            .background(if (checked && enabled) Accent else Color(0xFF4A4A4A))
+            .clickable(enabled = enabled) { onToggle(!checked) }
             .padding(horizontal = 4.dp, vertical = 4.dp),
         contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart
     ) {
@@ -245,40 +242,6 @@ private fun TogglePill(checked: Boolean, onToggle: (Boolean) -> Unit) {
                 .clip(CircleShape)
                 .background(Color.White)
         )
-    }
-}
-
-@Composable
-private fun SignedInCard() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(72.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(InnerBackground)
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(Accent),
-            contentAlignment = Alignment.Center
-        ) {
-            UserIcon(Color.White)
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = "Signed in as",
-                style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 13.sp)
-            )
-            Text(
-                text = "demo@timeboxing.app",
-                style = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.5.sp, fontWeight = FontWeight.Medium)
-            )
-        }
     }
 }
 
@@ -340,31 +303,11 @@ private fun StackIcon(color: Color) {
 }
 
 @Composable
-private fun UserIcon(color: Color) {
-    Canvas(modifier = Modifier.size(24.dp)) {
-        val stroke = 1.8.dp.toPx()
-        drawCircle(color = color, radius = size.minDimension * 0.18f, center = Offset(size.width * 0.5f, size.height * 0.32f), style = Stroke(width = stroke))
-        drawArc(color = color, startAngle = 200f, sweepAngle = 140f, useCenter = false, topLeft = Offset(size.width * 0.23f, size.height * 0.42f), size = Size(size.width * 0.54f, size.height * 0.36f), style = Stroke(width = stroke, cap = StrokeCap.Round))
-    }
-}
-
-@Composable
-private fun SyncIcon(color: Color) {
-    Canvas(modifier = Modifier.size(16.dp)) {
-        val stroke = 1.7.dp.toPx()
-        drawArc(color = color, startAngle = 50f, sweepAngle = 220f, useCenter = false, topLeft = Offset(size.width * 0.1f, size.height * 0.1f), size = Size(size.width * 0.8f, size.height * 0.8f), style = Stroke(width = stroke, cap = StrokeCap.Round))
-        drawLine(color, Offset(size.width * 0.72f, size.height * 0.15f), Offset(size.width * 0.85f, size.height * 0.12f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.72f, size.height * 0.15f), Offset(size.width * 0.78f, size.height * 0.28f), stroke, StrokeCap.Round)
-    }
-}
-
-@Composable
-private fun LogoutIcon(color: Color) {
-    Canvas(modifier = Modifier.size(16.dp)) {
-        val stroke = 1.6.dp.toPx()
-        drawRect(color = color, topLeft = Offset(size.width * 0.18f, size.height * 0.2f), size = Size(size.width * 0.34f, size.height * 0.6f), style = Stroke(width = stroke))
-        drawLine(color, Offset(size.width * 0.46f, size.height * 0.5f), Offset(size.width * 0.84f, size.height * 0.5f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.66f, size.height * 0.32f), Offset(size.width * 0.84f, size.height * 0.5f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.66f, size.height * 0.68f), Offset(size.width * 0.84f, size.height * 0.5f), stroke, StrokeCap.Round)
+private fun InfoIcon(color: Color) {
+    Canvas(modifier = Modifier.size(18.dp)) {
+        val stroke = 1.5.dp.toPx()
+        drawCircle(color = color, radius = size.minDimension * 0.38f, center = center, style = Stroke(width = stroke))
+        drawLine(color, Offset(center.x, size.height * 0.44f), Offset(center.x, size.height * 0.68f), stroke, StrokeCap.Round)
+        drawCircle(color = color, radius = 1.3.dp.toPx(), center = Offset(center.x, size.height * 0.3f))
     }
 }

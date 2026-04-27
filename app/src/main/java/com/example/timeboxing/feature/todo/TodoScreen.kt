@@ -102,9 +102,11 @@ fun TodoScreen(
     tasks: List<DailyTask>,
     date: LocalDate,
     otherHabits: List<DailyTask> = emptyList(),
+    yesterdayIncompleteTasks: List<DailyTask> = emptyList(),
     recurrenceByTemplateId: Map<String, RecurrenceRule?> = emptyMap(),
     onQuickAddTask: (String) -> Unit,
     onOpenAddTaskEditor: (String) -> Unit,
+    onCarryOverYesterday: () -> Unit,
     onToggleBig3: (String) -> Unit,
     onToggleComplete: (String) -> Unit,
     onOpenTask: (String) -> Unit,
@@ -112,6 +114,7 @@ fun TodoScreen(
     onReorderTask: (String, Int) -> Unit
 ) {
     var otherHabitsExpanded by remember { mutableStateOf(false) }
+    var yesterdayExpanded by remember { mutableStateOf(false) }
     // Disable LazyColumn scrolling while any section is being dragged.
     var globalDragging by remember { mutableStateOf(false) }
 
@@ -137,6 +140,17 @@ fun TodoScreen(
         }
         item { Spacer(Modifier.height(HEADER_GAP)) }
         item { InputRow(onQuickAddTask = onQuickAddTask, onOpenAddTaskEditor = onOpenAddTaskEditor) }
+        if (yesterdayIncompleteTasks.isNotEmpty()) {
+            item { Spacer(Modifier.height(HEADER_GAP)) }
+            item {
+                YesterdayIncompleteSection(
+                    tasks = yesterdayIncompleteTasks,
+                    expanded = yesterdayExpanded,
+                    onToggle = { yesterdayExpanded = !yesterdayExpanded },
+                    onCarryOver = onCarryOverYesterday
+                )
+            }
+        }
 
         // TODAY'S BIG 3
         item { Spacer(Modifier.height(SECTION_GAP)) }
@@ -393,6 +407,97 @@ private fun InputRow(onQuickAddTask: (String) -> Unit, onOpenAddTaskEditor: (Str
                 .clickable { val t = input.trim(); onOpenAddTaskEditor(t); if (t.isNotEmpty()) input = "" },
             contentAlignment = Alignment.Center
         ) { PlusIcon(Color.White) }
+    }
+}
+
+@Composable
+private fun YesterdayIncompleteSection(
+    tasks: List<DailyTask>,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onCarryOver: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(CARD_RADIUS))
+            .background(CardBackground)
+            .border(0.7.dp, Divider, RoundedCornerShape(CARD_RADIUS))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clickable(onClick = onToggle)
+                .padding(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(Accent))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "YESTERDAY LEFTOVER",
+                    style = TextStyle(color = Accent, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.4.sp)
+                )
+                Spacer(Modifier.width(8.dp))
+                CountPill(tasks.size)
+            }
+            if (expanded) ChevronUpIcon(TextSecondary) else ChevronDownIcon(TextSecondary)
+        }
+        if (expanded) {
+            Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(Divider))
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                tasks.forEach { task ->
+                    YesterdayTaskPreview(task)
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Accent)
+                        .clickable(onClick = onCarryOver),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Move all to today",
+                        style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun YesterdayTaskPreview(task: DailyTask) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(9.dp))
+            .background(Color.Black.copy(alpha = 0.12f))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.size(13.dp).clip(CircleShape).border(1.4.dp, TextSecondary, CircleShape))
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                task.title,
+                style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (task.tags.isNotEmpty()) {
+                Text(
+                    task.tags.take(3).joinToString("  ") { "#$it" },
+                    style = TextStyle(color = TextSecondary, fontSize = 11.sp, lineHeight = 15.sp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 

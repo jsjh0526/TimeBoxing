@@ -157,6 +157,37 @@ class RoomTaskRepository(
         }
     }
 
+    override fun carryOverIncompleteTasks(fromDate: LocalDate, toDate: LocalDate): Int {
+        ensureDate(fromDate)
+        ensureDate(toDate)
+        syncRecurringForDate(fromDate)
+        syncRecurringForDate(toDate)
+
+        val carried = dailyTaskDao.getByDate(fromDate.toString())
+            .map { it.toDomain() }
+            .filter { task ->
+                task.source != DailyTaskSource.RECURRING &&
+                    !task.isCompleted &&
+                    task.title.isNotBlank()
+            }
+            .map { task ->
+                task.copy(
+                    id = "carry-${task.id}-$toDate",
+                    templateId = null,
+                    date = toDate,
+                    isBig3 = false,
+                    isCompleted = false,
+                    schedule = null,
+                    source = DailyTaskSource.CARRY_OVER
+                )
+            }
+
+        if (carried.isNotEmpty()) {
+            dailyTaskDao.upsertAll(carried.map { it.toEntity() })
+        }
+        return carried.size
+    }
+
     private fun seedIfNeeded() {
         if (templateDao.count() > 0 || dailyTaskDao.count() > 0) return
         templateDao.upsertAll(seedTemplates().map { it.toEntity() })
@@ -178,7 +209,6 @@ class RoomTaskRepository(
     private fun syncRecurringForDate(date: LocalDate) {
         val dateIso = date.toString()
         val existing = dailyTaskDao.getByDate(dateIso).map { it.toDomain() }
-        dailyTaskDao.deleteByDateAndSource(dateIso, DailyTaskSource.CARRY_OVER.name)
         val existingByTemplateId = existing.mapNotNull { task ->
             task.templateId?.let { templateId -> templateId to task }
         }.toMap()
