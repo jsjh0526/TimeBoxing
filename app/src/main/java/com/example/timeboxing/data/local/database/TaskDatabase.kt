@@ -19,20 +19,24 @@ abstract class TaskDatabase : RoomDatabase() {
     abstract fun dailyTaskDao(): DailyTaskDao
 
     companion object {
-        @Volatile
-        private var instance: TaskDatabase? = null
+        private val instances = mutableMapOf<String, TaskDatabase>()
 
-        fun get(context: Context): TaskDatabase {
-            return instance ?: synchronized(this) {
-                instance ?: Room.databaseBuilder(
+        fun get(context: Context, userId: String): TaskDatabase {
+            val key = userId
+                .ifBlank { "unknown_user" }
+                .replace(Regex("[^a-zA-Z0-9_]"), "_")
+                .take(64)
+
+            return instances[key] ?: synchronized(this) {
+                instances[key] ?: Room.databaseBuilder(
                     context.applicationContext,
                     TaskDatabase::class.java,
-                    "timeboxing.db"
+                    "timeboxing_$key.db"
                 )
-                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigration(dropAllTables = true)
                     .allowMainThreadQueries()
                     .build()
-                    .also { instance = it }
+                    .also { instances[key] = it }
             }
         }
     }

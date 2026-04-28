@@ -14,6 +14,9 @@ interface DailyTaskDao {
     @Query("SELECT * FROM daily_tasks WHERE dateIso = :dateIso AND id = :taskId LIMIT 1")
     fun getById(dateIso: String, taskId: String): DailyTaskEntity?
 
+    @Query("SELECT * FROM daily_tasks ORDER BY dateIso")
+    fun getAll(): List<DailyTaskEntity>
+
     @Query("SELECT DISTINCT dateIso FROM daily_tasks ORDER BY dateIso")
     fun getCachedDates(): List<String>
 

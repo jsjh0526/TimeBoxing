@@ -28,10 +28,7 @@ import java.util.Locale
 class TimeBoxingAppState(
     private val repository: TaskRepository
 ) {
-    private val templateProvider = repository as? TemplateProvider
-
     private val sectionOrderByDate = mutableMapOf<LocalDate, MutableMap<String, MutableList<String>>>()
-
     private val today: LocalDate get() = LocalDate.now()
 
     var currentTab        by mutableStateOf(AppTab.HOME)
@@ -58,6 +55,7 @@ class TimeBoxingAppState(
 
     init {
         refreshTemplateCache(today)
+        refreshYesterdayIncomplete()
     }
 
     fun selectTab(tab: AppTab) {
@@ -78,6 +76,11 @@ class TimeBoxingAppState(
 
     fun moveSelectedDateBy(days: Long) {
         selectedDate = selectedDate.plusDays(days)
+        refreshSelectedDate()
+    }
+
+    fun goToToday() {
+        selectedDate = today
         refreshSelectedDate()
     }
 
@@ -110,18 +113,20 @@ class TimeBoxingAppState(
     fun reorderTodayTodoTask(taskId: String, toIndex: Int) {
         val sectionKey = inferSectionKey(taskId, todayTodoTasks) ?: return
         val sectionOrders = sectionOrderByDate.getOrPut(today) { mutableMapOf() }
-
         val currentIds = sectionTaskIds(sectionKey, todayTodoTasks)
         val order = sectionOrders.getOrPut(sectionKey) { currentIds.toMutableList() }
-
         currentIds.forEach { id -> if (id !in order) order.add(id) }
         order.removeAll { it !in currentIds }
-
         if (taskId !in order) return
         order.remove(taskId)
         order.add(toIndex.coerceIn(0, order.size), taskId)
-
         todayTodoTasks = applyAllSectionOrders(today, todayTasks)
+    }
+
+    fun carryOverYesterdayIncompleteTasks() {
+        val yesterday = today.minusDays(1)
+        repository.carryOverIncompleteTasks(fromDate = yesterday, toDate = today)
+        refreshAll()
     }
 
     fun openNewTaskEditor(date: LocalDate = today, initialTitle: String = "") {
@@ -145,16 +150,6 @@ class TimeBoxingAppState(
     }
 
     fun dismissEditor() { editorDraft = null }
-
-    fun goToToday() {
-        selectedDate = today
-        refreshSelectedDate()
-    }
-
-    fun carryOverYesterdayIncompleteTasks() {
-        repository.carryOverIncompleteTasks(today.minusDays(1), today)
-        refreshAll()
-    }
 
     fun saveEditor() {
         val draft = editorDraft ?: return
@@ -186,21 +181,18 @@ class TimeBoxingAppState(
         refreshAll()
     }
 
-    private fun refreshAll() { refreshToday(); refreshSelectedDate() }
+    // ── Fix 3: public으로 변경 → pull 완료 후 TimeBoxingApp에서 호출 가능 ─────
+    fun refreshAll() { refreshToday(); refreshSelectedDate() }
+
+    // ── private ─────────────────────────────────────────────────────────────
 
     private fun refreshToday() {
         val fresh = repository.getTasks(today)
         todayTasks = fresh
         syncSectionOrders(today, fresh)
         todayTodoTasks = applyAllSectionOrders(today, fresh)
-        yesterdayIncompleteTasks = repository.getTasks(today.minusDays(1))
-            .filter { task ->
-                task.source != DailyTaskSource.RECURRING &&
-                    !task.isCompleted &&
-                    task.title.isNotBlank()
-            }
-            .filterNot { task -> fresh.any { it.id == "carry-${task.id}-$today" } }
         refreshTemplateCache(today)
+        refreshYesterdayIncomplete()
     }
 
     private fun refreshSelectedDate() {
@@ -208,15 +200,19 @@ class TimeBoxingAppState(
     }
 
     private fun refreshTemplateCache(date: LocalDate) {
-        val templates = templateProvider?.getTemplates() ?: return
+        val templateProvider = repository as? TemplateProvider ?: return
+        val templates = templateProvider.getTemplates()
         recurrenceByTemplateId = templates.associate { it.id to it.recurrenceRule }
         otherHabits = templates
-            .filter { template ->
-                val rule = template.recurrenceRule
-                rule != null && !rule.occursOn(date.dayOfWeek)
-            }
+            .filter { template -> template.recurrenceRule?.occursOn(date.dayOfWeek) == false }
             .sortedBy { it.title }
             .map { it.toOtherHabitTask(date) }
+    }
+
+    private fun refreshYesterdayIncomplete() {
+        val yesterday = today.minusDays(1)
+        yesterdayIncompleteTasks = repository.getTasks(yesterday)
+            .filter { task -> !task.isCompleted && task.source != DailyTaskSource.RECURRING }
     }
 
     private fun syncSectionOrders(date: LocalDate, tasks: List<DailyTask>) {
@@ -233,7 +229,6 @@ class TimeBoxingAppState(
         val sectionOrders = sectionOrderByDate[date]
         val taskById = tasks.associateBy { it.id }
         val result   = mutableListOf<DailyTask>()
-
         listOf("big3", "brainDump", "recurring").forEach { key ->
             val ids     = sectionTaskIds(key, tasks)
             val order   = sectionOrders?.get(key) ?: ids
@@ -241,7 +236,6 @@ class TimeBoxingAppState(
             val ordered = order.filter { it in idSet } + ids.filter { it !in order.toSet() }
             result += ordered.mapNotNull { taskById[it] }
         }
-
         val included = result.map { it.id }.toSet()
         result += tasks.filter { it.id !in included }
         return result
