@@ -1,6 +1,11 @@
 package com.example.timeboxing.feature.home
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -84,51 +89,61 @@ fun HomeScreen(
     onAddTask: () -> Unit,
     onNotificationsClick: () -> Unit = {}
 ) {
-    var big3Expanded by rememberSaveable { mutableStateOf(true) }
+    var big3Expanded        by rememberSaveable { mutableStateOf(true) }
     var unscheduledExpanded by rememberSaveable { mutableStateOf(false) }
+    var showNotificationPanel by rememberSaveable { mutableStateOf(false) }
+
     val liveTime by produceState(initialValue = currentTime) {
-        while (true) {
-            value = LocalTime.now()
-            delay(1000)
-        }
+        while (true) { value = LocalTime.now(); delay(1000) }
     }
 
     val currentMinute = liveTime.hour * 60 + liveTime.minute
-    val scheduled     = tasks.filter { it.schedule != null }.sortedBy { it.schedule!!.startMinute }
-    val unscheduled   = tasks.filter { it.schedule == null && it.source != DailyTaskSource.RECURRING }
-    val currentTask   = scheduled.firstOrNull { currentMinute in it.schedule!!.startMinute until it.schedule!!.endMinute }
-    val nextTask      = scheduled.firstOrNull { it.schedule!!.startMinute > currentMinute }
-    val big3          = tasks.filter { it.isBig3 }.take(3)
-    val upcoming      = scheduled
-        .filter { task ->
-            task.schedule!!.startMinute > currentMinute &&
-                task.schedule!!.startMinute < currentMinute + (6 * 60)
-        }
-        .take(5)
+    val scheduled   = tasks.filter { it.schedule != null }.sortedBy { it.schedule!!.startMinute }
+    val unscheduled = tasks.filter { it.schedule == null && it.source != DailyTaskSource.RECURRING }
+    val currentTask = scheduled.firstOrNull { currentMinute in it.schedule!!.startMinute until it.schedule!!.endMinute }
+    val nextTask    = scheduled.firstOrNull { it.schedule!!.startMinute > currentMinute }
+    val big3        = tasks.filter { it.isBig3 }.take(3)
+    val upcoming    = scheduled.filter { task ->
+        task.schedule!!.startMinute > currentMinute && task.schedule!!.startMinute < currentMinute + (6 * 60)
+    }.take(5)
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize().background(ScreenBackground),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        item { HomeHeader(date, liveTime, tasks.count { it.isCompleted }, tasks.size, onNotificationsClick) }
-        item {
-            NowCard(
-                task = currentTask, currentMinute = currentMinute,
-                onOpenTask     = { currentTask?.let { onOpenTask(it.id) } },
-                onMarkComplete = { currentTask?.let { onMarkTaskComplete(it.id) } }
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().background(ScreenBackground),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            item { HomeHeader(date, liveTime, tasks.count { it.isCompleted }, tasks.size, onNotificationsClick = { showNotificationPanel = true }) }
+            item {
+                NowCard(
+                    task = currentTask, currentMinute = currentMinute,
+                    onOpenTask     = { currentTask?.let { onOpenTask(it.id) } },
+                    onMarkComplete = { currentTask?.let { onMarkTaskComplete(it.id) } }
+                )
+            }
+            nextTask?.let { item { UpNextCard(it) } }
+            item { Big3Card(big3, big3Expanded, { big3Expanded = !big3Expanded }, onOpenTask, onMarkTaskComplete) }
+            item { UpcomingCard(upcoming, onOpenTask) }
+            if (unscheduled.isNotEmpty()) {
+                item { UnscheduledCard(unscheduled, unscheduledExpanded, { unscheduledExpanded = !unscheduledExpanded }, onOpenTask, onMarkTaskComplete) }
+            }
+            item { PrimaryButton("Open Timetable", onOpenTimetable) }
+            item { SecondaryButton("Add New Task", onAddTask) }
+        }
+
+        // 알림 패널 오버레이
+        AnimatedVisibility(
+            visible = showNotificationPanel,
+            enter   = fadeIn() + slideInVertically(initialOffsetY = { it }),
+            exit    = fadeOut() + slideOutVertically(targetOffsetY = { it })
+        ) {
+            NotificationPanel(
+                tasks         = tasks,
+                currentMinute = currentMinute,
+                onDismiss     = { showNotificationPanel = false },
+                onOpenTask    = { id -> showNotificationPanel = false; onOpenTask(id) }
             )
         }
-        nextTask?.let { item { UpNextCard(it) } }
-        item { Big3Card(big3, big3Expanded, { big3Expanded = !big3Expanded }, onOpenTask, onMarkTaskComplete) }
-        item { UpcomingCard(upcoming, onOpenTask) }
-        if (unscheduled.isNotEmpty()) {
-            item {
-                UnscheduledCard(unscheduled, unscheduledExpanded, { unscheduledExpanded = !unscheduledExpanded }, onOpenTask, onMarkTaskComplete)
-            }
-        }
-        item { PrimaryButton("Open Timetable", onOpenTimetable) }
-        item { SecondaryButton("Add New Task", onAddTask) }
     }
 }
 
@@ -243,21 +258,9 @@ private fun Big3Row(index: Int, task: DailyTask, onOpenTask: () -> Unit, onMarkC
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("#$index", style = bodyStyle(12.sp, Priority, FontWeight.Bold))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        task.title,
-                        style = titleStyle(15.sp, FontWeight.Medium).copy(
-                            color = if (task.isCompleted) Secondary else Color.White,
-                            textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None
-                        ),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis
-                    )
+                    Text(task.title, style = titleStyle(15.sp, FontWeight.Medium).copy(color = if (task.isCompleted) Secondary else Color.White, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                task.schedule?.let {
-                    Text(
-                        "${formatClock(it.startMinute)}  ${it.durationMinutes}min",
-                        style = bodyStyle(12.sp, if (task.isCompleted) Muted else Secondary)
-                    )
-                }
+                task.schedule?.let { Text("${formatClock(it.startMinute)}  ${it.durationMinutes}min", style = bodyStyle(12.sp, if (task.isCompleted) Muted else Secondary)) }
             }
         }
     }
@@ -369,15 +372,7 @@ private fun SecondaryButton(label: String, onClick: () -> Unit) {
 
 @Composable
 private fun Big3CompletionToggle(completed: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Box(
-        modifier = modifier
-            .size(20.dp)
-            .clip(CircleShape)
-            .background(if (completed) Big3CheckboxRing.copy(alpha = 0.18f) else Color.Transparent)
-            .border(1.4.dp, if (completed) Accent else Big3CheckboxRing, CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = modifier.size(20.dp).clip(CircleShape).background(if (completed) Big3CheckboxRing.copy(alpha = 0.18f) else Color.Transparent).border(1.4.dp, if (completed) Accent else Big3CheckboxRing, CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         if (completed) CheckIcon(Accent, modifier = Modifier.size(10.dp))
     }
 }
@@ -393,8 +388,8 @@ private fun HomeCompletionToggle(completed: Boolean, modifier: Modifier = Modifi
 private fun CheckIcon(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val stroke = 1.8.dp.toPx()
-        drawLine(color, Offset(size.width * 0.2f,  size.height * 0.55f), Offset(size.width * 0.42f, size.height * 0.76f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.42f, size.height * 0.76f), Offset(size.width * 0.8f,  size.height * 0.26f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(size.width * 0.2f, size.height * 0.55f), Offset(size.width * 0.42f, size.height * 0.76f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(size.width * 0.42f, size.height * 0.76f), Offset(size.width * 0.8f, size.height * 0.26f), stroke, StrokeCap.Round)
     }
 }
 
@@ -419,6 +414,264 @@ private fun Modifier.dashedBorder(color: Color): Modifier = drawBehind {
     drawRoundRect(color = color, topLeft = Offset(strokeWidth / 2f, strokeWidth / 2f), size = Size(size.width - strokeWidth, size.height - strokeWidth), cornerRadius = CornerRadius(14.dp.toPx(), 14.dp.toPx()), style = Stroke(width = strokeWidth, pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f))))
 }
 
+// ── 알림 패널 ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun NotificationPanel(
+    tasks: List<DailyTask>,
+    currentMinute: Int,
+    onDismiss: () -> Unit,
+    onOpenTask: (String) -> Unit
+) {
+    val alertTasks = tasks
+        .filter { it.schedule?.reminderEnabled == true }
+        .sortedBy { it.schedule!!.startMinute }
+    var pastExpanded by rememberSaveable { mutableStateOf(false) }
+    val (pastAlerts, activeAndUpcomingAlerts) = alertTasks.partition { task ->
+        val schedule = task.schedule ?: return@partition false
+        schedule.endMinute <= currentMinute
+    }
+    val nextAlert = alertTasks.firstOrNull { task ->
+        val schedule = task.schedule ?: return@firstOrNull false
+        !task.isCompleted && schedule.startMinute >= currentMinute
+    }
+    val activeAlert = alertTasks.firstOrNull { task ->
+        val schedule = task.schedule ?: return@firstOrNull false
+        currentMinute in schedule.startMinute until schedule.endMinute
+    }
+    val summary = when {
+        alertTasks.isEmpty() -> "No alerts set"
+        activeAlert != null -> "Now · ${activeAlert.title}"
+        nextAlert != null -> "Next at ${formatClock(nextAlert.schedule!!.startMinute)}"
+        else -> "All reminders passed"
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.6f))
+            .clickable(onClick = onDismiss)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                .background(CardBackground)
+                .clickable(enabled = false, onClick = {})
+        ) {
+            Box(modifier = Modifier.padding(top = 12.dp).width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF3A3A3A)).align(Alignment.CenterHorizontally))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ReminderBellIcon(Accent, Modifier.size(18.dp))
+                        Text("Reminders", style = TextStyle(color = Color.White, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold))
+                    }
+                    Text(
+                        "${alertTasks.size} alerts today · $summary",
+                        style = TextStyle(color = Secondary, fontSize = 12.sp, lineHeight = 18.sp)
+                    )
+                }
+                Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(0xFF2A2A2A)).clickable(onClick = onDismiss), contentAlignment = Alignment.Center) {
+                    Text("\u00D7", style = TextStyle(color = Secondary, fontSize = 20.sp, lineHeight = 20.sp))
+                }
+            }
+
+            Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(CardBorder))
+
+            if (alertTasks.isEmpty()) {
+                Box(modifier = Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(
+                            modifier = Modifier.size(52.dp).clip(CircleShape).background(Color(0xFF242424)).border(0.7.dp, CardBorder, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            ReminderBellIcon(Secondary, Modifier.size(24.dp))
+                        }
+                        Text("No reminders yet", style = TextStyle(color = Color.White, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold))
+                        Text(
+                            "Turn on Alert in a time block to get notified.",
+                            style = TextStyle(color = Muted, fontSize = 12.sp, lineHeight = 18.sp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (activeAndUpcomingAlerts.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF202020)).padding(horizontal = 14.dp, vertical = 16.dp)) {
+                            Text("No upcoming reminders left today.", style = TextStyle(color = Secondary, fontSize = 13.sp, lineHeight = 19.sp))
+                        }
+                    } else {
+                        activeAndUpcomingAlerts.forEach { task ->
+                            ReminderTaskRow(task = task, currentMinute = currentMinute, onOpenTask = onOpenTask)
+                        }
+                    }
+
+                    if (pastAlerts.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { pastExpanded = !pastExpanded }
+                                .padding(horizontal = 4.dp, vertical = 8.dp)
+                        ) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    if (pastExpanded) "Hide past reminders" else "Show past reminders",
+                                    style = TextStyle(color = Secondary, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium)
+                                )
+                                Text("${pastAlerts.size}", style = TextStyle(color = Muted, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium))
+                            }
+                        }
+                        if (pastExpanded) {
+                            pastAlerts.forEach { task ->
+                                ReminderTaskRow(task = task, currentMinute = currentMinute, onOpenTask = onOpenTask)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun ReminderTaskRow(
+    task: DailyTask,
+    currentMinute: Int,
+    onOpenTask: (String) -> Unit
+) {
+    val schedule = task.schedule ?: return
+    val isPast = schedule.endMinute <= currentMinute
+    val isNow = currentMinute in schedule.startMinute until schedule.endMinute
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(when { isNow -> Accent.copy(alpha = 0.12f); isPast -> Color(0xFF1A1A1A); else -> Color(0xFF242424) })
+            .then(if (isNow) Modifier.border(0.7.dp, Accent.copy(alpha = 0.4f), RoundedCornerShape(12.dp)) else Modifier)
+            .clickable { onOpenTask(task.id) }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        ReminderStateIcon(completed = task.isCompleted, isNow = isNow, isPast = isPast)
+
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                task.title,
+                style = TextStyle(
+                    color = if (isPast) Secondary else Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    lineHeight = 20.sp,
+                    textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                "${formatClock(schedule.startMinute)} - ${formatClock(schedule.endMinute)}",
+                style = TextStyle(
+                    color = if (isNow) Accent else Secondary,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = if (isNow) FontWeight.SemiBold else FontWeight.Normal
+                )
+            )
+        }
+
+        when {
+            isNow -> Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Accent.copy(alpha = 0.2f)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                Text("NOW", style = TextStyle(color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp))
+            }
+            isPast -> Text(if (task.isCompleted) "DONE" else "MISSED", style = TextStyle(color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium))
+            else -> Text("ON", style = TextStyle(color = Secondary, fontSize = 11.sp, fontWeight = FontWeight.Medium))
+        }
+    }
+}
+
+@Composable
+private fun ReminderStateIcon(completed: Boolean, isNow: Boolean, isPast: Boolean) {
+    val bg = when {
+        isNow -> Accent.copy(alpha = 0.22f)
+        isPast -> Color(0xFF202020)
+        else -> Color(0xFF2A2A2A)
+    }
+    val color = when {
+        isNow -> Accent
+        completed -> Secondary
+        isPast -> Muted
+        else -> Secondary
+    }
+    Box(
+        modifier = Modifier.size(36.dp).clip(CircleShape).background(bg),
+        contentAlignment = Alignment.Center
+    ) {
+        when {
+            completed -> CheckMiniIcon(color, Modifier.size(16.dp))
+            isNow -> NowDotIcon(color, Modifier.size(16.dp))
+            else -> ReminderClockIcon(color, Modifier.size(17.dp))
+        }
+    }
+}
+
+@Composable
+private fun ReminderBellIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val stroke = 1.7.dp.toPx()
+        val path = Path().apply {
+            moveTo(size.width * 0.50f, size.height * 0.16f)
+            cubicTo(size.width * 0.30f, size.height * 0.16f, size.width * 0.26f, size.height * 0.34f, size.width * 0.26f, size.height * 0.50f)
+            lineTo(size.width * 0.20f, size.height * 0.68f)
+            lineTo(size.width * 0.80f, size.height * 0.68f)
+            lineTo(size.width * 0.74f, size.height * 0.50f)
+            cubicTo(size.width * 0.74f, size.height * 0.34f, size.width * 0.70f, size.height * 0.16f, size.width * 0.50f, size.height * 0.16f)
+        }
+        drawPath(path, color = color, style = Stroke(width = stroke, cap = StrokeCap.Round))
+        drawArc(color = color, startAngle = 30f, sweepAngle = 120f, useCenter = false, topLeft = Offset(size.width * 0.38f, size.height * 0.72f), size = Size(size.width * 0.24f, size.height * 0.13f), style = Stroke(width = stroke, cap = StrokeCap.Round))
+    }
+}
+
+@Composable
+private fun CheckMiniIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val stroke = 2.dp.toPx()
+        drawLine(color, Offset(size.width * 0.20f, size.height * 0.54f), Offset(size.width * 0.42f, size.height * 0.74f), stroke, StrokeCap.Round)
+        drawLine(color, Offset(size.width * 0.42f, size.height * 0.74f), Offset(size.width * 0.82f, size.height * 0.26f), stroke, StrokeCap.Round)
+    }
+}
+
+@Composable
+private fun NowDotIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        drawCircle(color = color.copy(alpha = 0.20f), radius = size.minDimension * 0.48f)
+        drawCircle(color = color, radius = size.minDimension * 0.22f)
+    }
+}
+
+@Composable
+private fun ReminderClockIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val stroke = 1.7.dp.toPx()
+        drawCircle(color = color, style = Stroke(width = stroke))
+        drawLine(color, center, Offset(center.x, size.height * 0.28f), stroke, StrokeCap.Round)
+        drawLine(color, center, Offset(size.width * 0.70f, size.height * 0.58f), stroke, StrokeCap.Round)
+    }
+}
+
+// ── Canvas 아이콘 ──────────────────────────────────────────────────────────────
+
 @Composable
 private fun BellIcon(color: Color) {
     Canvas(modifier = Modifier.size(20.dp)) {
@@ -442,7 +695,7 @@ private fun ClockIcon(color: Color, modifier: Modifier = Modifier) {
         val stroke = 1.6.dp.toPx()
         drawCircle(color = color, style = Stroke(width = stroke))
         drawLine(color, center, Offset(center.x, size.height * 0.28f), stroke, StrokeCap.Round)
-        drawLine(color, center, Offset(size.width * 0.7f, center.y),   stroke, StrokeCap.Round)
+        drawLine(color, center, Offset(size.width * 0.7f, center.y), stroke, StrokeCap.Round)
     }
 }
 
@@ -451,11 +704,11 @@ private fun ChevronIcon(expanded: Boolean, color: Color) {
     Canvas(modifier = Modifier.size(18.dp)) {
         val stroke = 1.8.dp.toPx()
         if (expanded) {
-            drawLine(color, Offset(size.width * 0.25f, size.height * 0.38f), Offset(size.width * 0.5f,  size.height * 0.62f), stroke, StrokeCap.Round)
-            drawLine(color, Offset(size.width * 0.5f,  size.height * 0.62f), Offset(size.width * 0.75f, size.height * 0.38f), stroke, StrokeCap.Round)
+            drawLine(color, Offset(size.width * 0.25f, size.height * 0.38f), Offset(size.width * 0.5f, size.height * 0.62f), stroke, StrokeCap.Round)
+            drawLine(color, Offset(size.width * 0.5f, size.height * 0.62f), Offset(size.width * 0.75f, size.height * 0.38f), stroke, StrokeCap.Round)
         } else {
-            drawLine(color, Offset(size.width * 0.38f, size.height * 0.25f), Offset(size.width * 0.62f, size.height * 0.5f),  stroke, StrokeCap.Round)
-            drawLine(color, Offset(size.width * 0.62f, size.height * 0.5f),  Offset(size.width * 0.38f, size.height * 0.75f), stroke, StrokeCap.Round)
+            drawLine(color, Offset(size.width * 0.38f, size.height * 0.25f), Offset(size.width * 0.62f, size.height * 0.5f), stroke, StrokeCap.Round)
+            drawLine(color, Offset(size.width * 0.62f, size.height * 0.5f), Offset(size.width * 0.38f, size.height * 0.75f), stroke, StrokeCap.Round)
         }
     }
 }
@@ -476,7 +729,7 @@ private fun PlusIcon(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val stroke = 1.8.dp.toPx()
         drawLine(color, Offset(center.x, size.height * 0.2f), Offset(center.x, size.height * 0.8f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.2f, center.y), Offset(size.width * 0.8f, center.y),  stroke, StrokeCap.Round)
+        drawLine(color, Offset(size.width * 0.2f, center.y), Offset(size.width * 0.8f, center.y), stroke, StrokeCap.Round)
     }
 }
 
@@ -484,23 +737,17 @@ private fun PlusIcon(color: Color, modifier: Modifier = Modifier) {
 private fun StarIcon(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val path = Path().apply {
-            moveTo(size.width * 0.5f,  size.height * 0.08f)
-            lineTo(size.width * 0.62f, size.height * 0.36f)
-            lineTo(size.width * 0.92f, size.height * 0.38f)
-            lineTo(size.width * 0.69f, size.height * 0.58f)
-            lineTo(size.width * 0.77f, size.height * 0.9f)
-            lineTo(size.width * 0.5f,  size.height * 0.72f)
-            lineTo(size.width * 0.23f, size.height * 0.9f)
-            lineTo(size.width * 0.31f, size.height * 0.58f)
-            lineTo(size.width * 0.08f, size.height * 0.38f)
-            lineTo(size.width * 0.38f, size.height * 0.36f)
-            close()
+            moveTo(size.width * 0.5f, size.height * 0.08f); lineTo(size.width * 0.62f, size.height * 0.36f)
+            lineTo(size.width * 0.92f, size.height * 0.38f); lineTo(size.width * 0.69f, size.height * 0.58f)
+            lineTo(size.width * 0.77f, size.height * 0.9f); lineTo(size.width * 0.5f, size.height * 0.72f)
+            lineTo(size.width * 0.23f, size.height * 0.9f); lineTo(size.width * 0.31f, size.height * 0.58f)
+            lineTo(size.width * 0.08f, size.height * 0.38f); lineTo(size.width * 0.38f, size.height * 0.36f); close()
         }
         drawPath(path = path, color = color)
     }
 }
 
-// ── 헬퍼 ──────────────────────────────────────────────────────────────────
+// ── 헬퍼 ──────────────────────────────────────────────────────────────────────
 
 private fun sectionTitle(color: Color): TextStyle =
     TextStyle(color = color, fontSize = 13.sp, lineHeight = 19.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.65.sp)

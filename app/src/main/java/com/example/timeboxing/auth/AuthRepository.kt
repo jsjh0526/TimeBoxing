@@ -16,7 +16,8 @@ import kotlinx.coroutines.flow.asStateFlow
 private const val GOOGLE_WEB_CLIENT_ID = "933064419635-kvv46puq64ec0jgc3usidd0a5jekn1jc.apps.googleusercontent.com"
 
 sealed class AuthState {
-    data object Guest : AuthState()
+    data object SignedOut : AuthState()
+    data object Guest   : AuthState()
     data object Loading : AuthState()
     data class LoggedIn(
         val userId: String,
@@ -31,25 +32,42 @@ object AuthRepository {
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
+    // 구글 로그인 전 게스트 모드였는지 여부
+    // TimeBoxingApp에서 마이그레이션 다이얼로그 표시 여부 결정에 사용
+    var hadGuestSessionBeforeLogin: Boolean = false
+        private set
+
+    // ── 세션 복원 ─────────────────────────────────────────────────────────────
     suspend fun restoreSession() {
         try {
             supabase.auth.awaitInitialization()
-            val hasStoredSession = supabase.auth.currentSessionOrNull() != null || supabase.auth.loadFromStorage()
-            if (!hasStoredSession) {
-                _authState.value = AuthState.Guest
+            val hasSession = supabase.auth.currentSessionOrNull() != null
+                    || supabase.auth.loadFromStorage()
+
+            if (!hasSession) {
+                _authState.value = AuthState.SignedOut
                 return
             }
 
             val user = supabase.auth.currentUserOrNull()
                 ?: runCatching { supabase.auth.retrieveUserForCurrentSession(updateSession = true) }.getOrNull()
 
-            _authState.value = user?.toAuthState() ?: AuthState.Guest
+            _authState.value = user?.toAuthState() ?: AuthState.SignedOut
         } catch (_: Exception) {
-            _authState.value = AuthState.Guest
+            _authState.value = AuthState.SignedOut
         }
     }
 
+    // ── 게스트 모드 진입 ──────────────────────────────────────────────────────
+    fun continueAsGuest() {
+        hadGuestSessionBeforeLogin = false
+        _authState.value = AuthState.Guest
+    }
+
+    // ── 구글 로그인 ───────────────────────────────────────────────────────────
     suspend fun signInWithGoogle(context: Context) {
+        // 로그인 시도 전 게스트였는지 기록 (마이그레이션 다이얼로그 표시 조건)
+        hadGuestSessionBeforeLogin = _authState.value is AuthState.Guest
         try {
             val credentialManager = CredentialManager.create(context)
             val googleIdOption = GetGoogleIdOption.Builder()
@@ -76,25 +94,38 @@ object AuthRepository {
                 ?: supabase.auth.retrieveUserForCurrentSession(updateSession = true)
             _authState.value = user.toAuthState()
         } catch (e: Exception) {
-            _authState.value = AuthState.Error(e.message ?: "Login failed")
+            val message = e.message.orEmpty()
+            if (hadGuestSessionBeforeLogin) {
+                _authState.value = AuthState.Guest
+                return
+            }
+            if (message.contains("cancel", ignoreCase = true)) {
+                hadGuestSessionBeforeLogin = false
+                _authState.value = AuthState.SignedOut
+                return
+            }
+            hadGuestSessionBeforeLogin = false
+            _authState.value = AuthState.Error(message.ifBlank { "Login failed" })
         }
     }
 
+    // ── 로그아웃 ──────────────────────────────────────────────────────────────
     suspend fun signOut() {
         try {
             supabase.auth.signOut()
         } catch (_: Exception) {
             supabase.auth.sessionManager.deleteSession()
         } finally {
-            _authState.value = AuthState.Guest
+            hadGuestSessionBeforeLogin = false
+            _authState.value = AuthState.SignedOut
         }
     }
 }
 
 private fun UserInfo.toAuthState(): AuthState.LoggedIn =
     AuthState.LoggedIn(
-        userId = id,
-        email = email.orEmpty(),
+        userId      = id,
+        email       = email.orEmpty(),
         displayName = userMetadata?.get("full_name")?.toString()?.trim('"'),
-        avatarUrl = userMetadata?.get("avatar_url")?.toString()?.trim('"')
+        avatarUrl   = userMetadata?.get("avatar_url")?.toString()?.trim('"')
     )

@@ -1,19 +1,19 @@
 package com.example.timeboxing.auth
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -33,85 +33,88 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.timeboxing.R
 import kotlinx.coroutines.launch
 
-private val Background = Color(0xFF121212)
-private val Accent = Color(0xFF8687E7)
-private val TextPrimary = Color.White
+private val Background    = Color(0xFF121212)
+private val Accent        = Color(0xFF8687E7)
+private val TextPrimary   = Color.White
 private val TextSecondary = Color(0xFF99A1AF)
-private val TextTertiary = Color(0xFF4A5565)
+private val TextTertiary  = Color(0xFF4A5565)
+private val GuestBorder   = Color(0xFF2A2A2A)
+
+private const val FigmaWidth  = 393.318f
+private const val FigmaHeight = 852.422f
 
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var isLoading by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope   = rememberCoroutineScope()
+    var isLoading    by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Background)
+            .navigationBarsPadding()
     ) {
-        val contentTop = maxHeight * 0.324f
+        val scale = minOf(maxWidth.value / FigmaWidth, maxHeight.value / FigmaHeight)
+        fun fdp(value: Float): Dp = (value * scale).dp
 
         LoginBackground()
 
-        Column(
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .align(Alignment.TopCenter)
+                .offset(y = fdp(244f))
+                .width(fdp(345.334f))
+                .height(fdp(430f))
         ) {
-            Spacer(modifier = Modifier.height(contentTop))
-
-            AppMark()
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Timebox",
-                style = TextStyle(
-                    color = TextPrimary,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.75).sp,
-                    lineHeight = 36.sp,
-                    textAlign = TextAlign.Center
-                )
+            // ── 앱 아이콘 ──────────────────────────────────────────────────
+            AppMark(
+                modifier   = Modifier.align(Alignment.TopCenter),
+                markSize   = fdp(63.993f),
+                iconSize   = fdp(31.996f),
+                radius     = fdp(16f)
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
-
+            // ── 앱 이름 ────────────────────────────────────────────────────
             Text(
-                text = "Focus on what matters most.",
-                style = TextStyle(
-                    color = TextSecondary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Normal,
-                    lineHeight = 20.sp,
-                    textAlign = TextAlign.Center
-                )
+                text     = "Timebox",
+                modifier = Modifier.offset(x = 0.dp, y = fdp(85.88f)).width(fdp(345.334f)),
+                style    = TextStyle(color = TextPrimary, fontSize = 30.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.75).sp, lineHeight = 36.sp, textAlign = TextAlign.Center)
             )
 
-            Spacer(modifier = Modifier.height(48.dp))
+            // ── 서브타이틀 ─────────────────────────────────────────────────
+            Text(
+                text     = "Focus on what matters most.",
+                modifier = Modifier.offset(x = 0.dp, y = fdp(131.27f)).width(fdp(345.334f)),
+                style    = TextStyle(color = TextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 20.sp, textAlign = TextAlign.Center)
+            )
 
+            // ── 구글 로그인 버튼 ───────────────────────────────────────────
             GoogleSignInButton(
+                modifier  = Modifier.offset(x = 0.dp, y = fdp(199.95f)),
+                width     = fdp(345.334f),
+                height    = fdp(51.986f),
                 isLoading = isLoading,
-                onClick = {
+                scale     = scale,
+                onClick   = {
                     scope.launch {
-                        isLoading = true
+                        isLoading    = true
                         errorMessage = null
                         AuthRepository.signInWithGoogle(context)
                         when (val state = AuthRepository.authState.value) {
                             is AuthState.LoggedIn -> onLoginSuccess()
-                            is AuthState.Error -> errorMessage = state.message
+                            is AuthState.Error    -> errorMessage = state.message
                             else -> Unit
                         }
                         isLoading = false
@@ -119,145 +122,152 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 }
             )
 
+            // ── 게스트 버튼 ────────────────────────────────────────────────
+            GuestButton(
+                modifier = Modifier.offset(x = 0.dp, y = fdp(266f)),
+                width    = fdp(345.334f),
+                height   = fdp(51.986f),
+                scale    = scale,
+                onClick  = {
+                    AuthRepository.continueAsGuest()
+                    onLoginSuccess()
+                }
+            )
+
+            // ── 에러 메시지 ────────────────────────────────────────────────
             if (errorMessage != null) {
-                Spacer(modifier = Modifier.height(14.dp))
                 Text(
-                    text = errorMessage.orEmpty(),
-                    style = TextStyle(
-                        color = Color(0xFFFF6B6B),
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp,
-                        textAlign = TextAlign.Center
-                    )
+                    text     = errorMessage.orEmpty(),
+                    modifier = Modifier.offset(x = fdp(12f), y = fdp(382f)).width(fdp(321f)),
+                    style    = TextStyle(color = Color(0xFFFF6B6B), fontSize = 12.sp, lineHeight = 16.sp, textAlign = TextAlign.Center)
                 )
             }
 
-            Spacer(modifier = Modifier.height(if (errorMessage == null) 32.dp else 18.dp))
-
+            // ── 약관 ───────────────────────────────────────────────────────
             Text(
-                text = "By continuing, you agree to our Terms & Conditions.",
-                modifier = Modifier.fillMaxWidth(),
-                style = TextStyle(
-                    color = TextTertiary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Normal,
-                    lineHeight = 16.sp,
-                    textAlign = TextAlign.Center
-                )
+                text     = "By continuing, you agree to our Terms & Conditions.",
+                modifier = Modifier.offset(x = fdp(28.04f), y = fdp(338f)).width(fdp(289.258f)),
+                style    = TextStyle(color = TextTertiary, fontSize = 12.sp, fontWeight = FontWeight.Normal, lineHeight = 16.sp, textAlign = TextAlign.Center)
             )
         }
+    }
+}
+
+@Composable
+private fun GuestButton(
+    modifier: Modifier,
+    width: Dp,
+    height: Dp,
+    scale: Float,
+    onClick: () -> Unit
+) {
+    fun fdp(value: Float): Dp = (value * scale).dp
+
+    Box(
+        modifier = modifier
+            .width(width)
+            .height(height)
+            .clip(RoundedCornerShape(fdp(14f)))
+            .background(Color(0xFF1E1E1E))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text  = "Continue without account",
+            style = TextStyle(
+                color      = TextSecondary,
+                fontSize   = 15.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 22.sp,
+                textAlign  = TextAlign.Center
+            )
+        )
     }
 }
 
 @Composable
 private fun LoginBackground() {
     Canvas(modifier = Modifier.fillMaxSize()) {
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    Color(0xFF101010),
-                    Color(0xFF151515),
-                    Background
-                )
-            )
-        )
-
+        drawRect(color = Background)
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(Color(0xFF8687E7).copy(alpha = 0.10f), Color.Transparent),
+                colors = listOf(Color(0xFF8687E7).copy(alpha = 0.06f), Color.Transparent),
                 center = Offset(size.width * 0.5f, size.height * 0.46f),
-                radius = size.width * 0.7f
+                radius = size.width * 0.72f
             ),
-            radius = size.width * 0.7f,
+            radius = size.width * 0.72f,
             center = Offset(size.width * 0.5f, size.height * 0.46f)
         )
-
-        val waveColor = Color.White.copy(alpha = 0.018f)
-        repeat(7) { index ->
-            val y = size.height * (0.16f + index * 0.075f)
+        drawRect(brush = Brush.verticalGradient(colors = listOf(Color.Transparent, Background.copy(alpha = 0.55f), Background.copy(alpha = 0.92f))))
+        val waveColor = Color.White.copy(alpha = 0.038f)
+        repeat(9) { index ->
+            val y    = size.height * (0.10f + index * 0.082f)
             val path = Path().apply {
-                moveTo(-size.width * 0.25f, y)
-                cubicTo(
-                    size.width * 0.15f,
-                    y - size.height * 0.09f,
-                    size.width * 0.65f,
-                    y + size.height * 0.05f,
-                    size.width * 1.25f,
-                    y - size.height * 0.14f
-                )
+                moveTo(-size.width * 0.28f, y)
+                cubicTo(size.width * 0.1f, y - size.height * 0.08f, size.width * 0.68f, y + size.height * 0.06f, size.width * 1.28f, y - size.height * 0.13f)
             }
-            drawPath(path = path, color = waveColor, style = Stroke(width = 1.dp.toPx()))
+            drawPath(path = path, color = waveColor, style = Stroke(width = 1.1.dp.toPx()))
+        }
+        val accentWave = Accent.copy(alpha = 0.028f)
+        repeat(4) { index ->
+            val y    = size.height * (0.36f + index * 0.12f)
+            val path = Path().apply {
+                moveTo(-size.width * 0.18f, y)
+                cubicTo(size.width * 0.22f, y + size.height * 0.08f, size.width * 0.72f, y - size.height * 0.10f, size.width * 1.18f, y + size.height * 0.03f)
+            }
+            drawPath(path = path, color = accentWave, style = Stroke(width = 1.dp.toPx()))
+        }
+        val grainColor = Color.White.copy(alpha = 0.020f)
+        repeat(42) { index ->
+            val xSeed = ((index * 37) % 101) / 100f
+            val ySeed = ((index * 53) % 113) / 112f
+            drawCircle(color = grainColor, radius = 0.7.dp.toPx(), center = Offset(x = size.width * xSeed, y = size.height * (0.08f + ySeed * 0.78f)))
         }
     }
 }
 
 @Composable
-private fun AppMark() {
+private fun AppMark(modifier: Modifier, markSize: Dp, iconSize: Dp, radius: Dp) {
     Box(
-        modifier = Modifier
-            .size(64.dp)
-            .shadow(
-                elevation = 14.dp,
-                shape = RoundedCornerShape(16.dp),
-                ambientColor = Accent.copy(alpha = 0.35f),
-                spotColor = Accent.copy(alpha = 0.35f)
-            )
-            .clip(RoundedCornerShape(16.dp))
+        modifier = modifier
+            .size(markSize)
+            .shadow(elevation = 14.dp, shape = RoundedCornerShape(radius), ambientColor = Accent.copy(alpha = 0.30f), spotColor = Accent.copy(alpha = 0.30f))
+            .clip(RoundedCornerShape(radius))
             .background(Accent),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size(32.dp)) {
+        Canvas(modifier = Modifier.size(iconSize)) {
             val stroke = 3.dp.toPx()
-            drawLine(
-                color = Color.White,
-                start = Offset(size.width * 0.5f, size.height * 0.08f),
-                end = Offset(size.width * 0.5f, size.height * 0.92f),
-                strokeWidth = stroke,
-                cap = StrokeCap.Round
-            )
-            drawLine(
-                color = Color.White,
-                start = Offset(size.width * 0.08f, size.height * 0.5f),
-                end = Offset(size.width * 0.92f, size.height * 0.5f),
-                strokeWidth = stroke,
-                cap = StrokeCap.Round
-            )
+            drawLine(Color.White, Offset(size.width * 0.5f, size.height * 0.08f), Offset(size.width * 0.5f, size.height * 0.92f), stroke, StrokeCap.Round)
+            drawLine(Color.White, Offset(size.width * 0.08f, size.height * 0.5f), Offset(size.width * 0.92f, size.height * 0.5f), stroke, StrokeCap.Round)
         }
     }
 }
 
 @Composable
-private fun GoogleSignInButton(
-    isLoading: Boolean,
-    onClick: () -> Unit
-) {
+private fun GoogleSignInButton(modifier: Modifier, width: Dp, height: Dp, isLoading: Boolean, scale: Float, onClick: () -> Unit) {
+    fun fdp(value: Float): Dp = (value * scale).dp
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .shadow(
-                elevation = 10.dp,
-                shape = RoundedCornerShape(14.dp),
-                ambientColor = Color.Black.copy(alpha = 0.12f),
-                spotColor = Color.Black.copy(alpha = 0.12f)
-            )
-            .clip(RoundedCornerShape(14.dp))
+        modifier = modifier
+            .width(width).height(height)
+            .shadow(elevation = 10.dp, shape = RoundedCornerShape(fdp(14f)), ambientColor = Color.Black.copy(alpha = 0.10f), spotColor = Color.Black.copy(alpha = 0.10f))
+            .clip(RoundedCornerShape(fdp(14f)))
             .background(Color.White)
-            .clickable(enabled = !isLoading, onClick = onClick),
-        contentAlignment = Alignment.Center
+            .clickable(enabled = !isLoading, onClick = onClick)
     ) {
         if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(22.dp),
-                color = Accent,
-                strokeWidth = 2.dp
-            )
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center).size(fdp(22f)), color = Accent, strokeWidth = 2.dp)
         } else {
             Row(
+                modifier = Modifier.align(Alignment.Center),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(fdp(14f))
             ) {
-                GoogleLogo(modifier = Modifier.size(20.dp))
+                Image(
+                    painter = painterResource(R.drawable.ic_google_g),
+                    contentDescription = "Google",
+                    modifier = Modifier.size(fdp(20f))
+                )
                 Text(
                     text = "Continue with Google",
                     style = TextStyle(
@@ -270,23 +280,5 @@ private fun GoogleSignInButton(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun GoogleLogo(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val cx = size.width / 2f
-        val cy = size.height / 2f
-        val r = size.minDimension / 2f
-        val stroke = size.minDimension * 0.16f
-        val arcSize = androidx.compose.ui.geometry.Size(r * 2, r * 2)
-        val topLeft = Offset(cx - r, cy - r)
-
-        drawArc(Color(0xFFEA4335), -10f, 100f, false, topLeft, arcSize, style = Stroke(stroke))
-        drawArc(Color(0xFFFBBC05), 90f, 90f, false, topLeft, arcSize, style = Stroke(stroke))
-        drawArc(Color(0xFF34A853), 180f, 90f, false, topLeft, arcSize, style = Stroke(stroke))
-        drawArc(Color(0xFF4285F4), 270f, 80f, false, topLeft, arcSize, style = Stroke(stroke))
-        drawLine(Color(0xFF4285F4), Offset(cx, cy), Offset(cx + r * 0.85f, cy), stroke, StrokeCap.Round)
     }
 }

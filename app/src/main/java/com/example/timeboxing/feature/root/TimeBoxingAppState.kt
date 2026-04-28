@@ -211,8 +211,13 @@ class TimeBoxingAppState(
 
     private fun refreshYesterdayIncomplete() {
         val yesterday = today.minusDays(1)
+        val carriedTodayIds = repository.getTasks(today)
+            .filter { task -> task.source == DailyTaskSource.CARRY_OVER }
+            .map { task -> task.id }
+            .toSet()
         yesterdayIncompleteTasks = repository.getTasks(yesterday)
             .filter { task -> !task.isCompleted && task.source != DailyTaskSource.RECURRING }
+            .filter { task -> "carry-${task.id}-$today" !in carriedTodayIds }
     }
 
     private fun syncSectionOrders(date: LocalDate, tasks: List<DailyTask>) {

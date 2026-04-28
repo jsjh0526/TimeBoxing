@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -57,11 +58,22 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     reminderSettings: ReminderSettings,
     onReminderSettingsChange: (ReminderSettings) -> Unit,
+    onSignIn: () -> Unit,
     onSignOut: () -> Unit,
-    onSyncNow: () -> Unit
+    onSyncNow: () -> Unit,
+    onRefreshStatus: (String) -> Unit = {}
 ) {
     val authState by AuthRepository.authState.collectAsState()
     val syncState by SyncManager.state.collectAsState()
+    val remoteStatus by SyncManager.remoteStatus.collectAsState()
+    val loggedInUserId = (authState as? AuthState.LoggedIn)?.userId
+
+    // Fix 3: 앱 진입 시 1번만 실행 (syncState 변경 시 재실행 제거)
+    // syncAll() 완료 시 SyncManager 내부에서 remoteStatus를 이미 업데이트하므로 중복 불필요
+    LaunchedEffect(loggedInUserId) {
+        val userId = loggedInUserId ?: return@LaunchedEffect
+        onRefreshStatus(userId)
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(ScreenBackground),
@@ -98,7 +110,12 @@ fun SettingsScreen(
                     }
                     is AuthState.Loading -> AccountSummary(null, "Checking session...")
                     is AuthState.Error   -> AccountSummary(null, state.message)
-                    AuthState.Guest      -> AccountSummary(null, "Not signed in")
+                    AuthState.Guest      -> {
+                        AccountSummary("Guest mode", "Local data only")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        ActionButton(label = "Sign in with Google", filled = true, icon = { AccountIcon(Color.White) }, onClick = onSignIn)
+                    }
+                    AuthState.SignedOut  -> AccountSummary(null, "Not signed in")
                 }
             }
         }
@@ -106,7 +123,6 @@ fun SettingsScreen(
         // ── Sync ───────────────────────────────────────────────────────────
         item {
             SectionCard(title = "Sync", icon = { SyncIcon(Green) }) {
-                // 상태 메시지
                 val (statusText, statusColor) = when (syncState) {
                     is SyncState.Idle    -> "데이터를 수동으로 동기화할 수 있어요." to TextSecondary
                     is SyncState.Syncing -> "동기화 중..." to Accent
@@ -114,10 +130,16 @@ fun SettingsScreen(
                     is SyncState.Error   -> "오류: ${(syncState as SyncState.Error).message}" to Color(0xFFFF5F57)
                 }
                 Text(statusText, style = TextStyle(color = statusColor, fontSize = 13.sp, lineHeight = 19.sp))
+                remoteStatus?.let { status ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Remote: ${status.taskCount} tasks / ${status.templateCount} habits · checked ${status.checkedAt}",
+                        style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp)
+                    )
+                }
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 동기화 버튼
-                val isSyncing = syncState is SyncState.Syncing
+                val isSyncing  = syncState is SyncState.Syncing
                 val isLoggedIn = authState is AuthState.LoggedIn
                 Box(
                     modifier = Modifier
@@ -135,12 +157,7 @@ fun SettingsScreen(
                             SyncIcon(if (isLoggedIn) Color.White else TextSecondary)
                             Text(
                                 text = if (isLoggedIn) "Sync Now" else "로그인 후 사용 가능",
-                                style = TextStyle(
-                                    color = if (isLoggedIn) Color.White else TextSecondary,
-                                    fontSize = 14.sp,
-                                    lineHeight = 21.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                style = TextStyle(color = if (isLoggedIn) Color.White else TextSecondary, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
                             )
                         }
                     }
@@ -243,18 +260,10 @@ private fun BellIcon(color: Color) {
 private fun SyncIcon(color: Color) {
     Canvas(modifier = Modifier.size(18.dp)) {
         val stroke = 1.7.dp.toPx()
-        // 위쪽 화살표 (시계 방향 반원)
-        drawArc(color = color, startAngle = 180f, sweepAngle = 180f, useCenter = false,
-            topLeft = Offset(size.width * 0.12f, size.height * 0.18f),
-            size = Size(size.width * 0.76f, size.height * 0.55f),
-            style = Stroke(width = stroke, cap = StrokeCap.Round))
+        drawArc(color = color, startAngle = 180f, sweepAngle = 180f, useCenter = false, topLeft = Offset(size.width * 0.12f, size.height * 0.18f), size = Size(size.width * 0.76f, size.height * 0.55f), style = Stroke(width = stroke, cap = StrokeCap.Round))
         drawLine(color, Offset(size.width * 0.72f, size.height * 0.12f), Offset(size.width * 0.88f, size.height * 0.2f), stroke, StrokeCap.Round)
         drawLine(color, Offset(size.width * 0.88f, size.height * 0.2f), Offset(size.width * 0.8f, size.height * 0.35f), stroke, StrokeCap.Round)
-        // 아래쪽 화살표
-        drawArc(color = color, startAngle = 0f, sweepAngle = 180f, useCenter = false,
-            topLeft = Offset(size.width * 0.12f, size.height * 0.28f),
-            size = Size(size.width * 0.76f, size.height * 0.55f),
-            style = Stroke(width = stroke, cap = StrokeCap.Round))
+        drawArc(color = color, startAngle = 0f, sweepAngle = 180f, useCenter = false, topLeft = Offset(size.width * 0.12f, size.height * 0.28f), size = Size(size.width * 0.76f, size.height * 0.55f), style = Stroke(width = stroke, cap = StrokeCap.Round))
         drawLine(color, Offset(size.width * 0.28f, size.height * 0.88f), Offset(size.width * 0.12f, size.height * 0.8f), stroke, StrokeCap.Round)
         drawLine(color, Offset(size.width * 0.12f, size.height * 0.8f), Offset(size.width * 0.2f, size.height * 0.65f), stroke, StrokeCap.Round)
     }

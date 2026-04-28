@@ -1,5 +1,6 @@
 package com.example.timeboxing.data.repository
 
+import android.util.Log
 import com.example.timeboxing.data.local.dao.DailyTaskDao
 import com.example.timeboxing.data.local.dao.TaskTemplateDao
 import com.example.timeboxing.data.remote.SupabaseSync
@@ -9,6 +10,7 @@ import com.example.timeboxing.domain.model.TaskEditInput
 import com.example.timeboxing.domain.model.TaskTemplate
 import com.example.timeboxing.domain.repository.TaskRepository
 import java.time.LocalDate
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,7 +30,10 @@ class SyncedTaskRepository(
     private val userId: String
 ) : TaskRepository by local, TemplateProvider by local {
 
-    private val syncScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val syncExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        Log.w("TaskSync", "Background sync failed", throwable)
+    }
+    private val syncScope = CoroutineScope(Dispatchers.IO + SupervisorJob() + syncExceptionHandler)
 
     override fun toggleCompleted(date: LocalDate, taskId: String) {
         local.toggleCompleted(date, taskId)

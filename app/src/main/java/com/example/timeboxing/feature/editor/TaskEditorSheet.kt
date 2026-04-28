@@ -219,7 +219,19 @@ fun TaskEditorDialog(
                         }
 
                         // Time Block
-                        SettingSection(title = "Time Block", enabled = draft.timeBlockEnabled, onToggle = { onChange(draft.copy(timeBlockEnabled = it)) }, icon = { ClockIcon(Success, Modifier.size(18.dp)) }) {
+                        SettingSection(
+                            title = "Time Block",
+                            enabled = draft.timeBlockEnabled,
+                            onToggle = { enabled ->
+                                onChange(
+                                    draft.copy(
+                                        timeBlockEnabled = enabled,
+                                        alertEnabled = if (enabled) true else draft.alertEnabled
+                                    )
+                                )
+                            },
+                            icon = { ClockIcon(Success, Modifier.size(18.dp)) }
+                        ) {
                             val startMin = parseTime(draft.startText)
 
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {

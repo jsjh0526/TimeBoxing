@@ -166,7 +166,11 @@ fun TimetableScreen(
                 val contentY = pointerYInViewport + scrollState.value
                 val snappedStart = minuteFromContentY(contentY, pixelsPerHour)
                     .coerceIn(0, (24 * 60) - DefaultDropDurationMinutes)
-                return ScheduleBlock(startMinute = snappedStart, endMinute = snappedStart + DefaultDropDurationMinutes)
+                return ScheduleBlock(
+                    startMinute = snappedStart,
+                    endMinute = snappedStart + DefaultDropDurationMinutes,
+                    reminderEnabled = true
+                )
             }
 
             fun updateTrayDrag(task: DailyTask, pointerYInRoot: Float) {
