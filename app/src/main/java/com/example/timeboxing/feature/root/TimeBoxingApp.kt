@@ -2,6 +2,7 @@ package com.example.timeboxing.feature.root
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -36,7 +36,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -70,7 +74,10 @@ private val NavActive     = Color(0xFF8687E7)
 private val NavInactive   = Color(0xFF99A1AF)
 
 @Composable
-fun TimeBoxingApp(onLoginScreenVisible: (Boolean) -> Unit = {}) {
+fun TimeBoxingApp(
+    onRequestBatteryOptimizationExemption: () -> Unit = {},
+    onLoginScreenVisible: (Boolean) -> Unit = {}
+) {
     val context = LocalContext.current
     val scope   = rememberCoroutineScope()
     LaunchedEffect(Unit) { AuthRepository.restoreSession(context) }
@@ -91,7 +98,13 @@ fun TimeBoxingApp(onLoginScreenVisible: (Boolean) -> Unit = {}) {
 
         AuthState.SignedOut, is AuthState.Error -> LoginScreen(onLoginSuccess = {})
 
-        AuthState.Guest -> MainApp(context = context, userId = "guest", isGuest = true, reloadKey = migrationReloadKey)
+        AuthState.Guest -> MainApp(
+            context = context,
+            userId = "guest",
+            isGuest = true,
+            reloadKey = migrationReloadKey,
+            onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption
+        )
 
         is AuthState.LoggedIn -> {
             // Fix 2: LaunchedEffect는 조건문 밖에서 무조건 호출 — 내부에서 조건 체크
@@ -133,13 +146,25 @@ fun TimeBoxingApp(onLoginScreenVisible: (Boolean) -> Unit = {}) {
                 )
             }
 
-            MainApp(context = context, userId = state.userId, isGuest = false, reloadKey = migrationReloadKey)
+            MainApp(
+                context = context,
+                userId = state.userId,
+                isGuest = false,
+                reloadKey = migrationReloadKey,
+                onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption
+            )
         }
     }
 }
 
 @Composable
-private fun MainApp(context: android.content.Context, userId: String, isGuest: Boolean, reloadKey: Int) {
+private fun MainApp(
+    context: android.content.Context,
+    userId: String,
+    isGuest: Boolean,
+    reloadKey: Int,
+    onRequestBatteryOptimizationExemption: () -> Unit
+) {
     val scope = rememberCoroutineScope()
 
     val repository: TaskRepository = remember(userId, isGuest, reloadKey) {
@@ -159,11 +184,14 @@ private fun MainApp(context: android.content.Context, userId: String, isGuest: B
     val appState = rememberTimeBoxingAppState(repository)
     val reminderSettingsStore = remember(context) { ReminderSettingsStore(context) }
     var reminderSettings by remember { mutableStateOf(reminderSettingsStore.read()) }
+    var showBatteryOptimizationPrompt by remember { mutableStateOf(false) }
 
     fun updateReminderSettings(next: ReminderSettings) {
+        val enablingNotifications = !reminderSettings.notificationsEnabled && next.notificationsEnabled
         reminderSettingsStore.write(next); reminderSettings = next
         ReminderScheduler.createChannels(context)
         if (!next.notificationsEnabled) ReminderScheduler.cancelAll(context)
+        if (enablingNotifications) showBatteryOptimizationPrompt = true
     }
 
     LaunchedEffect(appState.todayTasks, reminderSettings) {
@@ -196,6 +224,7 @@ private fun MainApp(context: android.content.Context, userId: String, isGuest: B
                     onQuickAddTask = { appState.quickAddTask(it, LocalDate.now()) },
                     onOpenAddTaskEditor = { appState.openNewTaskEditor(date = LocalDate.now(), initialTitle = it) },
                     onCarryOverYesterday = appState::carryOverYesterdayIncompleteTasks,
+                    onDismissYesterdayTask = appState::dismissYesterdayTask,
                     onToggleBig3 = appState::toggleBig3,
                     onToggleComplete = { appState.toggleCompleted(it, LocalDate.now()) },
                     onOpenTask = { appState.openTaskEditor(it, LocalDate.now()) },
@@ -242,7 +271,63 @@ private fun MainApp(context: android.content.Context, userId: String, isGuest: B
                 onChange = { updated -> appState.updateEditor { updated } }
             )
         }
+
+        if (showBatteryOptimizationPrompt) {
+            BatteryOptimizationDialog(
+                onConfirm = {
+                    showBatteryOptimizationPrompt = false
+                    onRequestBatteryOptimizationExemption()
+                },
+                onDismiss = { showBatteryOptimizationPrompt = false }
+            )
+        }
     }
+}
+
+@Composable
+private fun BatteryOptimizationDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    val CardBg      = Color(0xFF1E1E1E)
+    val Accent      = Color(0xFF8687E7)
+    val TextPrimary = Color.White
+    val TextMuted   = Color(0xFF99A1AF)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor   = CardBg,
+        title = {
+            Text(
+                "Keep reminders reliable",
+                style = TextStyle(color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            )
+        },
+        text = {
+            Text(
+                "Time block reminders can be delayed if Android puts the app to sleep. Allowing a battery optimization exception helps alerts fire at the scheduled time.",
+                style = TextStyle(color = TextMuted, fontSize = 14.sp, lineHeight = 21.sp)
+            )
+        },
+        confirmButton = {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Accent)
+                    .clickable(onClick = onConfirm)
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+            ) {
+                Text("Open Settings", style = TextStyle(color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold))
+            }
+        },
+        dismissButton = {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .border(0.7.dp, Color(0xFF2A2A2A), RoundedCornerShape(10.dp))
+                    .clickable(onClick = onDismiss)
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+            ) {
+                Text("Not now", style = TextStyle(color = TextMuted, fontSize = 14.sp))
+            }
+        }
+    )
 }
 
 // ── 마이그레이션 다이얼로그 ──────────────────────────────────────────────────────
@@ -298,11 +383,16 @@ private fun BottomBarItem(tab: AppTab, selected: Boolean, modifier: Modifier = M
 
 @Composable
 private fun TabIcon(tab: AppTab, color: Color) {
+    if (tab == AppTab.TIMETABLE) {
+        TimetableTabIcon(color = color, modifier = Modifier.size(24.dp))
+        return
+    }
+
     val icon = when (tab) {
         AppTab.HOME -> Icons.Filled.Home
         AppTab.TODO -> Icons.AutoMirrored.Filled.FormatListBulleted
-        AppTab.TIMETABLE -> Icons.Filled.CalendarMonth
         AppTab.SETTINGS -> Icons.Filled.Settings
+        AppTab.TIMETABLE -> error("Handled above")
     }
     Icon(
         imageVector = icon,
@@ -310,4 +400,38 @@ private fun TabIcon(tab: AppTab, color: Color) {
         tint = color,
         modifier = Modifier.size(24.dp)
     )
+}
+
+@Composable
+private fun TimetableTabIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val stroke = 2.05.dp.toPx()
+        val iconScale = 1.06f
+        val scaleX = size.width / 24f
+        val scaleY = size.height / 24f
+        fun p(x: Float, y: Float): Offset {
+            val cx = 12f + (x - 12f) * iconScale
+            val cy = 12f + (y - 12f) * iconScale
+            return Offset(cx * scaleX, cy * scaleY)
+        }
+
+        drawLine(color, p(4.8f, 6.7f), p(15.7f, 6.7f), stroke, StrokeCap.Round)
+        drawLine(color, p(4.8f, 6.7f), p(4.8f, 16.9f), stroke, StrokeCap.Round)
+        drawLine(color, p(4.8f, 16.9f), p(12.0f, 16.9f), stroke, StrokeCap.Round)
+        drawLine(color, p(16.8f, 6.7f), p(16.8f, 11.0f), stroke, StrokeCap.Round)
+        drawLine(color, p(5.3f, 10.2f), p(15.0f, 10.2f), stroke, StrokeCap.Round)
+
+        drawLine(color, p(8.1f, 4.1f), p(8.1f, 7.7f), stroke, StrokeCap.Round)
+        drawLine(color, p(13.7f, 4.1f), p(13.7f, 7.7f), stroke, StrokeCap.Round)
+
+        val clockStroke = 2.05.dp.toPx()
+        drawCircle(
+            color = color,
+            radius = 4.35f * iconScale * minOf(scaleX, scaleY),
+            center = p(15.95f, 15.95f),
+            style = Stroke(width = clockStroke)
+        )
+        drawLine(color, p(15.95f, 15.95f), p(15.95f, 13.45f), clockStroke, StrokeCap.Round)
+        drawLine(color, p(15.95f, 15.95f), p(17.85f, 17.05f), clockStroke, StrokeCap.Round)
+    }
 }

@@ -129,6 +129,14 @@ class TimeBoxingAppState(
         refreshAll()
     }
 
+    // 어제 이월 리스트에서 특정 태스크만 제거 (삭제)
+    // 이월하지 않고 버리고 싶을 때 사용
+    fun dismissYesterdayTask(taskId: String) {
+        val yesterday = today.minusDays(1)
+        repository.deleteTask(yesterday, taskId)
+        refreshYesterdayIncomplete()
+    }
+
     fun openNewTaskEditor(date: LocalDate = today, initialTitle: String = "") {
         editorDraft = newTaskDraft(date = date, initialTitle = initialTitle)
     }

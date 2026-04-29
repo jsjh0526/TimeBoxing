@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,9 +34,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.outlined.Notifications as NotificationsOutlined
 import androidx.compose.material.icons.filled.RadioButtonChecked
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,7 +53,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -240,7 +242,7 @@ private fun Big3Card(tasks: List<DailyTask>, expanded: Boolean, onToggle: () -> 
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    StarIcon(color = Priority, modifier = Modifier.size(12.dp))
+                    StarIcon(color = Priority, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("TOP 3 PRIORITIES", style = sectionTitle(Priority))
                 }
@@ -260,17 +262,15 @@ private fun Big3Card(tasks: List<DailyTask>, expanded: Boolean, onToggle: () -> 
 @Composable
 private fun Big3Row(index: Int, task: DailyTask, onOpenTask: () -> Unit, onMarkComplete: () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(CardInner).clickable(onClick = onOpenTask).padding(horizontal = 12.dp, vertical = 12.dp)) {
-        Row(verticalAlignment = Alignment.Top) {
-            Big3CompletionToggle(completed = task.isCompleted, modifier = Modifier.padding(top = 2.dp), onClick = onMarkComplete)
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("#$index", style = bodyStyle(12.sp, Priority, FontWeight.Bold))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(task.title, style = titleStyle(15.sp, FontWeight.Medium).copy(color = if (task.isCompleted) Secondary else Color.White, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                task.schedule?.let { Text("${formatClock(it.startMinute)}  ${it.durationMinutes}min", style = bodyStyle(12.sp, if (task.isCompleted) Muted else Secondary)) }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Big3CompletionToggle(completed = task.isCompleted, onClick = onMarkComplete)
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("#$index", style = bodyStyle(12.sp, Priority, FontWeight.Bold))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(task.title, style = titleStyle(15.sp, FontWeight.Medium).copy(color = if (task.isCompleted) Secondary else Color.White, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            task.schedule?.let { Text("${formatClock(it.startMinute)}  ${it.durationMinutes}min", style = bodyStyle(12.sp, if (task.isCompleted) Muted else Secondary), modifier = Modifier.padding(start = 32.dp)) }
         }
     }
 }
@@ -380,8 +380,8 @@ private fun SecondaryButton(label: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Big3CompletionToggle(completed: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Box(modifier = modifier.size(20.dp).clip(CircleShape).background(if (completed) Big3CheckboxRing.copy(alpha = 0.18f) else Color.Transparent).border(1.4.dp, if (completed) Accent else Big3CheckboxRing, CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+private fun Big3CompletionToggle(completed: Boolean, onClick: () -> Unit) {
+    Box(modifier = Modifier.size(20.dp).clip(CircleShape).background(if (completed) Big3CheckboxRing.copy(alpha = 0.18f) else Color.Transparent).border(1.4.dp, if (completed) Accent else Big3CheckboxRing, CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         if (completed) CheckIcon(Accent, modifier = Modifier.size(10.dp))
     }
 }
@@ -633,7 +633,23 @@ private fun ReminderStateIcon(completed: Boolean, isNow: Boolean, isPast: Boolea
 
 @Composable
 private fun ReminderBellIcon(color: Color, modifier: Modifier = Modifier) {
-    Icon(Icons.Filled.Notifications, contentDescription = null, tint = color, modifier = modifier)
+    // 아웃라인 벨 아이콘 — HomeScreen BellIcon과 동일
+    Canvas(modifier = modifier) {
+        val stroke = 1.6.dp.toPx()
+        val w = size.width; val h = size.height
+        val path = Path().apply {
+            moveTo(w * 0.5f, h * 0.09f)
+            cubicTo(w * 0.22f, h * 0.09f, w * 0.17f, h * 0.30f, w * 0.17f, h * 0.52f)
+            lineTo(w * 0.11f, h * 0.70f); lineTo(w * 0.89f, h * 0.70f)
+            lineTo(w * 0.83f, h * 0.52f)
+            cubicTo(w * 0.83f, h * 0.30f, w * 0.78f, h * 0.09f, w * 0.5f, h * 0.09f)
+        }
+        drawPath(path, color, style = Stroke(width = stroke, join = StrokeJoin.Round, cap = StrokeCap.Round))
+        drawArc(color = color, startAngle = 0f, sweepAngle = 180f, useCenter = false,
+            topLeft = Offset(w * 0.37f, h * 0.70f),
+            size = androidx.compose.ui.geometry.Size(w * 0.26f, h * 0.16f),
+            style = Stroke(width = stroke, cap = StrokeCap.Round))
+    }
 }
 
 @Composable
@@ -653,7 +669,29 @@ private fun ReminderClockIcon(color: Color, modifier: Modifier = Modifier) {
 
 @Composable
 private fun BellIcon(color: Color) {
-    Icon(NotificationsOutlined, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+    Canvas(modifier = Modifier.size(20.dp)) {
+        val stroke = 1.6.dp.toPx()
+        val w = size.width
+        val h = size.height
+        // 종 몸통 — 위에서 아래로 퍼지는 아웃라인
+        val path = Path().apply {
+            moveTo(w * 0.5f, h * 0.09f)
+            cubicTo(w * 0.22f, h * 0.09f, w * 0.17f, h * 0.30f, w * 0.17f, h * 0.52f)
+            lineTo(w * 0.11f, h * 0.70f)
+            lineTo(w * 0.89f, h * 0.70f)
+            lineTo(w * 0.83f, h * 0.52f)
+            cubicTo(w * 0.83f, h * 0.30f, w * 0.78f, h * 0.09f, w * 0.5f, h * 0.09f)
+        }
+        drawPath(path, color, style = Stroke(width = stroke, join = StrokeJoin.Round, cap = StrokeCap.Round))
+        // 클래퍼 (아래 반원)
+        drawArc(
+            color = color,
+            startAngle = 0f, sweepAngle = 180f, useCenter = false,
+            topLeft = Offset(w * 0.37f, h * 0.70f),
+            size = Size(w * 0.26f, h * 0.16f),
+            style = Stroke(width = stroke, cap = StrokeCap.Round)
+        )
+    }
 }
 
 @Composable
@@ -683,7 +721,31 @@ private fun PlusIcon(color: Color, modifier: Modifier = Modifier) {
 
 @Composable
 private fun StarIcon(color: Color, modifier: Modifier = Modifier) {
-    Icon(Icons.Filled.Star, contentDescription = null, tint = color, modifier = modifier)
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val path = Path().apply {
+            moveTo(w * 0.50f, h * 0.06f)
+            cubicTo(w * 0.55f, h * 0.06f, w * 0.58f, h * 0.09f, w * 0.61f, h * 0.14f)
+            lineTo(w * 0.70f, h * 0.33f)
+            lineTo(w * 0.91f, h * 0.36f)
+            cubicTo(w * 0.98f, h * 0.37f, w * 1.01f, h * 0.46f, w * 0.96f, h * 0.51f)
+            lineTo(w * 0.80f, h * 0.66f)
+            lineTo(w * 0.84f, h * 0.88f)
+            cubicTo(w * 0.86f, h * 0.96f, w * 0.77f, h * 1.01f, w * 0.70f, h * 0.97f)
+            lineTo(w * 0.50f, h * 0.86f)
+            lineTo(w * 0.30f, h * 0.97f)
+            cubicTo(w * 0.23f, h * 1.01f, w * 0.14f, h * 0.96f, w * 0.16f, h * 0.88f)
+            lineTo(w * 0.20f, h * 0.66f)
+            lineTo(w * 0.04f, h * 0.51f)
+            cubicTo(w * -0.01f, h * 0.46f, w * 0.02f, h * 0.37f, w * 0.09f, h * 0.36f)
+            lineTo(w * 0.30f, h * 0.33f)
+            lineTo(w * 0.39f, h * 0.14f)
+            cubicTo(w * 0.42f, h * 0.09f, w * 0.45f, h * 0.06f, w * 0.50f, h * 0.06f)
+            close()
+        }
+        drawPath(path = path, color = color)
+    }
 }
 
 // ── 헬퍼 ──────────────────────────────────────────────────────────────────────

@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
-import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -37,7 +36,6 @@ class MainActivity : ComponentActivity() {
         initSupabase(this)
         ReminderScheduler.createChannels(this)
         requestNotificationPermissionIfNeeded()
-        requestIgnoreBatteryOptimizationsIfNeeded()
         enableEdgeToEdge(
             statusBarStyle     = SystemBarStyle.dark(Color(0xFF121212).toArgb()),
             navigationBarStyle = SystemBarStyle.dark(Color(0xFF1E1E1E).toArgb())
@@ -45,6 +43,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             TimeBoxingTheme {
                 TimeBoxingApp(
+                    onRequestBatteryOptimizationExemption = ::requestIgnoreBatteryOptimizationsIfNeeded,
                     onLoginScreenVisible = { visible ->
                         keepSystemBarsVisible = visible
                         if (visible) showSystemBars() else hideSystemBars()
@@ -65,15 +64,10 @@ class MainActivity : ComponentActivity() {
         if (!granted) requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    /**
-     * 배터리 최적화 예외 요청.
-     * Android의 Doze 모드 / 제조사 배터리 최적화가 AlarmManager를 막는 문제 방지.
-     * 앱 처음 실행 시 시스템 다이얼로그 표시 → 사용자가 "허용" 선택하면 앱 꺼져도 알람 정상 작동.
-     */
     private fun requestIgnoreBatteryOptimizationsIfNeeded() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
         val pm = getSystemService(PowerManager::class.java)
-        if (pm.isIgnoringBatteryOptimizations(packageName)) return  // 이미 허용된 경우
+        if (pm.isIgnoringBatteryOptimizations(packageName)) return
         try {
             startActivity(
                 Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
@@ -81,19 +75,11 @@ class MainActivity : ComponentActivity() {
                 }
             )
         } catch (_: Exception) {
-            // 일부 기기에서 ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS 미지원 — 무시
+            // Some devices do not expose this settings panel.
         }
     }
 
     private fun hideSystemBars() {
-        @Suppress("DEPRECATION")
-        window.decorView.systemUiVisibility =
-            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-
         WindowCompat.getInsetsController(window, window.decorView)?.apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.navigationBars())
@@ -101,9 +87,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showSystemBars() {
-        @Suppress("DEPRECATION")
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-
         WindowCompat.getInsetsController(window, window.decorView)?.apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
             show(WindowInsetsCompat.Type.navigationBars())

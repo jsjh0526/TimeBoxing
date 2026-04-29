@@ -7,6 +7,9 @@ import com.example.timeboxing.data.local.entity.DailyTaskEntity
 import com.example.timeboxing.data.local.entity.TaskTemplateEntity
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -59,9 +62,13 @@ private data class RemoteTaskStatus(
     @SerialName("deleted_at") val deletedAt: String? = null
 )
 
+@Serializable
+private data class SoftDeletePatch(
+    @SerialName("deleted_at") val deletedAt: String
+)
+
 object SupabaseSync {
 
-    // ── 다운로드: soft-deleted 항목 제외하고 복원 ─────────────────────────────
     suspend fun pull(
         userId: String,
         templateDao: TaskTemplateDao,
@@ -72,6 +79,13 @@ object SupabaseSync {
             .decodeList<RemoteTemplate>()
 
         val activeTemplates = remoteTemplates.filter { it.deletedAt == null }
+        val deletedTemplateIds = remoteTemplates.filter { it.deletedAt != null }.map { it.id }
+        if (deletedTemplateIds.isNotEmpty()) {
+            templateDao.deleteByIds(deletedTemplateIds)
+            deletedTemplateIds.forEach { templateId ->
+                dailyTaskDao.deleteByTemplateId(templateId)
+            }
+        }
         if (activeTemplates.isNotEmpty()) templateDao.upsertAll(activeTemplates.map { it.toEntity() })
 
         val remoteTasks = supabase.from("daily_tasks")
@@ -79,6 +93,8 @@ object SupabaseSync {
             .decodeList<RemoteTask>()
 
         val activeTasks = remoteTasks.filter { it.deletedAt == null }
+        val deletedTaskIds = remoteTasks.filter { it.deletedAt != null }.map { it.id }
+        if (deletedTaskIds.isNotEmpty()) dailyTaskDao.deleteByIds(deletedTaskIds)
         if (activeTasks.isNotEmpty()) dailyTaskDao.upsertAll(activeTasks.map { it.toEntity() })
 
         return RemoteSyncStatus(
@@ -87,19 +103,20 @@ object SupabaseSync {
         )
     }
 
-    // ── 전체 동기화: pull() 결과로 원격 카운트까지 반환 ─────────────────────
     suspend fun syncAll(
         userId: String,
         templateDao: TaskTemplateDao,
         dailyTaskDao: DailyTaskDao
     ): RemoteSyncStatus {
+        pull(userId, templateDao, dailyTaskDao)
+
         val templates = templateDao.getAll()
         if (templates.isNotEmpty()) pushTemplates(userId, templates)
 
         val tasks = dailyTaskDao.getAll()
         if (tasks.isNotEmpty()) pushTasks(userId, tasks)
 
-        return pull(userId, templateDao, dailyTaskDao)
+        return status(userId)
     }
 
     // ── 원격 상태 조회: 로컬 DB는 건드리지 않음 ─────────────────────────────
@@ -137,17 +154,31 @@ object SupabaseSync {
         supabase.from("task_templates").upsert(entities.map { it.toRemote(userId) })
     }
 
-    // ── 삭제: user_id 필터로 본인 데이터만 삭제 ─────────────────────────────
     suspend fun deleteTask(userId: String, taskId: String) {
-        supabase.from("daily_tasks").delete { filter { eq("id", taskId); eq("user_id", userId) } }
+        supabase.from("daily_tasks").update(softDeletePatch()) {
+            filter {
+                eq("id", taskId)
+                eq("user_id", userId)
+            }
+        }
     }
 
     suspend fun deleteTemplate(userId: String, templateId: String) {
-        supabase.from("task_templates").delete { filter { eq("id", templateId); eq("user_id", userId) } }
+        supabase.from("task_templates").update(softDeletePatch()) {
+            filter {
+                eq("id", templateId)
+                eq("user_id", userId)
+            }
+        }
     }
 
     suspend fun deleteTasksByTemplateId(userId: String, templateId: String) {
-        supabase.from("daily_tasks").delete { filter { eq("template_id", templateId); eq("user_id", userId) } }
+        supabase.from("daily_tasks").update(softDeletePatch()) {
+            filter {
+                eq("template_id", templateId)
+                eq("user_id", userId)
+            }
+        }
     }
 
     // ── 변환 ─────────────────────────────────────────────────────────────────
@@ -207,4 +238,7 @@ object SupabaseSync {
         defaultEndMinute    = defaultEndMinute,
         reminderEnabled     = reminderEnabled
     )
+
+    private fun softDeletePatch(): SoftDeletePatch =
+        SoftDeletePatch(OffsetDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
 }

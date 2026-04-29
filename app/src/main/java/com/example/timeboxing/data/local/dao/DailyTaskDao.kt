@@ -29,6 +29,9 @@ interface DailyTaskDao {
     @Query("DELETE FROM daily_tasks WHERE dateIso = :dateIso AND id = :taskId")
     fun deleteById(dateIso: String, taskId: String)
 
+    @Query("DELETE FROM daily_tasks WHERE id IN (:taskIds)")
+    fun deleteByIds(taskIds: List<String>)
+
     @Query("DELETE FROM daily_tasks WHERE templateId = :templateId")
     fun deleteByTemplateId(templateId: String)
 

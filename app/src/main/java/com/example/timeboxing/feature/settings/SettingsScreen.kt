@@ -1,5 +1,6 @@
 package com.example.timeboxing.feature.settings
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,9 +20,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Feedback
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -33,7 +42,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -67,6 +83,7 @@ fun SettingsScreen(
     val syncState by SyncManager.state.collectAsState()
     val remoteStatus by SyncManager.remoteStatus.collectAsState()
     val loggedInUserId = (authState as? AuthState.LoggedIn)?.userId
+    val uriHandler = LocalUriHandler.current
 
     // Fix 3: 앱 진입 시 1번만 실행 (syncState 변경 시 재실행 제거)
     // syncAll() 완료 시 SyncManager 내부에서 remoteStatus를 이미 업데이트하므로 중복 불필요
@@ -166,10 +183,39 @@ fun SettingsScreen(
         }
 
         item {
-            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
-                Text("TimeBoxing v1.0.0", style = TextStyle(color = Color(0xFF4A5565), fontSize = 12.sp, lineHeight = 18.sp))
+            SectionCard(title = "Support", icon = { MaterialSettingsIcon(SettingsIcon.Support, Accent) }) {
+                SettingsMenuRow(
+                    title = "문의하기",
+                    subtitle = "앱 사용 중 궁금한 점을 보내주세요",
+                    icon = SettingsIcon.Contact,
+                    showChevron = true,
+                    onClick = { uriHandler.openUri("mailto:support@timeboxing.app?subject=TimeBoxing%20%EB%AC%B8%EC%9D%98") }
+                )
+                SettingsMenuRow(
+                    title = "피드백 보내기",
+                    subtitle = "버그나 개선 아이디어를 알려주세요",
+                    icon = SettingsIcon.Feedback,
+                    showChevron = true,
+                    onClick = { uriHandler.openUri("mailto:support@timeboxing.app?subject=TimeBoxing%20%ED%94%BC%EB%93%9C%EB%B0%B1") }
+                )
+                SettingsMenuRow(
+                    title = "공지사항",
+                    subtitle = "업데이트 소식과 변경사항",
+                    icon = SettingsIcon.Notice,
+                    showDivider = false
+                )
             }
         }
+
+        item {
+            SectionCard(title = "About", icon = { MaterialSettingsIcon(SettingsIcon.Info, Accent) }) {
+                SettingsMenuRow("이용약관", "서비스 이용 기준", SettingsIcon.Terms)
+                SettingsMenuRow("개인정보처리방침", "계정 및 동기화 데이터 안내", SettingsIcon.Privacy)
+                SettingsMenuRow("오픈소스 라이선스", "사용된 라이브러리 정보", SettingsIcon.License)
+                SettingsMenuRow("앱 버전", "TimeBoxing v1.0.0", SettingsIcon.Info, showChevron = false, showDivider = false)
+            }
+        }
+
     }
 }
 
@@ -239,25 +285,91 @@ private fun AccountSummary(name: String?, email: String) {
     }
 }
 
+@Composable
+private fun SettingsMenuRow(
+    title: String,
+    subtitle: String,
+    icon: SettingsIcon,
+    showDivider: Boolean = true,
+    showChevron: Boolean = false,
+    onClick: (() -> Unit)? = null
+) {
+    Column {
+        val rowModifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 4.dp, vertical = 2.dp)
+
+        Row(modifier = rowModifier, verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF2A2A2A)), contentAlignment = Alignment.Center) {
+                MaterialSettingsIcon(icon, ButtonText, 18)
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+                Text(subtitle, style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp), maxLines = 1)
+            }
+            if (showChevron && onClick != null) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(20.dp))
+            }
+        }
+        if (showDivider) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(CardBorder))
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
+}
+
 private enum class SettingsIcon {
     Notifications,
     Account,
     Sync,
-    Logout
+    Logout,
+    Support,
+    Contact,
+    Feedback,
+    Notice,
+    Info,
+    Terms,
+    Privacy,
+    License
 }
 
 @Composable
 private fun MaterialSettingsIcon(icon: SettingsIcon, color: Color, size: Int = 18) {
+    if (icon == SettingsIcon.Notifications) {
+        // 아웃라인 벨 (Canvas)
+        Canvas(modifier = Modifier.size(size.dp)) {
+            val stroke = (size * 0.09f).dp.toPx()
+            val w = this.size.width; val h = this.size.height
+            val path = Path().apply {
+                moveTo(w * 0.5f, h * 0.09f)
+                cubicTo(w * 0.22f, h * 0.09f, w * 0.17f, h * 0.30f, w * 0.17f, h * 0.52f)
+                lineTo(w * 0.11f, h * 0.70f); lineTo(w * 0.89f, h * 0.70f)
+                lineTo(w * 0.83f, h * 0.52f)
+                cubicTo(w * 0.83f, h * 0.30f, w * 0.78f, h * 0.09f, w * 0.5f, h * 0.09f)
+            }
+            drawPath(path, color, style = Stroke(width = stroke, join = StrokeJoin.Round, cap = StrokeCap.Round))
+            drawArc(color = color, startAngle = 0f, sweepAngle = 180f, useCenter = false,
+                topLeft = Offset(w * 0.37f, h * 0.70f), size = Size(w * 0.26f, h * 0.16f),
+                style = Stroke(width = stroke, cap = StrokeCap.Round))
+        }
+        return
+    }
     val imageVector = when (icon) {
-        SettingsIcon.Notifications -> Icons.Filled.Notifications
+        SettingsIcon.Notifications -> Icons.Filled.Notifications  // 위에서 early return
         SettingsIcon.Account -> Icons.Filled.AccountCircle
         SettingsIcon.Sync -> Icons.Filled.Sync
         SettingsIcon.Logout -> Icons.AutoMirrored.Filled.Logout
+        SettingsIcon.Support -> Icons.AutoMirrored.Filled.HelpOutline
+        SettingsIcon.Contact -> Icons.Filled.Mail
+        SettingsIcon.Feedback -> Icons.Filled.Feedback
+        SettingsIcon.Notice -> Icons.Filled.Campaign
+        SettingsIcon.Info -> Icons.Filled.Info
+        SettingsIcon.Terms -> Icons.Filled.Description
+        SettingsIcon.Privacy -> Icons.Filled.Policy
+        SettingsIcon.License -> Icons.Filled.Description
     }
-    Icon(
-        imageVector = imageVector,
-        contentDescription = null,
-        tint = color,
-        modifier = Modifier.size(size.dp)
-    )
+    Icon(imageVector = imageVector, contentDescription = null, tint = color, modifier = Modifier.size(size.dp))
 }

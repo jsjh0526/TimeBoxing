@@ -109,6 +109,7 @@ fun TodoScreen(
     onQuickAddTask: (String) -> Unit,
     onOpenAddTaskEditor: (String) -> Unit,
     onCarryOverYesterday: () -> Unit,
+    onDismissYesterdayTask: (String) -> Unit = {},
     onToggleBig3: (String) -> Unit,
     onToggleComplete: (String) -> Unit,
     onOpenTask: (String) -> Unit,
@@ -149,6 +150,7 @@ fun TodoScreen(
                     tasks = yesterdayIncompleteTasks,
                     expanded = yesterdayExpanded,
                     onToggle = { yesterdayExpanded = !yesterdayExpanded },
+                    onDismissTask = onDismissYesterdayTask,
                     onCarryOver = {
                         onCarryOverYesterday()
                         yesterdayExpanded = false
@@ -420,6 +422,7 @@ private fun YesterdayIncompleteSection(
     tasks: List<DailyTask>,
     expanded: Boolean,
     onToggle: () -> Unit,
+    onDismissTask: (String) -> Unit,
     onCarryOver: () -> Unit
 ) {
     Column(
@@ -454,7 +457,7 @@ private fun YesterdayIncompleteSection(
             Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(Divider))
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 tasks.forEach { task ->
-                    YesterdayTaskPreview(task)
+                    YesterdayTaskPreview(task, onDismiss = { onDismissTask(task.id) })
                 }
                 Box(
                     modifier = Modifier
@@ -476,7 +479,7 @@ private fun YesterdayIncompleteSection(
 }
 
 @Composable
-private fun YesterdayTaskPreview(task: DailyTask) {
+private fun YesterdayTaskPreview(task: DailyTask, onDismiss: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -502,6 +505,21 @@ private fun YesterdayTaskPreview(task: DailyTask) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+        Spacer(Modifier.width(8.dp))
+        // X 버튼 — 이 태스크만 리스트에서 제거
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.07f))
+                .clickable(onClick = onDismiss),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "×",
+                style = TextStyle(color = TextSecondary, fontSize = 16.sp, lineHeight = 16.sp)
+            )
         }
     }
 }
