@@ -1,6 +1,5 @@
-﻿package com.example.timeboxing.feature.todo
+package com.example.timeboxing.feature.todo
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,6 +23,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DragIndicator
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,13 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -77,7 +80,6 @@ private val TextSecondary    = Color(0xFF99A1AF)
 private val TextMuted        = Color(0xFF6A7282)
 private val Divider          = Color(0xFF333333)
 private val TagBackground    = Color(0xFF444444)
-private val RecurringTagBg   = Color(0xFF2A2A2A)
 private val Priority         = Color(0xFFFFC300)
 private val Big3Label        = Color(0xFFFF9680)
 private val RecurringSection = Color(0xFFE5DDA8)
@@ -147,7 +149,10 @@ fun TodoScreen(
                     tasks = yesterdayIncompleteTasks,
                     expanded = yesterdayExpanded,
                     onToggle = { yesterdayExpanded = !yesterdayExpanded },
-                    onCarryOver = onCarryOverYesterday
+                    onCarryOver = {
+                        onCarryOverYesterday()
+                        yesterdayExpanded = false
+                    }
                 )
             }
         }
@@ -665,14 +670,12 @@ private fun DragHandle(
             },
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size(width = 10.dp, height = 16.dp)) {
-            val dot = 1.dp.toPx()
-            listOf(size.height * 0.22f, size.height * 0.5f, size.height * 0.78f).forEach { y ->
-                listOf(size.width * 0.25f, size.width * 0.75f).forEach { x ->
-                    drawCircle(TextMuted, radius = dot, center = Offset(x, y))
-                }
-            }
-        }
+        Icon(
+            Icons.Filled.DragIndicator,
+            contentDescription = null,
+            tint = TextMuted,
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
@@ -680,18 +683,12 @@ private fun DragHandle(
 
 @Composable
 private fun Big3Toggle(selected: Boolean, onClick: () -> Unit) {
-    Canvas(modifier = Modifier.size(20.dp).clickable(onClick = onClick)) {
-        val path = Path().apply {
-            moveTo(size.width * 0.5f,  size.height * 0.08f)
-            lineTo(size.width * 0.62f, size.height * 0.36f); lineTo(size.width * 0.92f, size.height * 0.38f)
-            lineTo(size.width * 0.69f, size.height * 0.58f); lineTo(size.width * 0.77f, size.height * 0.9f)
-            lineTo(size.width * 0.5f,  size.height * 0.72f); lineTo(size.width * 0.23f, size.height * 0.9f)
-            lineTo(size.width * 0.31f, size.height * 0.58f); lineTo(size.width * 0.08f, size.height * 0.38f)
-            lineTo(size.width * 0.38f, size.height * 0.36f); close()
-        }
-        if (selected) drawPath(path, Priority)
-        else drawPath(path, TextSecondary, style = Stroke(1.5.dp.toPx(), join = StrokeJoin.Round))
-    }
+    Icon(
+        imageVector = if (selected) Icons.Filled.Star else Icons.Outlined.StarBorder,
+        contentDescription = null,
+        tint = if (selected) Priority else TextSecondary,
+        modifier = Modifier.size(20.dp).clickable(onClick = onClick)
+    )
 }
 
 @Composable
@@ -751,51 +748,29 @@ private fun RecurringBadge(rule: RecurrenceRule?) {
     }
 }
 
-// Canvas icons
-
 @Composable
 private fun CheckIcon(color: Color) {
-    Canvas(modifier = Modifier.size(12.dp)) {
-        val s = 1.8.dp.toPx()
-        drawLine(color, Offset(size.width * 0.2f,  size.height * 0.55f), Offset(size.width * 0.45f, size.height * 0.78f), s, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.45f, size.height * 0.78f), Offset(size.width * 0.82f, size.height * 0.3f),  s, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.Check, contentDescription = null, tint = color, modifier = Modifier.size(12.dp))
 }
 
 @Composable
 private fun PlusIcon(color: Color) {
-    Canvas(modifier = Modifier.size(24.dp)) {
-        val s = 2.dp.toPx()
-        drawLine(color, Offset(center.x, size.height * 0.25f), Offset(center.x, size.height * 0.75f), s, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.25f, center.y), Offset(size.width * 0.75f, center.y), s, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.Add, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
 }
 
 @Composable
 private fun CalendarMiniIcon(color: Color) {
-    Canvas(modifier = Modifier.size(10.dp)) {
-        val s = 1.dp.toPx()
-        drawRoundRect(color, cornerRadius = CornerRadius(2.dp.toPx()), style = Stroke(s))
-        drawLine(color, Offset(size.width * 0.15f, size.height * 0.36f), Offset(size.width * 0.85f, size.height * 0.36f), s, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = color, modifier = Modifier.size(10.dp))
 }
 
 @Composable
 private fun ChevronUpIcon(color: Color) {
-    Canvas(modifier = Modifier.size(12.dp)) {
-        val s = 1.5.dp.toPx()
-        drawLine(color, Offset(size.width * 0.25f, size.height * 0.65f), Offset(size.width * 0.5f,  size.height * 0.35f), s, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.5f,  size.height * 0.35f), Offset(size.width * 0.75f, size.height * 0.65f), s, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null, tint = color, modifier = Modifier.size(12.dp))
 }
 
 @Composable
 private fun ChevronDownIcon(color: Color) {
-    Canvas(modifier = Modifier.size(12.dp)) {
-        val s = 1.5.dp.toPx()
-        drawLine(color, Offset(size.width * 0.25f, size.height * 0.35f), Offset(size.width * 0.5f,  size.height * 0.65f), s, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.5f,  size.height * 0.65f), Offset(size.width * 0.75f, size.height * 0.35f), s, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = color, modifier = Modifier.size(12.dp))
 }
 
 // Formatting helpers
@@ -827,4 +802,3 @@ private fun dayShort(day: DayOfWeek): String = when (day) {
     DayOfWeek.THURSDAY  -> "Thu"; DayOfWeek.FRIDAY    -> "Fri"
     DayOfWeek.SATURDAY  -> "Sat"; DayOfWeek.SUNDAY    -> "Sun"
 }
-

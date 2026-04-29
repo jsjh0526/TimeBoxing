@@ -1,5 +1,6 @@
 package com.example.timeboxing.data.repository
 
+import com.example.timeboxing.domain.model.DailyTaskSource
 import com.example.timeboxing.domain.model.RecurrenceRule
 import com.example.timeboxing.domain.model.RecurrenceType
 import com.example.timeboxing.domain.model.TaskEditInput
@@ -13,47 +14,37 @@ class InMemoryTaskRepositoryTest {
     private val anchorDate: LocalDate = LocalDate.of(2026, 3, 29)
 
     @Test
-    fun `cached future carry-over is removed when source task is completed`() {
+    fun `manual carry-over copies yesterday incomplete one-off tasks to today`() {
         val repository = InMemoryTaskRepository(anchorDate = anchorDate)
-        val today = anchorDate
-        val tomorrow = today.plusDays(1)
-        val title = "sync-check-complete"
+        val yesterday = anchorDate
+        val today = yesterday.plusDays(1)
+        val title = "carry-me"
 
-        val created = repository.addTask(today, title)
-        val before = repository.getTasks(tomorrow).filter { it.title == title }
-        assertEquals(1, before.size)
+        repository.addTask(yesterday, title)
 
-        repository.toggleCompleted(today, created.id)
+        repository.carryOverIncompleteTasks(yesterday, today)
 
-        val after = repository.getTasks(tomorrow).filter { it.title == title }
-        assertTrue(after.isEmpty())
+        val carried = repository.getTasks(today).single { it.title == title }
+        assertEquals(DailyTaskSource.CARRY_OVER, carried.source)
+        assertEquals(null, carried.schedule)
+        assertEquals(false, carried.isCompleted)
+        assertEquals(false, carried.isBig3)
     }
 
     @Test
-    fun `cached future carry-over reflects edited task fields`() {
+    fun `manual carry-over skips completed and recurring tasks`() {
         val repository = InMemoryTaskRepository(anchorDate = anchorDate)
-        val today = anchorDate
-        val tomorrow = today.plusDays(1)
-        val originalTitle = "sync-check-edit-original"
-        val updatedTitle = "sync-check-edit-updated"
+        val yesterday = anchorDate
+        val today = yesterday.plusDays(1)
+        val completed = repository.addTask(yesterday, "done-already")
+        repository.toggleCompleted(yesterday, completed.id)
 
-        val created = repository.addTask(today, originalTitle)
-        repository.getTasks(tomorrow)
+        repository.carryOverIncompleteTasks(yesterday, today)
 
-        repository.upsertTask(
-            TaskEditInput(
-                taskId = created.id,
-                date = today,
-                title = updatedTitle,
-                note = "updated note",
-                tags = listOf("Updated"),
-                recurrenceRule = null
-            )
-        )
-
-        val carried = repository.getTasks(tomorrow).single { it.title == updatedTitle }
-        assertEquals("updated note", carried.note)
-        assertEquals(listOf("Updated"), carried.tags)
+        val carriedTitles = repository.getTasks(today)
+            .filter { it.source == DailyTaskSource.CARRY_OVER }
+            .map { it.title }
+        assertTrue("done-already" !in carriedTitles)
     }
 
     @Test

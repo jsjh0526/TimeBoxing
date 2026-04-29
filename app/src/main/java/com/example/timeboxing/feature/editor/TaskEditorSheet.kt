@@ -1,7 +1,6 @@
 ﻿package com.example.timeboxing.feature.editor
 
 import android.view.WindowManager
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,8 +25,15 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,13 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
@@ -465,69 +465,29 @@ private fun TrashButton(enabled: Boolean, onClick: () -> Unit) {
     }
 }
 
-// 아이콘 캔버스
-
 @Composable
 private fun ClockIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val stroke = 1.6.dp.toPx()
-        drawCircle(color = color, style = Stroke(width = stroke))
-        drawLine(color, center, Offset(center.x, size.height * 0.22f), stroke, StrokeCap.Round)
-        drawLine(color, center, Offset(size.width * 0.7f, center.y),   stroke, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.AccessTime, contentDescription = null, tint = color, modifier = modifier)
 }
 
 @Composable
 private fun RecurringIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val stroke = 1.7.dp.toPx()
-        val path = Path().apply {
-            moveTo(size.width * 0.72f, size.height * 0.18f)
-            cubicTo(size.width * 0.95f, size.height * 0.18f, size.width * 0.95f, size.height * 0.82f, size.width * 0.72f, size.height * 0.82f)
-            lineTo(size.width * 0.28f, size.height * 0.82f)
-            cubicTo(size.width * 0.05f, size.height * 0.82f, size.width * 0.05f, size.height * 0.18f, size.width * 0.28f, size.height * 0.18f)
-            lineTo(size.width * 0.55f, size.height * 0.18f)
-        }
-        drawPath(path, color, style = Stroke(width = stroke, cap = StrokeCap.Round))
-        drawLine(color, Offset(size.width * 0.44f, size.height * 0.08f), Offset(size.width * 0.55f, size.height * 0.18f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.55f, size.height * 0.18f), Offset(size.width * 0.44f, size.height * 0.28f), stroke, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.Repeat, contentDescription = null, tint = color, modifier = modifier)
 }
 
 @Composable
 private fun MemoIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val stroke = 1.5.dp.toPx()
-        drawLine(color, Offset(size.width * 0.08f, size.height * 0.22f), Offset(size.width * 0.92f, size.height * 0.22f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.08f, size.height * 0.5f),  Offset(size.width * 0.92f, size.height * 0.5f),  stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.08f, size.height * 0.78f), Offset(size.width * 0.6f,  size.height * 0.78f), stroke, StrokeCap.Round)
-    }
+    Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, tint = color, modifier = modifier)
 }
 
 @Composable
 private fun TagLabelIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val stroke = 1.5.dp.toPx()
-        val path = Path().apply {
-            moveTo(size.width * 0.08f, size.height * 0.22f); lineTo(size.width * 0.65f, size.height * 0.22f)
-            lineTo(size.width * 0.92f, size.height * 0.5f);  lineTo(size.width * 0.65f, size.height * 0.78f)
-            lineTo(size.width * 0.08f, size.height * 0.78f); close()
-        }
-        drawPath(path, color, style = Stroke(width = stroke, cap = StrokeCap.Round))
-        drawCircle(color, size.minDimension * 0.09f, Offset(size.width * 0.26f, size.height * 0.5f), style = Stroke(width = stroke))
-    }
+    Icon(Icons.Filled.LocalOffer, contentDescription = null, tint = color, modifier = modifier)
 }
 
 @Composable
 private fun TrashIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val stroke = 1.8.dp.toPx()
-        drawLine(color, Offset(size.width * 0.38f, size.height * 0.1f),  Offset(size.width * 0.62f, size.height * 0.1f),  stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.14f, size.height * 0.24f), Offset(size.width * 0.86f, size.height * 0.24f), stroke, StrokeCap.Round)
-        drawRoundRect(color, Offset(size.width * 0.2f, size.height * 0.24f), Size(size.width * 0.6f, size.height * 0.66f), CornerRadius(3.dp.toPx()), Stroke(stroke))
-        drawLine(color, Offset(size.width * 0.39f, size.height * 0.38f), Offset(size.width * 0.39f, size.height * 0.78f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.61f, size.height * 0.38f), Offset(size.width * 0.61f, size.height * 0.78f), stroke, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.Delete, contentDescription = null, tint = color, modifier = modifier)
 }
 
 // Time and recurrence helpers

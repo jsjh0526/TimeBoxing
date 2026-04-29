@@ -1,4 +1,4 @@
-﻿package com.example.timeboxing.domain.model
+package com.example.timeboxing.domain.model
 
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -15,6 +15,7 @@ data class RecurrenceRule(
     val repeatDays: Set<DayOfWeek> = emptySet()
 )
 
+// extension function 유지 — AppState, TodoScreen 등에서 import해서 사용 중
 fun RecurrenceRule.occursOn(dayOfWeek: DayOfWeek): Boolean = when (type) {
     RecurrenceType.DAILY -> true
     RecurrenceType.WEEKDAYS -> {

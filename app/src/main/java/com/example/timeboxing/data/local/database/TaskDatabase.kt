@@ -20,7 +20,7 @@ abstract class TaskDatabase : RoomDatabase() {
 
     companion object {
         private val instances = mutableMapOf<String, TaskDatabase>()
-        private val seedTemplateIds = setOf("tpl-standup", "tpl-break", "tpl-funny")
+        private val seedTemplateIds = setOf("tpl-standup", "tpl-break")
 
         fun get(context: Context, userId: String): TaskDatabase {
             val key = userId

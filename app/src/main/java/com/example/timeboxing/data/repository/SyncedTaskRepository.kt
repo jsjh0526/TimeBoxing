@@ -55,7 +55,7 @@ class SyncedTaskRepository(
             val tplEntity = templateDao.getById(templateId)
             syncScope.launch {
                 if (tplEntity != null) SupabaseSync.pushTemplate(userId, tplEntity)
-                if (taskEntity != null) SupabaseSync.pushTask(userId, taskEntity)
+                SupabaseSync.pushTask(userId, taskEntity)
             }
         } else if (taskEntity != null) {
             syncScope.launch { SupabaseSync.pushTask(userId, taskEntity) }

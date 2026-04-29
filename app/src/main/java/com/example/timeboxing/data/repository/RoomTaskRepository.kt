@@ -1,4 +1,4 @@
-﻿package com.example.timeboxing.data.repository
+package com.example.timeboxing.data.repository
 
 import com.example.timeboxing.data.local.dao.DailyTaskDao
 import com.example.timeboxing.data.local.dao.TaskTemplateDao
@@ -278,13 +278,6 @@ class RoomTaskRepository(
             tags = listOf("Break"),
             recurrenceRule = RecurrenceRule(RecurrenceType.DAILY),
             defaultSchedule = ScheduleBlock(18 * 60 + 30, 19 * 60 + 30)
-        ),
-        TaskTemplate(
-            id = "tpl-funny",
-            title = "ㅋㅋㅋ",
-            tags = listOf("ㅋㅋㅋ", "ㄴㄴㄴ"),
-            recurrenceRule = RecurrenceRule(RecurrenceType.DAILY),
-            defaultSchedule = ScheduleBlock(9 * 60, 9 * 60 + 30)
         )
     )
 
@@ -418,4 +411,3 @@ private fun List<String>.serialize(): String = joinToString("|")
 private fun String.deserializeTags(): List<String> = if (isBlank()) emptyList() else split("|").filter { it.isNotBlank() }
 private fun Set<DayOfWeek>.serializeDays(): String = map { it.name }.joinToString(",")
 private fun String.deserializeDays(): Set<DayOfWeek> = if (isBlank()) emptySet() else split(",").map { DayOfWeek.valueOf(it) }.toSet()
-

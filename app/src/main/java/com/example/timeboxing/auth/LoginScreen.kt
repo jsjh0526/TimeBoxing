@@ -129,7 +129,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 height   = fdp(51.986f),
                 scale    = scale,
                 onClick  = {
-                    AuthRepository.continueAsGuest()
+                    AuthRepository.continueAsGuest(context)
                     onLoginSuccess()
                 }
             )

@@ -1,6 +1,5 @@
 package com.example.timeboxing.feature.settings
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,7 +18,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,12 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -89,7 +89,7 @@ fun SettingsScreen(
 
         // ── Notifications ──────────────────────────────────────────────────
         item {
-            SectionCard(title = "Notifications", icon = { BellIcon(Accent) }) {
+            SectionCard(title = "Notifications", icon = { MaterialSettingsIcon(SettingsIcon.Notifications, Accent) }) {
                 ToggleRow("Notifications", "Allow alerts for time blocks", reminderSettings.notificationsEnabled, { onReminderSettingsChange(reminderSettings.copy(notificationsEnabled = it)) })
                 ToggleRow("Sound", "Play sound when a reminder fires", reminderSettings.soundEnabled, { onReminderSettingsChange(reminderSettings.copy(soundEnabled = it)) }, enabled = reminderSettings.notificationsEnabled)
                 ToggleRow("Vibration", "Vibrate with reminders", reminderSettings.vibrationEnabled, { onReminderSettingsChange(reminderSettings.copy(vibrationEnabled = it)) }, enabled = reminderSettings.notificationsEnabled, showDivider = false)
@@ -98,7 +98,7 @@ fun SettingsScreen(
 
         // ── Account ────────────────────────────────────────────────────────
         item {
-            SectionCard(title = "Account", icon = { AccountIcon(Accent) }) {
+            SectionCard(title = "Account", icon = { MaterialSettingsIcon(SettingsIcon.Account, Accent) }) {
                 when (val state = authState) {
                     is AuthState.LoggedIn -> {
                         AccountSummary(
@@ -106,14 +106,14 @@ fun SettingsScreen(
                             email = state.email.takeIf { it.isNotBlank() } ?: "Signed in"
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        ActionButton(label = "Sign Out", filled = false, icon = { LogoutIcon(ButtonText) }, onClick = onSignOut)
+                        ActionButton(label = "Sign Out", filled = false, icon = { MaterialSettingsIcon(SettingsIcon.Logout, ButtonText, 18) }, onClick = onSignOut)
                     }
                     is AuthState.Loading -> AccountSummary(null, "Checking session...")
                     is AuthState.Error   -> AccountSummary(null, state.message)
                     AuthState.Guest      -> {
                         AccountSummary("Guest mode", "Local data only")
                         Spacer(modifier = Modifier.height(16.dp))
-                        ActionButton(label = "Sign in with Google", filled = true, icon = { AccountIcon(Color.White) }, onClick = onSignIn)
+                        ActionButton(label = "Sign in with Google", filled = true, icon = { MaterialSettingsIcon(SettingsIcon.Account, Color.White, 18) }, onClick = onSignIn)
                     }
                     AuthState.SignedOut  -> AccountSummary(null, "Not signed in")
                 }
@@ -122,7 +122,7 @@ fun SettingsScreen(
 
         // ── Sync ───────────────────────────────────────────────────────────
         item {
-            SectionCard(title = "Sync", icon = { SyncIcon(Green) }) {
+            SectionCard(title = "Sync", icon = { MaterialSettingsIcon(SettingsIcon.Sync, Green) }) {
                 val (statusText, statusColor) = when (syncState) {
                     is SyncState.Idle    -> "데이터를 수동으로 동기화할 수 있어요." to TextSecondary
                     is SyncState.Syncing -> "동기화 중..." to Accent
@@ -154,7 +154,7 @@ fun SettingsScreen(
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Accent, strokeWidth = 2.dp)
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SyncIcon(if (isLoggedIn) Color.White else TextSecondary)
+                            MaterialSettingsIcon(SettingsIcon.Sync, if (isLoggedIn) Color.White else TextSecondary, 18)
                             Text(
                                 text = if (isLoggedIn) "Sync Now" else "로그인 후 사용 가능",
                                 style = TextStyle(color = if (isLoggedIn) Color.White else TextSecondary, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
@@ -162,13 +162,6 @@ fun SettingsScreen(
                         }
                     }
                 }
-            }
-        }
-
-        // ── App Info ───────────────────────────────────────────────────────
-        item {
-            SectionCard(title = "App Info", icon = { InfoIcon(Accent) }) {
-                ToggleRow("Local First", "Tasks are stored on this device", true, {}, enabled = false, showDivider = false)
             }
         }
 
@@ -235,7 +228,9 @@ private fun ActionButton(label: String, filled: Boolean, icon: @Composable () ->
 @Composable
 private fun AccountSummary(name: String?, email: String) {
     Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFF2A2A2A)).padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(Accent.copy(alpha = 0.9f)), contentAlignment = Alignment.Center) { AccountIcon(Color.White) }
+        Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(Accent.copy(alpha = 0.9f)), contentAlignment = Alignment.Center) {
+            MaterialSettingsIcon(SettingsIcon.Account, Color.White, 22)
+        }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(name ?: "Google Account", style = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold), maxLines = 1)
@@ -244,57 +239,25 @@ private fun AccountSummary(name: String?, email: String) {
     }
 }
 
-// ── 아이콘 ────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun BellIcon(color: Color) {
-    Canvas(modifier = Modifier.size(18.dp)) {
-        val stroke = 1.6.dp.toPx()
-        drawArc(color = color, startAngle = 200f, sweepAngle = 140f, useCenter = false, topLeft = Offset(size.width * 0.2f, size.height * 0.15f), size = Size(size.width * 0.6f, size.height * 0.62f), style = Stroke(width = stroke, cap = StrokeCap.Round))
-        drawLine(color, Offset(size.width * 0.28f, size.height * 0.64f), Offset(size.width * 0.72f, size.height * 0.64f), stroke, StrokeCap.Round)
-        drawCircle(color, radius = 1.8.dp.toPx(), center = Offset(size.width * 0.5f, size.height * 0.78f))
-    }
+private enum class SettingsIcon {
+    Notifications,
+    Account,
+    Sync,
+    Logout
 }
 
 @Composable
-private fun SyncIcon(color: Color) {
-    Canvas(modifier = Modifier.size(18.dp)) {
-        val stroke = 1.7.dp.toPx()
-        drawArc(color = color, startAngle = 180f, sweepAngle = 180f, useCenter = false, topLeft = Offset(size.width * 0.12f, size.height * 0.18f), size = Size(size.width * 0.76f, size.height * 0.55f), style = Stroke(width = stroke, cap = StrokeCap.Round))
-        drawLine(color, Offset(size.width * 0.72f, size.height * 0.12f), Offset(size.width * 0.88f, size.height * 0.2f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.88f, size.height * 0.2f), Offset(size.width * 0.8f, size.height * 0.35f), stroke, StrokeCap.Round)
-        drawArc(color = color, startAngle = 0f, sweepAngle = 180f, useCenter = false, topLeft = Offset(size.width * 0.12f, size.height * 0.28f), size = Size(size.width * 0.76f, size.height * 0.55f), style = Stroke(width = stroke, cap = StrokeCap.Round))
-        drawLine(color, Offset(size.width * 0.28f, size.height * 0.88f), Offset(size.width * 0.12f, size.height * 0.8f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.12f, size.height * 0.8f), Offset(size.width * 0.2f, size.height * 0.65f), stroke, StrokeCap.Round)
+private fun MaterialSettingsIcon(icon: SettingsIcon, color: Color, size: Int = 18) {
+    val imageVector = when (icon) {
+        SettingsIcon.Notifications -> Icons.Filled.Notifications
+        SettingsIcon.Account -> Icons.Filled.AccountCircle
+        SettingsIcon.Sync -> Icons.Filled.Sync
+        SettingsIcon.Logout -> Icons.AutoMirrored.Filled.Logout
     }
-}
-
-@Composable
-private fun AccountIcon(color: Color) {
-    Canvas(modifier = Modifier.size(18.dp)) {
-        val stroke = 1.6.dp.toPx()
-        drawCircle(color = color, radius = size.minDimension * 0.18f, center = Offset(size.width * 0.5f, size.height * 0.32f), style = Stroke(width = stroke))
-        drawArc(color = color, startAngle = 200f, sweepAngle = 140f, useCenter = false, topLeft = Offset(size.width * 0.22f, size.height * 0.44f), size = Size(size.width * 0.56f, size.height * 0.34f), style = Stroke(width = stroke, cap = StrokeCap.Round))
-    }
-}
-
-@Composable
-private fun LogoutIcon(color: Color) {
-    Canvas(modifier = Modifier.size(16.dp)) {
-        val stroke = 1.6.dp.toPx()
-        drawRoundRect(color = color, topLeft = Offset(size.width * 0.16f, size.height * 0.2f), size = Size(size.width * 0.38f, size.height * 0.6f), cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()), style = Stroke(width = stroke))
-        drawLine(color, Offset(size.width * 0.48f, size.height * 0.5f), Offset(size.width * 0.86f, size.height * 0.5f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.68f, size.height * 0.32f), Offset(size.width * 0.86f, size.height * 0.5f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.68f, size.height * 0.68f), Offset(size.width * 0.86f, size.height * 0.5f), stroke, StrokeCap.Round)
-    }
-}
-
-@Composable
-private fun InfoIcon(color: Color) {
-    Canvas(modifier = Modifier.size(18.dp)) {
-        val stroke = 1.5.dp.toPx()
-        drawCircle(color = color, radius = size.minDimension * 0.38f, center = center, style = Stroke(width = stroke))
-        drawLine(color, Offset(center.x, size.height * 0.44f), Offset(center.x, size.height * 0.68f), stroke, StrokeCap.Round)
-        drawCircle(color = color, radius = 1.3.dp.toPx(), center = Offset(center.x, size.height * 0.3f))
-    }
+    Icon(
+        imageVector = imageVector,
+        contentDescription = null,
+        tint = color,
+        modifier = Modifier.size(size.dp)
+    )
 }

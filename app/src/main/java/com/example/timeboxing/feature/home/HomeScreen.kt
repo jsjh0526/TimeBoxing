@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,6 +25,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.outlined.Notifications as NotificationsOutlined
+import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,9 +54,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -386,11 +395,7 @@ private fun HomeCompletionToggle(completed: Boolean, modifier: Modifier = Modifi
 
 @Composable
 private fun CheckIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val stroke = 1.8.dp.toPx()
-        drawLine(color, Offset(size.width * 0.2f, size.height * 0.55f), Offset(size.width * 0.42f, size.height * 0.76f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.42f, size.height * 0.76f), Offset(size.width * 0.8f, size.height * 0.26f), stroke, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.Check, contentDescription = null, tint = color, modifier = modifier)
 }
 
 @Composable
@@ -628,123 +633,57 @@ private fun ReminderStateIcon(completed: Boolean, isNow: Boolean, isPast: Boolea
 
 @Composable
 private fun ReminderBellIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val stroke = 1.7.dp.toPx()
-        val path = Path().apply {
-            moveTo(size.width * 0.50f, size.height * 0.16f)
-            cubicTo(size.width * 0.30f, size.height * 0.16f, size.width * 0.26f, size.height * 0.34f, size.width * 0.26f, size.height * 0.50f)
-            lineTo(size.width * 0.20f, size.height * 0.68f)
-            lineTo(size.width * 0.80f, size.height * 0.68f)
-            lineTo(size.width * 0.74f, size.height * 0.50f)
-            cubicTo(size.width * 0.74f, size.height * 0.34f, size.width * 0.70f, size.height * 0.16f, size.width * 0.50f, size.height * 0.16f)
-        }
-        drawPath(path, color = color, style = Stroke(width = stroke, cap = StrokeCap.Round))
-        drawArc(color = color, startAngle = 30f, sweepAngle = 120f, useCenter = false, topLeft = Offset(size.width * 0.38f, size.height * 0.72f), size = Size(size.width * 0.24f, size.height * 0.13f), style = Stroke(width = stroke, cap = StrokeCap.Round))
-    }
+    Icon(Icons.Filled.Notifications, contentDescription = null, tint = color, modifier = modifier)
 }
 
 @Composable
 private fun CheckMiniIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val stroke = 2.dp.toPx()
-        drawLine(color, Offset(size.width * 0.20f, size.height * 0.54f), Offset(size.width * 0.42f, size.height * 0.74f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.42f, size.height * 0.74f), Offset(size.width * 0.82f, size.height * 0.26f), stroke, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.Check, contentDescription = null, tint = color, modifier = modifier)
 }
 
 @Composable
 private fun NowDotIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        drawCircle(color = color.copy(alpha = 0.20f), radius = size.minDimension * 0.48f)
-        drawCircle(color = color, radius = size.minDimension * 0.22f)
-    }
+    Icon(Icons.Filled.RadioButtonChecked, contentDescription = null, tint = color, modifier = modifier)
 }
 
 @Composable
 private fun ReminderClockIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val stroke = 1.7.dp.toPx()
-        drawCircle(color = color, style = Stroke(width = stroke))
-        drawLine(color, center, Offset(center.x, size.height * 0.28f), stroke, StrokeCap.Round)
-        drawLine(color, center, Offset(size.width * 0.70f, size.height * 0.58f), stroke, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.AccessTime, contentDescription = null, tint = color, modifier = modifier)
 }
-
-// ── Canvas 아이콘 ──────────────────────────────────────────────────────────────
 
 @Composable
 private fun BellIcon(color: Color) {
-    Canvas(modifier = Modifier.size(20.dp)) {
-        val stroke = 1.8.dp.toPx()
-        val bellPath = Path().apply {
-            moveTo(size.width * 0.5f, size.height * 0.14f)
-            cubicTo(size.width * 0.28f, size.height * 0.14f, size.width * 0.22f, size.height * 0.34f, size.width * 0.22f, size.height * 0.5f)
-            lineTo(size.width * 0.18f, size.height * 0.66f)
-            lineTo(size.width * 0.82f, size.height * 0.66f)
-            lineTo(size.width * 0.78f, size.height * 0.5f)
-            cubicTo(size.width * 0.78f, size.height * 0.34f, size.width * 0.72f, size.height * 0.14f, size.width * 0.5f, size.height * 0.14f)
-        }
-        drawPath(path = bellPath, color = color, style = Stroke(width = stroke))
-        drawArc(color = color, startAngle = 30f, sweepAngle = 120f, useCenter = false, topLeft = Offset(size.width * 0.37f, size.height * 0.69f), size = Size(size.width * 0.26f, size.height * 0.14f), style = Stroke(width = stroke, cap = StrokeCap.Round))
-    }
+    Icon(NotificationsOutlined, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
 }
 
 @Composable
 private fun ClockIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val stroke = 1.6.dp.toPx()
-        drawCircle(color = color, style = Stroke(width = stroke))
-        drawLine(color, center, Offset(center.x, size.height * 0.28f), stroke, StrokeCap.Round)
-        drawLine(color, center, Offset(size.width * 0.7f, center.y), stroke, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.AccessTime, contentDescription = null, tint = color, modifier = modifier)
 }
 
 @Composable
 private fun ChevronIcon(expanded: Boolean, color: Color) {
-    Canvas(modifier = Modifier.size(18.dp)) {
-        val stroke = 1.8.dp.toPx()
-        if (expanded) {
-            drawLine(color, Offset(size.width * 0.25f, size.height * 0.38f), Offset(size.width * 0.5f, size.height * 0.62f), stroke, StrokeCap.Round)
-            drawLine(color, Offset(size.width * 0.5f, size.height * 0.62f), Offset(size.width * 0.75f, size.height * 0.38f), stroke, StrokeCap.Round)
-        } else {
-            drawLine(color, Offset(size.width * 0.38f, size.height * 0.25f), Offset(size.width * 0.62f, size.height * 0.5f), stroke, StrokeCap.Round)
-            drawLine(color, Offset(size.width * 0.62f, size.height * 0.5f), Offset(size.width * 0.38f, size.height * 0.75f), stroke, StrokeCap.Round)
-        }
-    }
+    Icon(
+        imageVector = if (expanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+        contentDescription = null,
+        tint = color,
+        modifier = Modifier.size(18.dp)
+    )
 }
 
 @Composable
 private fun CalendarIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val stroke = 1.8.dp.toPx()
-        drawRoundRect(color = color, topLeft = Offset(size.width * 0.15f, size.height * 0.22f), size = Size(size.width * 0.7f, size.height * 0.63f), cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()), style = Stroke(width = stroke))
-        drawLine(color, Offset(size.width * 0.15f, size.height * 0.42f), Offset(size.width * 0.85f, size.height * 0.42f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.32f, size.height * 0.12f), Offset(size.width * 0.32f, size.height * 0.28f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.68f, size.height * 0.12f), Offset(size.width * 0.68f, size.height * 0.28f), stroke, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = color, modifier = modifier)
 }
 
 @Composable
 private fun PlusIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val stroke = 1.8.dp.toPx()
-        drawLine(color, Offset(center.x, size.height * 0.2f), Offset(center.x, size.height * 0.8f), stroke, StrokeCap.Round)
-        drawLine(color, Offset(size.width * 0.2f, center.y), Offset(size.width * 0.8f, center.y), stroke, StrokeCap.Round)
-    }
+    Icon(Icons.Filled.Add, contentDescription = null, tint = color, modifier = modifier)
 }
 
 @Composable
 private fun StarIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val path = Path().apply {
-            moveTo(size.width * 0.5f, size.height * 0.08f); lineTo(size.width * 0.62f, size.height * 0.36f)
-            lineTo(size.width * 0.92f, size.height * 0.38f); lineTo(size.width * 0.69f, size.height * 0.58f)
-            lineTo(size.width * 0.77f, size.height * 0.9f); lineTo(size.width * 0.5f, size.height * 0.72f)
-            lineTo(size.width * 0.23f, size.height * 0.9f); lineTo(size.width * 0.31f, size.height * 0.58f)
-            lineTo(size.width * 0.08f, size.height * 0.38f); lineTo(size.width * 0.38f, size.height * 0.36f); close()
-        }
-        drawPath(path = path, color = color)
-    }
+    Icon(Icons.Filled.Star, contentDescription = null, tint = color, modifier = modifier)
 }
 
 // ── 헬퍼 ──────────────────────────────────────────────────────────────────────

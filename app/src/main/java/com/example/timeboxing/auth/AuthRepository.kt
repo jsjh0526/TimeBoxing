@@ -38,13 +38,14 @@ object AuthRepository {
         private set
 
     // ── 세션 복원 ─────────────────────────────────────────────────────────────
-    suspend fun restoreSession() {
+    suspend fun restoreSession(context: Context) {
         try {
             supabase.auth.awaitInitialization()
             val hasSession = supabase.auth.currentSessionOrNull() != null
                     || supabase.auth.loadFromStorage()
 
             if (!hasSession) {
+                ActiveUserStore.clear(context)
                 _authState.value = AuthState.SignedOut
                 return
             }
@@ -52,15 +53,24 @@ object AuthRepository {
             val user = supabase.auth.currentUserOrNull()
                 ?: runCatching { supabase.auth.retrieveUserForCurrentSession(updateSession = true) }.getOrNull()
 
-            _authState.value = user?.toAuthState() ?: AuthState.SignedOut
+            val nextState = user?.toAuthState()
+            if (nextState != null) {
+                ActiveUserStore.saveLoggedIn(context, nextState.userId)
+                _authState.value = nextState
+            } else {
+                ActiveUserStore.clear(context)
+                _authState.value = AuthState.SignedOut
+            }
         } catch (_: Exception) {
+            ActiveUserStore.clear(context)
             _authState.value = AuthState.SignedOut
         }
     }
 
     // ── 게스트 모드 진입 ──────────────────────────────────────────────────────
-    fun continueAsGuest() {
+    fun continueAsGuest(context: Context) {
         hadGuestSessionBeforeLogin = false
+        ActiveUserStore.saveGuest(context)
         _authState.value = AuthState.Guest
     }
 
@@ -92,7 +102,9 @@ object AuthRepository {
 
             val user = supabase.auth.currentUserOrNull()
                 ?: supabase.auth.retrieveUserForCurrentSession(updateSession = true)
-            _authState.value = user.toAuthState()
+            val nextState = user.toAuthState()
+            ActiveUserStore.saveLoggedIn(context, nextState.userId)
+            _authState.value = nextState
         } catch (e: Exception) {
             val message = e.message.orEmpty()
             if (hadGuestSessionBeforeLogin) {
@@ -110,13 +122,14 @@ object AuthRepository {
     }
 
     // ── 로그아웃 ──────────────────────────────────────────────────────────────
-    suspend fun signOut() {
+    suspend fun signOut(context: Context) {
         try {
             supabase.auth.signOut()
         } catch (_: Exception) {
             supabase.auth.sessionManager.deleteSession()
         } finally {
             hadGuestSessionBeforeLogin = false
+            ActiveUserStore.clear(context)
             _authState.value = AuthState.SignedOut
         }
     }
