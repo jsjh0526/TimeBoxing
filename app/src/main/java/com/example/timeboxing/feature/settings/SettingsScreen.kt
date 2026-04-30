@@ -85,8 +85,6 @@ fun SettingsScreen(
     val loggedInUserId = (authState as? AuthState.LoggedIn)?.userId
     val uriHandler = LocalUriHandler.current
 
-    // Fix 3: 앱 진입 시 1번만 실행 (syncState 변경 시 재실행 제거)
-    // syncAll() 완료 시 SyncManager 내부에서 remoteStatus를 이미 업데이트하므로 중복 불필요
     LaunchedEffect(loggedInUserId) {
         val userId = loggedInUserId ?: return@LaunchedEffect
         onRefreshStatus(userId)
@@ -104,7 +102,6 @@ fun SettingsScreen(
             }
         }
 
-        // ── Notifications ──────────────────────────────────────────────────
         item {
             SectionCard(title = "Notifications", icon = { MaterialSettingsIcon(SettingsIcon.Notifications, Accent) }) {
                 ToggleRow("Notifications", "Allow alerts for time blocks", reminderSettings.notificationsEnabled, { onReminderSettingsChange(reminderSettings.copy(notificationsEnabled = it)) })
@@ -113,7 +110,6 @@ fun SettingsScreen(
             }
         }
 
-        // ── Account ────────────────────────────────────────────────────────
         item {
             SectionCard(title = "Account", icon = { MaterialSettingsIcon(SettingsIcon.Account, Accent) }) {
                 when (val state = authState) {
@@ -137,7 +133,6 @@ fun SettingsScreen(
             }
         }
 
-        // ── Sync ───────────────────────────────────────────────────────────
         item {
             SectionCard(title = "Sync", icon = { MaterialSettingsIcon(SettingsIcon.Sync, Green) }) {
                 val (statusText, statusColor) = when (syncState) {
@@ -185,6 +180,11 @@ fun SettingsScreen(
         item {
             SectionCard(title = "Support", icon = { MaterialSettingsIcon(SettingsIcon.Support, Accent) }) {
                 SettingsMenuRow(
+                    title = "공지사항",
+                    subtitle = "업데이트 소식과 변경사항",
+                    icon = SettingsIcon.Notice
+                )
+                SettingsMenuRow(
                     title = "문의하기",
                     subtitle = "앱 사용 중 궁금한 점을 보내주세요",
                     icon = SettingsIcon.Contact,
@@ -196,13 +196,8 @@ fun SettingsScreen(
                     subtitle = "버그나 개선 아이디어를 알려주세요",
                     icon = SettingsIcon.Feedback,
                     showChevron = true,
+                    showDivider = false,
                     onClick = { uriHandler.openUri("mailto:support@timeboxing.app?subject=TimeBoxing%20%ED%94%BC%EB%93%9C%EB%B0%B1") }
-                )
-                SettingsMenuRow(
-                    title = "공지사항",
-                    subtitle = "업데이트 소식과 변경사항",
-                    icon = SettingsIcon.Notice,
-                    showDivider = false
                 )
             }
         }
@@ -339,7 +334,6 @@ private enum class SettingsIcon {
 @Composable
 private fun MaterialSettingsIcon(icon: SettingsIcon, color: Color, size: Int = 18) {
     if (icon == SettingsIcon.Notifications) {
-        // 아웃라인 벨 (Canvas)
         Canvas(modifier = Modifier.size(size.dp)) {
             val stroke = (size * 0.09f).dp.toPx()
             val w = this.size.width; val h = this.size.height
@@ -358,7 +352,7 @@ private fun MaterialSettingsIcon(icon: SettingsIcon, color: Color, size: Int = 1
         return
     }
     val imageVector = when (icon) {
-        SettingsIcon.Notifications -> Icons.Filled.Notifications  // 위에서 early return
+        SettingsIcon.Notifications -> Icons.Filled.Notifications
         SettingsIcon.Account -> Icons.Filled.AccountCircle
         SettingsIcon.Sync -> Icons.Filled.Sync
         SettingsIcon.Logout -> Icons.AutoMirrored.Filled.Logout
