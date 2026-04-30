@@ -183,7 +183,7 @@ fun TaskEditorDialog(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         EditorLabel("Title")
-                        EditorInput(value = draft.title, onValueChange = { onChange(draft.copy(title = it)) }, placeholder = "Task title", autoFocus = draft.taskId == null)
+                        EditorInput(value = draft.title, onValueChange = { onChange(draft.copy(title = it)) }, placeholder = "Task title", autoFocus = draft.taskId == null && draft.templateId == null)
 
                         EditorLabel("Memo") { MemoIcon(TextSecondary, Modifier.size(14.dp)) }
                         EditorInput(value = draft.note, onValueChange = { onChange(draft.copy(note = it)) }, placeholder = "Details...", minLines = 3)

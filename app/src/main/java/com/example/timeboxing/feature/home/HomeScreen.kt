@@ -1,9 +1,11 @@
 package com.example.timeboxing.feature.home
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
@@ -238,7 +240,7 @@ private fun UpNextCard(task: DailyTask) {
 
 @Composable
 private fun Big3Card(tasks: List<DailyTask>, expanded: Boolean, onToggle: () -> Unit, onOpenTask: (String) -> Unit, onMarkTaskComplete: (String) -> Unit) {
-    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CardBackground).border(0.7.dp, CardBorder, RoundedCornerShape(14.dp)).animateContentSize().padding(16.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CardBackground).border(0.7.dp, CardBorder, RoundedCornerShape(14.dp)).padding(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -248,7 +250,11 @@ private fun Big3Card(tasks: List<DailyTask>, expanded: Boolean, onToggle: () -> 
                 }
                 ChevronIcon(expanded = expanded, color = Priority)
             }
-            if (expanded) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(expandFrom = Alignment.Top, animationSpec = tween(180)) + fadeIn(animationSpec = tween(120)),
+                exit = shrinkVertically(shrinkTowards = Alignment.Top, animationSpec = tween(150)) + fadeOut(animationSpec = tween(90))
+            ) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     tasks.forEachIndexed { index, task ->
                         Big3Row(index + 1, task, onOpenTask = { onOpenTask(task.id) }, onMarkComplete = { onMarkTaskComplete(task.id) })
@@ -319,7 +325,7 @@ private fun UpcomingRow(task: DailyTask, highlighted: Boolean, onOpenTask: (Stri
 
 @Composable
 private fun UnscheduledCard(tasks: List<DailyTask>, expanded: Boolean, onToggle: () -> Unit, onOpenTask: (String) -> Unit, onMarkTaskComplete: (String) -> Unit) {
-    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CardBackground).dashedBorder(CardBorder).animateContentSize().padding(16.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CardBackground).dashedBorder(CardBorder).padding(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -335,18 +341,24 @@ private fun UnscheduledCard(tasks: List<DailyTask>, expanded: Boolean, onToggle:
                     ChevronIcon(expanded = expanded, color = Secondary)
                 }
             }
-            if (expanded) {
-                Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(CardBorder))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    tasks.forEach { task ->
-                        val highlighted = task.isBig3
-                        Box(modifier = Modifier.fillMaxWidth().shadow(elevation = if (highlighted) 10.dp else 0.dp, shape = RoundedCornerShape(10.dp), ambientColor = Accent.copy(alpha = 0.2f), spotColor = Accent.copy(alpha = 0.2f)).clip(RoundedCornerShape(10.dp)).background(if (highlighted) Color(0xFF2A2A2A) else Color(0xFF363636)).then(if (highlighted) Modifier.border(0.7.dp, Accent, RoundedCornerShape(10.dp)) else Modifier).clickable { onOpenTask(task.id) }.padding(horizontal = 12.dp, vertical = 12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                HomeCompletionToggle(completed = task.isCompleted, onClick = { onMarkTaskComplete(task.id) })
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(task.title, style = titleStyle(16.sp, FontWeight.Medium).copy(color = if (task.isCompleted) Secondary else Color.White, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { task.tags.forEach { tag -> TagChip("#$tag") } }
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(expandFrom = Alignment.Top, animationSpec = tween(180)) + fadeIn(animationSpec = tween(120)),
+                exit = shrinkVertically(shrinkTowards = Alignment.Top, animationSpec = tween(150)) + fadeOut(animationSpec = tween(90))
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(CardBorder))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        tasks.forEach { task ->
+                            val highlighted = task.isBig3
+                            Box(modifier = Modifier.fillMaxWidth().shadow(elevation = if (highlighted) 10.dp else 0.dp, shape = RoundedCornerShape(10.dp), ambientColor = Accent.copy(alpha = 0.2f), spotColor = Accent.copy(alpha = 0.2f)).clip(RoundedCornerShape(10.dp)).background(if (highlighted) Color(0xFF2A2A2A) else Color(0xFF363636)).then(if (highlighted) Modifier.border(0.7.dp, Accent, RoundedCornerShape(10.dp)) else Modifier).clickable { onOpenTask(task.id) }.padding(horizontal = 12.dp, vertical = 12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    HomeCompletionToggle(completed = task.isCompleted, onClick = { onMarkTaskComplete(task.id) })
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(task.title, style = titleStyle(16.sp, FontWeight.Medium).copy(color = if (task.isCompleted) Secondary else Color.White, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { task.tags.forEach { tag -> TagChip("#$tag") } }
+                                    }
                                 }
                             }
                         }
@@ -382,7 +394,7 @@ private fun SecondaryButton(label: String, onClick: () -> Unit) {
 @Composable
 private fun Big3CompletionToggle(completed: Boolean, onClick: () -> Unit) {
     Box(modifier = Modifier.size(20.dp).clip(CircleShape).background(if (completed) Big3CheckboxRing.copy(alpha = 0.18f) else Color.Transparent).border(1.4.dp, if (completed) Accent else Big3CheckboxRing, CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        if (completed) CheckIcon(Accent, modifier = Modifier.size(10.dp))
+        if (completed) CheckIcon(Accent, modifier = Modifier.size(12.dp))
     }
 }
 
@@ -395,7 +407,23 @@ private fun HomeCompletionToggle(completed: Boolean, modifier: Modifier = Modifi
 
 @Composable
 private fun CheckIcon(color: Color, modifier: Modifier = Modifier) {
-    Icon(Icons.Filled.Check, contentDescription = null, tint = color, modifier = modifier)
+    Canvas(modifier = modifier) {
+        val stroke = (size.minDimension * 0.18f).coerceAtLeast(2.dp.toPx())
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.18f, size.height * 0.54f),
+            end = Offset(size.width * 0.42f, size.height * 0.76f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.42f, size.height * 0.76f),
+            end = Offset(size.width * 0.84f, size.height * 0.27f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+    }
 }
 
 @Composable

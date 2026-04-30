@@ -1,6 +1,9 @@
 package com.example.timeboxing.feature.timetable
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -502,22 +505,28 @@ private fun ScheduledCard(
     val showFullTimeRow = durationMinutes >= 60
     val overlapCompact = isOverlapping
     val completed = task.isCompleted
-    val titleColor = if (completed) TextMuted.copy(alpha = 0.72f) else TextPrimary
-    val detailColor = if (completed) TextMuted.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.75f)
-    val tagTextColor = if (completed) TextMuted.copy(alpha = 0.62f) else Color.White.copy(alpha = 0.72f)
-    val cardFill = when {
+    val targetTitleColor = if (completed) TextMuted.copy(alpha = 0.72f) else TextPrimary
+    val targetDetailColor = if (completed) TextMuted.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.75f)
+    val targetTagTextColor = if (completed) TextMuted.copy(alpha = 0.62f) else Color.White.copy(alpha = 0.72f)
+    val targetCardFill = when {
         isDragging -> Color(0xFF494962)
         completed  -> Color(0xFF2D2D36)
         else       -> CardBackground
     }
 
-    val (borderWidth, borderColor) = when {
+    val (targetBorderWidth, targetBorderColor) = when {
         completed && !isDragging    -> 0.7.dp to Accent.copy(alpha = 0.12f)
         showNow && !isDragging     -> 1.4.dp to Accent
         task.isBig3 && !isDragging -> 1.4.dp to Color.White.copy(alpha = 0.9f)
         isDragging                 -> 0.7.dp to Accent.copy(alpha = 0.45f)
         else                       -> 0.7.dp to Accent.copy(alpha = 0.2f)
     }
+    val titleColor by animateColorAsState(targetTitleColor, tween(180), label = "timetableTitleColor")
+    val detailColor by animateColorAsState(targetDetailColor, tween(180), label = "timetableDetailColor")
+    val tagTextColor by animateColorAsState(targetTagTextColor, tween(180), label = "timetableTagColor")
+    val cardFill by animateColorAsState(targetCardFill, tween(180), label = "timetableCardFill")
+    val borderColor by animateColorAsState(targetBorderColor, tween(180), label = "timetableBorderColor")
+    val borderWidth by animateDpAsState(targetBorderWidth, tween(180), label = "timetableBorderWidth")
 
     BoxWithConstraints(
         modifier = Modifier
@@ -655,11 +664,23 @@ private fun CompletionStub(
     enabled: Boolean = false,
     onClick: () -> Unit = {}
 ) {
+    val fillColor by animateColorAsState(
+        targetValue = if (completed) Accent else Color.Transparent,
+        animationSpec = tween(durationMillis = 160),
+        label = "timetableCompletionFill"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (completed) Accent.copy(alpha = 0f) else Color.White.copy(alpha = 0.7f),
+        animationSpec = tween(durationMillis = 160),
+        label = "timetableCompletionBorder"
+    )
+
     Box(
         modifier = Modifier
             .size(16.dp)
             .clip(RoundedCornerShape(4.dp))
-            .then(if (completed) Modifier.background(Accent) else Modifier.border(1.4.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(4.dp)))
+            .background(fillColor)
+            .border(1.4.dp, borderColor, RoundedCornerShape(4.dp))
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {

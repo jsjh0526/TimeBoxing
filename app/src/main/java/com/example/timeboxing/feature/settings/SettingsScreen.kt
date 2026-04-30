@@ -1,5 +1,8 @@
 package com.example.timeboxing.feature.settings
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -136,16 +139,16 @@ fun SettingsScreen(
         item {
             SectionCard(title = "Sync", icon = { MaterialSettingsIcon(SettingsIcon.Sync, Green) }) {
                 val (statusText, statusColor) = when (syncState) {
-                    is SyncState.Idle    -> "데이터를 수동으로 동기화할 수 있어요." to TextSecondary
-                    is SyncState.Syncing -> "동기화 중..." to Accent
-                    is SyncState.Success -> "마지막 동기화: ${(syncState as SyncState.Success).time}" to Green
-                    is SyncState.Error   -> "오류: ${(syncState as SyncState.Error).message}" to Color(0xFFFF5F57)
+                    is SyncState.Idle    -> "Ready to sync manually" to TextSecondary
+                    is SyncState.Syncing -> "Syncing your latest changes..." to Accent
+                    is SyncState.Success -> "Last synced ${(syncState as SyncState.Success).time}" to Green
+                    is SyncState.Error   -> "Error: ${(syncState as SyncState.Error).message}" to Color(0xFFFF5F57)
                 }
                 Text(statusText, style = TextStyle(color = statusColor, fontSize = 13.sp, lineHeight = 19.sp))
                 remoteStatus?.let { status ->
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Remote: ${status.taskCount} tasks / ${status.templateCount} habits · checked ${status.checkedAt}",
+                        "Remote: ${status.taskCount} tasks / ${status.templateCount} habits - checked ${status.checkedAt}",
                         style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp)
                     )
                 }
@@ -153,25 +156,48 @@ fun SettingsScreen(
 
                 val isSyncing  = syncState is SyncState.Syncing
                 val isLoggedIn = authState is AuthState.LoggedIn
+                val buttonEnabled = isLoggedIn && !isSyncing
+                val buttonBg by animateColorAsState(
+                    targetValue = when {
+                        isSyncing -> Accent.copy(alpha = 0.22f)
+                        isLoggedIn -> Accent
+                        else -> Color(0xFF2A2A2A)
+                    },
+                    animationSpec = tween(160),
+                    label = "syncButtonBg"
+                )
+                val buttonContentColor by animateColorAsState(
+                    targetValue = if (isLoggedIn || isSyncing) Color.White else TextSecondary,
+                    animationSpec = tween(160),
+                    label = "syncButtonContent"
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(46.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (isLoggedIn && !isSyncing) Accent else Color(0xFF2A2A2A))
-                        .clickable(enabled = isLoggedIn && !isSyncing, onClick = onSyncNow),
+                        .background(buttonBg)
+                        .clickable(enabled = buttonEnabled, onClick = onSyncNow),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (isSyncing) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Accent, strokeWidth = 2.dp)
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            MaterialSettingsIcon(SettingsIcon.Sync, if (isLoggedIn) Color.White else TextSecondary, 18)
-                            Text(
-                                text = if (isLoggedIn) "Sync Now" else "로그인 후 사용 가능",
-                                style = TextStyle(color = if (isLoggedIn) Color.White else TextSecondary, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
-                            )
+                    Row(
+                        modifier = Modifier.animateContentSize(animationSpec = tween(140)),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (isSyncing) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Accent, strokeWidth = 2.dp)
+                        } else {
+                            MaterialSettingsIcon(SettingsIcon.Sync, buttonContentColor, 18)
                         }
+                        Text(
+                            text = when {
+                                isSyncing -> "Syncing..."
+                                isLoggedIn -> "Sync Now"
+                                else -> "Sign in to sync"
+                            },
+                            style = TextStyle(color = buttonContentColor, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
+                        )
                     }
                 }
             }

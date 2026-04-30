@@ -1,5 +1,14 @@
 package com.example.timeboxing.feature.todo
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,7 +35,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -46,7 +54,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -222,10 +232,16 @@ fun TodoScreen(
                     onToggle = { otherHabitsExpanded = !otherHabitsExpanded }
                 )
             }
-            if (otherHabitsExpanded) {
-                item { Spacer(Modifier.height(HEADER_GAP)) }
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
+            item {
+                AnimatedVisibility(
+                    visible = otherHabitsExpanded,
+                    enter = expandVertically(expandFrom = Alignment.Top, animationSpec = tween(180)) + fadeIn(animationSpec = tween(120)),
+                    exit = shrinkVertically(shrinkTowards = Alignment.Top, animationSpec = tween(150)) + fadeOut(animationSpec = tween(90))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(top = HEADER_GAP),
+                        verticalArrangement = Arrangement.spacedBy(ITEM_GAP)
+                    ) {
                         otherHabits.forEach { task ->
                             CompactCard(
                                 task = task,
@@ -453,25 +469,31 @@ private fun YesterdayIncompleteSection(
             }
             if (expanded) ChevronUpIcon(TextSecondary) else ChevronDownIcon(TextSecondary)
         }
-        if (expanded) {
-            Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(Divider))
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                tasks.forEach { task ->
-                    YesterdayTaskPreview(task, onDismiss = { onDismissTask(task.id) })
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Accent)
-                        .clickable(onClick = onCarryOver),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "Move all to today",
-                        style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
-                    )
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(expandFrom = Alignment.Top, animationSpec = tween(180)) + fadeIn(animationSpec = tween(120)),
+            exit = shrinkVertically(shrinkTowards = Alignment.Top, animationSpec = tween(150)) + fadeOut(animationSpec = tween(90))
+        ) {
+            Column {
+                Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(Divider))
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    tasks.forEach { task ->
+                        YesterdayTaskPreview(task, onDismiss = { onDismissTask(task.id) })
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Accent)
+                            .clickable(onClick = onCarryOver),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Move all to today",
+                            style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
+                        )
+                    }
                 }
             }
         }
@@ -567,6 +589,21 @@ private fun TaskCard(
     onDragEnd: () -> Unit
 ) {
     val isRecurring = task.source == DailyTaskSource.RECURRING
+    val cardAlpha by animateFloatAsState(
+        targetValue = if (task.isCompleted) 0.52f else 1f,
+        animationSpec = tween(durationMillis = 180),
+        label = "todoCardAlpha"
+    )
+    val titleColor by animateColorAsState(
+        targetValue = if (task.isCompleted) TextMuted else TextPrimary,
+        animationSpec = tween(durationMillis = 180),
+        label = "todoTitleColor"
+    )
+    val scheduleColor by animateColorAsState(
+        targetValue = if (task.isCompleted) TextMuted else TextSecondary,
+        animationSpec = tween(durationMillis = 180),
+        label = "todoScheduleColor"
+    )
 
     Box(
         modifier = Modifier
@@ -581,7 +618,7 @@ private fun TaskCard(
             .clip(RoundedCornerShape(CARD_RADIUS))
             .background(if (isDragging) CardDragging else CardBackground)
             .then(if (bordered) Modifier.border(1.dp, Accent, RoundedCornerShape(CARD_RADIUS)) else Modifier)
-            .alpha(if (task.isCompleted) 0.52f else 1f)
+            .alpha(cardAlpha)
             .clickable { onOpenTask(task.id) }
             .padding(horizontal = CARD_PAD_H, vertical = CARD_PAD_V)
     ) {
@@ -594,7 +631,7 @@ private fun TaskCard(
                 Text(
                     text = task.title,
                     style = TextStyle(
-                        color = if (task.isCompleted) TextMuted else TextPrimary,
+                        color = titleColor,
                         fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium,
                         textDecoration = TextDecoration.None
                     ),
@@ -609,7 +646,7 @@ private fun TaskCard(
                 task.schedule?.let { sch ->
                     Text(
                         "${formatClock(sch.startMinute)} - ${formatClock(sch.endMinute)}",
-                        style = TextStyle(color = TextSecondary, fontSize = 10.sp, lineHeight = 15.sp)
+                        style = TextStyle(color = scheduleColor, fontSize = 10.sp, lineHeight = 15.sp)
                     )
                 }
             }
@@ -628,11 +665,22 @@ private fun CompactCard(
     onToggleComplete: (String) -> Unit,
     onOpenTask: (String) -> Unit
 ) {
+    val cardAlpha by animateFloatAsState(
+        targetValue = if (task.isCompleted) 0.52f else 0.5f,
+        animationSpec = tween(durationMillis = 180),
+        label = "todoCompactCardAlpha"
+    )
+    val titleColor by animateColorAsState(
+        targetValue = if (task.isCompleted) TextMuted else TextPrimary,
+        animationSpec = tween(durationMillis = 180),
+        label = "todoCompactTitleColor"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = CARD_COMPACT_MIN_H)
-            .alpha(if (task.isCompleted) 0.52f else 0.5f)
+            .alpha(cardAlpha)
             .clip(RoundedCornerShape(CARD_RADIUS))
             .background(CardBackground)
             .clickable { onOpenTask(task.id) }
@@ -647,7 +695,7 @@ private fun CompactCard(
                 Text(
                     text = task.title,
                     style = TextStyle(
-                        color = if (task.isCompleted) TextMuted else TextPrimary,
+                        color = titleColor,
                         fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium,
                         textDecoration = TextDecoration.None
                     ),
@@ -711,12 +759,26 @@ private fun Big3Toggle(selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun CompletionCircle(completed: Boolean, onClick: () -> Unit) {
+    val fillColor by animateColorAsState(
+        targetValue = if (completed) Accent else Color.Transparent,
+        animationSpec = tween(durationMillis = 160),
+        label = "todoCompletionFill"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (completed) Accent.copy(alpha = 0f) else Accent,
+        animationSpec = tween(durationMillis = 160),
+        label = "todoCompletionBorder"
+    )
+
     Box(
         modifier = Modifier.size(24.dp).clip(CircleShape)
-            .then(if (completed) Modifier.background(Accent) else Modifier.border(1.5.dp, Accent, CircleShape))
+            .background(fillColor)
+            .border(1.5.dp, borderColor, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
-    ) { if (completed) CheckIcon(Color.White) }
+    ) {
+        if (completed) CheckIcon(Color.White)
+    }
 }
 
 @Composable
@@ -768,7 +830,23 @@ private fun RecurringBadge(rule: RecurrenceRule?) {
 
 @Composable
 private fun CheckIcon(color: Color) {
-    Icon(Icons.Filled.Check, contentDescription = null, tint = color, modifier = Modifier.size(12.dp))
+    Canvas(modifier = Modifier.size(15.dp)) {
+        val stroke = 2.6.dp.toPx()
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.18f, size.height * 0.54f),
+            end = Offset(size.width * 0.42f, size.height * 0.76f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.42f, size.height * 0.76f),
+            end = Offset(size.width * 0.84f, size.height * 0.27f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+    }
 }
 
 @Composable
