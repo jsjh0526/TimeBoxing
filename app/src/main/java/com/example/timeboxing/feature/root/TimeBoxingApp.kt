@@ -166,19 +166,40 @@ private fun MainApp(
     onRequestBatteryOptimizationExemption: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    var restoreReady by remember(userId, isGuest, reloadKey) { mutableStateOf(isGuest) }
+
+    LaunchedEffect(userId, isGuest, reloadKey) {
+        if (!isGuest) {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val database = TaskDatabase.get(context, userId)
+                    val templateDao = database.taskTemplateDao()
+                    val dailyTaskDao = database.dailyTaskDao()
+                    val hasLocalData = templateDao.count() > 0 || dailyTaskDao.count() > 0
+
+                    if (!hasLocalData) {
+                        SupabaseSync.pull(userId = userId, templateDao = templateDao, dailyTaskDao = dailyTaskDao)
+                    }
+                }
+            }
+            restoreReady = true
+        }
+    }
+
+    if (!restoreReady) {
+        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D0D)))
+        return
+    }
 
     val repository: TaskRepository = remember(userId, isGuest, reloadKey) {
         val database = TaskDatabase.get(context, userId)
-        val room = RoomTaskRepository(templateDao = database.taskTemplateDao(), dailyTaskDao = database.dailyTaskDao())
+        val room = RoomTaskRepository(
+            templateDao = database.taskTemplateDao(),
+            dailyTaskDao = database.dailyTaskDao(),
+            seedInitialData = isGuest
+        )
         if (isGuest) room
         else SyncedTaskRepository(local = room, templateDao = database.taskTemplateDao(), dailyTaskDao = database.dailyTaskDao(), userId = userId)
-    }
-
-    LaunchedEffect(userId, isGuest) {
-        if (!isGuest) runCatching {
-            val database = TaskDatabase.get(context, userId)
-            SupabaseSync.pull(userId = userId, templateDao = database.taskTemplateDao(), dailyTaskDao = database.dailyTaskDao())
-        }
     }
 
     val appState = rememberTimeBoxingAppState(repository)

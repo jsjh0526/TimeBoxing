@@ -20,11 +20,12 @@ import java.util.UUID
 class RoomTaskRepository(
     private val templateDao: TaskTemplateDao,
     private val dailyTaskDao: DailyTaskDao,
-    private val anchorDate: LocalDate = LocalDate.now()
+    private val anchorDate: LocalDate = LocalDate.now(),
+    private val seedInitialData: Boolean = true
 ) : TaskRepository, TemplateProvider {
 
     init {
-        seedIfNeeded()
+        if (seedInitialData) seedIfNeeded()
     }
 
     override fun getTasks(date: LocalDate): List<DailyTask> {
@@ -197,9 +198,8 @@ class RoomTaskRepository(
     private fun ensureDate(date: LocalDate) {
         if (dailyTaskDao.getByDate(date.toString()).isNotEmpty()) return
         val tasks = when {
-            date == anchorDate -> seedAnchorTasks()
-            date.isBefore(anchorDate) -> buildPastTasks(date)
-            else -> buildFutureTasks(date)
+            seedInitialData && date == anchorDate -> seedAnchorTasks()
+            else -> buildRecurringTasks(date)
         }
         if (tasks.isNotEmpty()) {
             dailyTaskDao.upsertAll(tasks.map { it.toEntity() })
@@ -253,12 +253,7 @@ class RoomTaskRepository(
         }
     }
 
-    private fun buildPastTasks(date: LocalDate): List<DailyTask> {
-        return templateDao.getAll().map { it.toDomain() }
-            .mapNotNull { template -> if (template.occursOn(date.dayOfWeek)) template.toDailyTask(date) else null }
-    }
-
-    private fun buildFutureTasks(date: LocalDate): List<DailyTask> {
+    private fun buildRecurringTasks(date: LocalDate): List<DailyTask> {
         return templateDao.getAll().map { it.toDomain() }
             .mapNotNull { template -> if (template.occursOn(date.dayOfWeek)) template.toDailyTask(date) else null }
     }

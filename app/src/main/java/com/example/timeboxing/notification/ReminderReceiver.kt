@@ -1,4 +1,4 @@
-package com.example.timeboxing.notification
+﻿package com.example.timeboxing.notification
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -36,7 +36,7 @@ class ReminderReceiver : BroadcastReceiver() {
 
         val notification = NotificationCompat.Builder(context, ReminderScheduler.channelId(settings))
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Time block starts now")
+            .setContentTitle("타임블록이 시작됐어요")
             .setContentText(if (timeRange.isBlank()) title else "$title · $timeRange")
             .setStyle(NotificationCompat.BigTextStyle().bigText(listOf(title, timeRange).filter { it.isNotBlank() }.joinToString("\n")))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -59,3 +59,4 @@ class ReminderReceiver : BroadcastReceiver() {
         NotificationManagerCompat.from(context).notify(id, notification)
     }
 }
+

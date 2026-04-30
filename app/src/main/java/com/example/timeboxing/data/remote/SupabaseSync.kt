@@ -5,6 +5,7 @@ import com.example.timeboxing.data.local.dao.DailyTaskDao
 import com.example.timeboxing.data.local.dao.TaskTemplateDao
 import com.example.timeboxing.data.local.entity.DailyTaskEntity
 import com.example.timeboxing.data.local.entity.TaskTemplateEntity
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import java.time.OffsetDateTime
@@ -12,6 +13,11 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 data class RemoteSyncStatus(val templateCount: Int, val taskCount: Int)
 
@@ -68,6 +74,7 @@ private data class SoftDeletePatch(
 )
 
 object SupabaseSync {
+    private const val USER_SCOPED_CONFLICT = "user_id,id"
 
     suspend fun pull(
         userId: String,
@@ -108,15 +115,51 @@ object SupabaseSync {
         templateDao: TaskTemplateDao,
         dailyTaskDao: DailyTaskDao
     ): RemoteSyncStatus {
-        pull(userId, templateDao, dailyTaskDao)
+        requireMatchingAuthUser(userId)
 
         val templates = templateDao.getAll()
-        if (templates.isNotEmpty()) pushTemplates(userId, templates)
-
         val tasks = dailyTaskDao.getAll()
-        if (tasks.isNotEmpty()) pushTasks(userId, tasks)
 
-        return status(userId)
+        // Manual Sync Now is a backup action: the current device should win.
+        // Otherwise a contaminated remote backup can overwrite local Big3/completed state.
+        softDeleteRemoteItemsMissingLocally(userId, templates, tasks)
+
+        if (templates.isNotEmpty()) pushTemplateRows(userId, templates)
+
+        if (tasks.isNotEmpty()) pushTaskRows(userId, tasks)
+
+        val remoteStatus = status(userId)
+        check(remoteStatus.templateCount == templates.size && remoteStatus.taskCount == tasks.size) {
+            "Sync verification failed: local=${templates.size} habits/${tasks.size} tasks, " +
+                "remote=${remoteStatus.templateCount} habits/${remoteStatus.taskCount} tasks"
+        }
+        return remoteStatus
+    }
+
+    private suspend fun softDeleteRemoteItemsMissingLocally(
+        userId: String,
+        templates: List<TaskTemplateEntity>,
+        tasks: List<DailyTaskEntity>
+    ) {
+        val localTemplateIds = templates.map { it.id }.toSet()
+        val remoteTemplates = supabase.from("task_templates")
+            .select(Columns.list("id", "deleted_at")) { filter { eq("user_id", userId) } }
+            .decodeList<RemoteTemplateStatus>()
+
+        val missingTemplateIds = remoteTemplates
+            .filter { it.deletedAt == null && it.id !in localTemplateIds }
+            .map { it.id }
+        softDeleteTemplates(userId, missingTemplateIds)
+        softDeleteTasksByTemplateIds(userId, missingTemplateIds)
+
+        val localTaskIds = tasks.map { it.id }.toSet()
+        val remoteTasks = supabase.from("daily_tasks")
+            .select(Columns.list("id", "deleted_at")) { filter { eq("user_id", userId) } }
+            .decodeList<RemoteTaskStatus>()
+        val missingTaskIds = remoteTasks
+            .filter { it.deletedAt == null && it.id !in localTaskIds }
+            .map { it.id }
+        softDeleteTasks(userId, missingTaskIds)
     }
 
     // ── 원격 상태 조회: 로컬 DB는 건드리지 않음 ─────────────────────────────
@@ -137,46 +180,91 @@ object SupabaseSync {
 
     // ── 업로드 ───────────────────────────────────────────────────────────────
     suspend fun pushTask(userId: String, entity: DailyTaskEntity) {
-        supabase.from("daily_tasks").upsert(entity.toRemote(userId))
+        requireMatchingAuthUser(userId)
+        pushTaskRows(userId, listOf(entity))
     }
 
     suspend fun pushTasks(userId: String, entities: List<DailyTaskEntity>) {
         if (entities.isEmpty()) return
-        supabase.from("daily_tasks").upsert(entities.map { it.toRemote(userId) })
+        requireMatchingAuthUser(userId)
+        pushTaskRows(userId, entities)
     }
 
     suspend fun pushTemplate(userId: String, entity: TaskTemplateEntity) {
-        supabase.from("task_templates").upsert(entity.toRemote(userId))
+        requireMatchingAuthUser(userId)
+        pushTemplateRows(userId, listOf(entity))
     }
 
     suspend fun pushTemplates(userId: String, entities: List<TaskTemplateEntity>) {
         if (entities.isEmpty()) return
-        supabase.from("task_templates").upsert(entities.map { it.toRemote(userId) })
+        requireMatchingAuthUser(userId)
+        pushTemplateRows(userId, entities)
+    }
+
+    private suspend fun pushTaskRows(userId: String, entities: List<DailyTaskEntity>) {
+        if (entities.isEmpty()) return
+        supabase.from("daily_tasks").upsert(entities.map { it.toRemoteJson(userId) }) {
+            onConflict = USER_SCOPED_CONFLICT
+        }
+    }
+
+    private suspend fun pushTemplateRows(userId: String, entities: List<TaskTemplateEntity>) {
+        if (entities.isEmpty()) return
+        supabase.from("task_templates").upsert(entities.map { it.toRemoteJson(userId) }) {
+            onConflict = USER_SCOPED_CONFLICT
+        }
+    }
+
+    private suspend fun requireMatchingAuthUser(userId: String) {
+        val authUserId = supabase.auth.currentUserOrNull()?.id
+            ?: runCatching { supabase.auth.retrieveUserForCurrentSession(updateSession = true).id }.getOrNull()
+
+        check(authUserId == userId) {
+            "Sync account mismatch: app user=$userId, auth user=${authUserId.orEmpty()}"
+        }
     }
 
     suspend fun deleteTask(userId: String, taskId: String) {
-        supabase.from("daily_tasks").update(softDeletePatch()) {
-            filter {
-                eq("id", taskId)
-                eq("user_id", userId)
-            }
-        }
+        softDeleteTasks(userId, listOf(taskId))
     }
 
     suspend fun deleteTemplate(userId: String, templateId: String) {
-        supabase.from("task_templates").update(softDeletePatch()) {
-            filter {
-                eq("id", templateId)
-                eq("user_id", userId)
+        softDeleteTemplates(userId, listOf(templateId))
+    }
+
+    suspend fun deleteTasksByTemplateId(userId: String, templateId: String) {
+        softDeleteTasksByTemplateIds(userId, listOf(templateId))
+    }
+
+    private suspend fun softDeleteTasks(userId: String, ids: List<String>) {
+        ids.distinct().chunked(100).forEach { chunk ->
+            supabase.from("daily_tasks").update(softDeletePatch()) {
+                filter {
+                    eq("user_id", userId)
+                    isIn("id", chunk)
+                }
             }
         }
     }
 
-    suspend fun deleteTasksByTemplateId(userId: String, templateId: String) {
-        supabase.from("daily_tasks").update(softDeletePatch()) {
-            filter {
-                eq("template_id", templateId)
-                eq("user_id", userId)
+    private suspend fun softDeleteTemplates(userId: String, ids: List<String>) {
+        ids.distinct().chunked(100).forEach { chunk ->
+            supabase.from("task_templates").update(softDeletePatch()) {
+                filter {
+                    eq("user_id", userId)
+                    isIn("id", chunk)
+                }
+            }
+        }
+    }
+
+    private suspend fun softDeleteTasksByTemplateIds(userId: String, templateIds: List<String>) {
+        templateIds.distinct().chunked(100).forEach { chunk ->
+            supabase.from("daily_tasks").update(softDeletePatch()) {
+                filter {
+                    eq("user_id", userId)
+                    isIn("template_id", chunk)
+                }
             }
         }
     }
@@ -226,6 +314,23 @@ object SupabaseSync {
         source          = source
     )
 
+    private fun DailyTaskEntity.toRemoteJson(userId: String): JsonObject = buildJsonObject {
+        put("id", id)
+        put("user_id", userId)
+        putNullable("template_id", templateId)
+        put("date_iso", dateIso)
+        put("title", title)
+        putNullable("note", note)
+        put("tags", tagsSerialized)
+        put("is_big3", isBig3)
+        put("is_completed", isCompleted)
+        putNullable("start_minute", startMinute)
+        putNullable("end_minute", endMinute)
+        put("reminder_enabled", reminderEnabled)
+        put("source", source)
+        put("deleted_at", JsonNull)
+    }
+
     private fun TaskTemplateEntity.toRemote(userId: String) = RemoteTemplate(
         id                  = id,
         userId              = userId,
@@ -239,6 +344,28 @@ object SupabaseSync {
         reminderEnabled     = reminderEnabled
     )
 
+    private fun TaskTemplateEntity.toRemoteJson(userId: String): JsonObject = buildJsonObject {
+        put("id", id)
+        put("user_id", userId)
+        put("title", title)
+        putNullable("note", note)
+        put("tags", tagsSerialized)
+        putNullable("recurrence_type", recurrenceType)
+        put("repeat_days", repeatDaysSerialized)
+        putNullable("default_start_minute", defaultStartMinute)
+        putNullable("default_end_minute", defaultEndMinute)
+        put("reminder_enabled", reminderEnabled)
+        put("deleted_at", JsonNull)
+    }
+
     private fun softDeletePatch(): SoftDeletePatch =
         SoftDeletePatch(OffsetDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+
+    private fun kotlinx.serialization.json.JsonObjectBuilder.putNullable(key: String, value: String?) {
+        put(key, value?.let { JsonPrimitive(it) } ?: JsonNull)
+    }
+
+    private fun kotlinx.serialization.json.JsonObjectBuilder.putNullable(key: String, value: Int?) {
+        put(key, value?.let { JsonPrimitive(it) } ?: JsonNull)
+    }
 }
