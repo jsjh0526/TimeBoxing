@@ -32,7 +32,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
@@ -739,7 +738,36 @@ private fun ChevronIcon(expanded: Boolean, color: Color) {
 
 @Composable
 private fun CalendarIcon(color: Color, modifier: Modifier = Modifier) {
-    Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = color, modifier = modifier)
+    Canvas(modifier = modifier) {
+        val stroke = 2.05.dp.toPx()
+        val iconScale = 1.06f
+        val scaleX = size.width / 24f
+        val scaleY = size.height / 24f
+        fun p(x: Float, y: Float): Offset {
+            val cx = 12f + (x - 12f) * iconScale
+            val cy = 12f + (y - 12f) * iconScale
+            return Offset(cx * scaleX, cy * scaleY)
+        }
+
+        drawLine(color, p(4.8f, 6.7f), p(15.7f, 6.7f), stroke, StrokeCap.Round)
+        drawLine(color, p(4.8f, 6.7f), p(4.8f, 16.9f), stroke, StrokeCap.Round)
+        drawLine(color, p(4.8f, 16.9f), p(12.0f, 16.9f), stroke, StrokeCap.Round)
+        drawLine(color, p(16.8f, 6.7f), p(16.8f, 11.0f), stroke, StrokeCap.Round)
+        drawLine(color, p(5.3f, 10.2f), p(15.0f, 10.2f), stroke, StrokeCap.Round)
+
+        drawLine(color, p(8.1f, 4.1f), p(8.1f, 7.7f), stroke, StrokeCap.Round)
+        drawLine(color, p(13.7f, 4.1f), p(13.7f, 7.7f), stroke, StrokeCap.Round)
+
+        val clockStroke = 2.05.dp.toPx()
+        drawCircle(
+            color = color,
+            radius = 4.35f * iconScale * minOf(scaleX, scaleY),
+            center = p(15.95f, 15.95f),
+            style = Stroke(width = clockStroke)
+        )
+        drawLine(color, p(15.95f, 15.95f), p(15.95f, 13.45f), clockStroke, StrokeCap.Round)
+        drawLine(color, p(15.95f, 15.95f), p(17.85f, 17.05f), clockStroke, StrokeCap.Round)
+    }
 }
 
 @Composable
