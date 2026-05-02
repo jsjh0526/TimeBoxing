@@ -8,6 +8,7 @@ import io.github.jan.supabase.auth.SessionManager
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.serializer.KotlinXSerializer
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -48,6 +49,11 @@ fun initSupabase(context: Context) {
         supabaseUrl = "https://vimywtpiqsixlfiegpdd.supabase.co",
         supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpbXl3dHBpcXNpeGxmaWVncGRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyODI3MDUsImV4cCI6MjA5Mjg1ODcwNX0.W4f-v9KlWd6LdRgCYnz7GvrJ9NvRzDz4QjJMOAwmRoM"
     ) {
+        defaultSerializer = KotlinXSerializer(Json {
+            encodeDefaults = true
+            explicitNulls = true
+            ignoreUnknownKeys = true
+        })
         install(Auth) {
             sessionManager = SharedPreferencesSessionManager(prefs)
         }

@@ -1,5 +1,6 @@
 package com.example.timeboxing.feature.settings
 
+import android.content.Intent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -52,6 +53,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -62,6 +64,7 @@ import com.example.timeboxing.auth.AuthState
 import com.example.timeboxing.data.remote.SyncManager
 import com.example.timeboxing.data.remote.SyncState
 import com.example.timeboxing.notification.ReminderSettings
+import com.google.android.gms.oss.licenses.v2.OssLicensesMenuActivity
 
 private val ScreenBackground = Color(0xFF121212)
 private val CardBackground   = Color(0xFF1E1E1E)
@@ -71,6 +74,11 @@ private val Green            = Color(0xFF7AE582)
 private val TextPrimary      = Color.White
 private val TextSecondary    = Color(0xFF6A7282)
 private val ButtonText       = Color(0xFFD1D5DC)
+
+private const val NOTICE_URL = "https://debonair-approval-27a.notion.site/TimeBox-353a223f3eb38026b1f4ea3b9457d251"
+private const val TERMS_URL = "https://debonair-approval-27a.notion.site/TimeBox-354a223f3eb3801dade1c5fc23d587e2"
+private const val PRIVACY_URL = "https://debonair-approval-27a.notion.site/TimeBox-353a223f3eb380979595cbbfb50fa400"
+private const val CONTACT_EMAIL = "jsjh.dev@gmail.com"
 
 @Composable
 fun SettingsScreen(
@@ -87,6 +95,7 @@ fun SettingsScreen(
     val remoteStatus by SyncManager.remoteStatus.collectAsState()
     val loggedInUserId = (authState as? AuthState.LoggedIn)?.userId
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
 
     LaunchedEffect(loggedInUserId) {
         val userId = loggedInUserId ?: return@LaunchedEffect
@@ -100,55 +109,47 @@ fun SettingsScreen(
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Settings", style = TextStyle(color = TextPrimary, fontSize = 28.sp, lineHeight = 42.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.7).sp))
+                Text("설정", style = TextStyle(color = TextPrimary, fontSize = 28.sp, lineHeight = 42.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.7).sp))
                 Text("Manage your preferences", style = TextStyle(color = TextSecondary, fontSize = 14.sp, lineHeight = 21.sp))
             }
         }
 
         item {
-            SectionCard(title = "Notifications", icon = { MaterialSettingsIcon(SettingsIcon.Notifications, Accent) }) {
-                ToggleRow("Notifications", "Allow alerts for time blocks", reminderSettings.notificationsEnabled, { onReminderSettingsChange(reminderSettings.copy(notificationsEnabled = it)) })
-                ToggleRow("Sound", "Play sound when a reminder fires", reminderSettings.soundEnabled, { onReminderSettingsChange(reminderSettings.copy(soundEnabled = it)) }, enabled = reminderSettings.notificationsEnabled)
-                ToggleRow("Vibration", "Vibrate with reminders", reminderSettings.vibrationEnabled, { onReminderSettingsChange(reminderSettings.copy(vibrationEnabled = it)) }, enabled = reminderSettings.notificationsEnabled, showDivider = false)
-            }
-        }
-
-        item {
-            SectionCard(title = "Account", icon = { MaterialSettingsIcon(SettingsIcon.Account, Accent) }) {
+            SectionCard(title = "계정", icon = { MaterialSettingsIcon(SettingsIcon.Account, Accent) }) {
                 when (val state = authState) {
                     is AuthState.LoggedIn -> {
                         AccountSummary(
                             name  = state.displayName?.takeIf { it.isNotBlank() },
-                            email = state.email.takeIf { it.isNotBlank() } ?: "Signed in"
+                            email = state.email.takeIf { it.isNotBlank() } ?: "로그인됨"
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        ActionButton(label = "Sign Out", filled = false, icon = { MaterialSettingsIcon(SettingsIcon.Logout, ButtonText, 18) }, onClick = onSignOut)
+                        ActionButton(label = "로그아웃", filled = false, icon = { MaterialSettingsIcon(SettingsIcon.Logout, ButtonText, 18) }, onClick = onSignOut)
                     }
-                    is AuthState.Loading -> AccountSummary(null, "Checking session...")
+                    is AuthState.Loading -> AccountSummary(null, "로그인 상태 확인 중...")
                     is AuthState.Error   -> AccountSummary(null, state.message)
                     AuthState.Guest      -> {
-                        AccountSummary("Guest mode", "Local data only")
+                        AccountSummary("게스트 모드", "이 기기에만 저장돼요")
                         Spacer(modifier = Modifier.height(16.dp))
-                        ActionButton(label = "Sign in with Google", filled = true, icon = { MaterialSettingsIcon(SettingsIcon.Account, Color.White, 18) }, onClick = onSignIn)
+                        ActionButton(label = "Google로 로그인", filled = true, icon = { MaterialSettingsIcon(SettingsIcon.Account, Color.White, 18) }, onClick = onSignIn)
                     }
-                    AuthState.SignedOut  -> AccountSummary(null, "Not signed in")
+                    AuthState.SignedOut  -> AccountSummary(null, "로그인되지 않음")
                 }
             }
         }
 
         item {
-            SectionCard(title = "Sync", icon = { MaterialSettingsIcon(SettingsIcon.Sync, Green) }) {
+            SectionCard(title = "동기화", icon = { MaterialSettingsIcon(SettingsIcon.Sync, Green) }) {
                 val (statusText, statusColor) = when (syncState) {
-                    is SyncState.Idle    -> "Ready to sync manually" to TextSecondary
-                    is SyncState.Syncing -> "Syncing your latest changes..." to Accent
-                    is SyncState.Success -> "Last synced ${(syncState as SyncState.Success).time}" to Green
-                    is SyncState.Error   -> "Error: ${(syncState as SyncState.Error).message}" to Color(0xFFFF5F57)
+                    is SyncState.Idle    -> "수동 동기화 준비 완료" to TextSecondary
+                    is SyncState.Syncing -> "최근 변경사항 동기화 중..." to Accent
+                    is SyncState.Success -> "마지막 동기화 ${(syncState as SyncState.Success).time}" to Green
+                    is SyncState.Error   -> "오류: ${(syncState as SyncState.Error).message}" to Color(0xFFFF5F57)
                 }
                 Text(statusText, style = TextStyle(color = statusColor, fontSize = 13.sp, lineHeight = 19.sp))
                 remoteStatus?.let { status ->
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Remote: ${status.taskCount} tasks / ${status.templateCount} habits - checked ${status.checkedAt}",
+                        "서버: 할일 ${status.taskCount}개 / 습관 ${status.templateCount}개 · 확인 ${status.checkedAt}",
                         style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp)
                     )
                 }
@@ -192,9 +193,9 @@ fun SettingsScreen(
                         }
                         Text(
                             text = when {
-                                isSyncing -> "Syncing..."
-                                isLoggedIn -> "Sync Now"
-                                else -> "Sign in to sync"
+                                isSyncing -> "동기화 중..."
+                                isLoggedIn -> "지금 동기화"
+                                else -> "로그인 후 동기화"
                             },
                             style = TextStyle(color = buttonContentColor, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
                         )
@@ -204,18 +205,28 @@ fun SettingsScreen(
         }
 
         item {
+            SectionCard(title = "알림", icon = { MaterialSettingsIcon(SettingsIcon.Notifications, Accent) }) {
+                ToggleRow("알림", "타임블록 시작 알림을 받아요", reminderSettings.notificationsEnabled, { onReminderSettingsChange(reminderSettings.copy(notificationsEnabled = it)) })
+                ToggleRow("소리", "알림이 올 때 소리를 재생해요", reminderSettings.soundEnabled, { onReminderSettingsChange(reminderSettings.copy(soundEnabled = it)) }, enabled = reminderSettings.notificationsEnabled)
+                ToggleRow("진동", "알림이 올 때 진동으로 알려줘요", reminderSettings.vibrationEnabled, { onReminderSettingsChange(reminderSettings.copy(vibrationEnabled = it)) }, enabled = reminderSettings.notificationsEnabled, showDivider = false)
+            }
+        }
+
+        item {
             SectionCard(title = "Support", icon = { MaterialSettingsIcon(SettingsIcon.Support, Accent) }) {
                 SettingsMenuRow(
                     title = "공지사항",
                     subtitle = "업데이트 소식과 변경사항",
-                    icon = SettingsIcon.Notice
+                    icon = SettingsIcon.Notice,
+                    showChevron = true,
+                    onClick = { uriHandler.openUri(NOTICE_URL) }
                 )
                 SettingsMenuRow(
                     title = "문의하기",
                     subtitle = "앱 사용 중 궁금한 점을 보내주세요",
                     icon = SettingsIcon.Contact,
                     showChevron = true,
-                    onClick = { uriHandler.openUri("mailto:support@timeboxing.app?subject=TimeBoxing%20%EB%AC%B8%EC%9D%98") }
+                    onClick = { uriHandler.openUri("mailto:$CONTACT_EMAIL?subject=TimeBoxing%20%EB%AC%B8%EC%9D%98") }
                 )
                 SettingsMenuRow(
                     title = "피드백 보내기",
@@ -223,16 +234,19 @@ fun SettingsScreen(
                     icon = SettingsIcon.Feedback,
                     showChevron = true,
                     showDivider = false,
-                    onClick = { uriHandler.openUri("mailto:support@timeboxing.app?subject=TimeBoxing%20%ED%94%BC%EB%93%9C%EB%B0%B1") }
+                    onClick = { uriHandler.openUri("mailto:$CONTACT_EMAIL?subject=TimeBoxing%20%ED%94%BC%EB%93%9C%EB%B0%B1") }
                 )
             }
         }
 
         item {
             SectionCard(title = "About", icon = { MaterialSettingsIcon(SettingsIcon.Info, Accent) }) {
-                SettingsMenuRow("이용약관", "서비스 이용 기준", SettingsIcon.Terms)
-                SettingsMenuRow("개인정보처리방침", "계정 및 동기화 데이터 안내", SettingsIcon.Privacy)
-                SettingsMenuRow("오픈소스 라이선스", "사용된 라이브러리 정보", SettingsIcon.License)
+                SettingsMenuRow("이용약관", "서비스 이용 기준", SettingsIcon.Terms, showChevron = true, onClick = { uriHandler.openUri(TERMS_URL) })
+                SettingsMenuRow("개인정보처리방침", "계정 및 동기화 데이터 안내", SettingsIcon.Privacy, showChevron = true, onClick = { uriHandler.openUri(PRIVACY_URL) })
+                SettingsMenuRow("오픈소스 라이선스", "사용된 라이브러리 정보", SettingsIcon.License, showChevron = true, onClick = {
+                    OssLicensesMenuActivity.setActivityTitle("오픈소스 라이선스")
+                    context.startActivity(Intent(context, OssLicensesMenuActivity::class.java))
+                })
                 SettingsMenuRow("앱 버전", "TimeBoxing v1.0.0", SettingsIcon.Info, showChevron = false, showDivider = false)
             }
         }
@@ -300,7 +314,7 @@ private fun AccountSummary(name: String?, email: String) {
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(name ?: "Google Account", style = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold), maxLines = 1)
+            Text(name ?: "Google 계정", style = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold), maxLines = 1)
             Text(email, style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp), maxLines = 1)
         }
     }

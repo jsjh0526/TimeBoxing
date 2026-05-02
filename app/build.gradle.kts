@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
+    id("com.google.android.gms.oss-licenses-plugin")
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
@@ -66,6 +67,7 @@ dependencies {
     implementation(libs.google.id)
     implementation(libs.credentials)
     implementation(libs.credentials.play.services)
+    implementation(libs.play.services.oss.licenses)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

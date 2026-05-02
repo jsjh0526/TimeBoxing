@@ -1,4 +1,4 @@
-﻿package com.example.timeboxing.feature.editor
+package com.example.timeboxing.feature.editor
 
 import android.view.WindowManager
 import androidx.compose.foundation.background

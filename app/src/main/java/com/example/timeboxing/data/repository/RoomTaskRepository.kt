@@ -324,15 +324,12 @@ class RoomTaskRepository(
 
 private fun TaskTemplateEntity.toDomain(): TaskTemplate {
     val recurrenceRule = recurrenceType?.let { type ->
-        RecurrenceRule(
-            type = RecurrenceType.valueOf(type),
-            repeatDays = repeatDaysSerialized.deserializeDays()
-        )
-    }
-    val defaultSchedule = if (defaultStartMinute != null && defaultEndMinute != null) {
-        ScheduleBlock(defaultStartMinute, defaultEndMinute, reminderEnabled)
-    } else {
-        null
+        runCatching { RecurrenceType.valueOf(type) }.getOrNull()?.let { recurrenceType ->
+            RecurrenceRule(
+                type = recurrenceType,
+                repeatDays = repeatDaysSerialized.deserializeDays()
+            )
+        }
     }
     return TaskTemplate(
         id = id,
@@ -340,7 +337,7 @@ private fun TaskTemplateEntity.toDomain(): TaskTemplate {
         note = note,
         tags = tagsSerialized.deserializeTags(),
         recurrenceRule = recurrenceRule,
-        defaultSchedule = defaultSchedule
+        defaultSchedule = safeScheduleBlock(defaultStartMinute, defaultEndMinute, reminderEnabled)
     )
 }
 
@@ -357,22 +354,17 @@ private fun TaskTemplate.toEntity(): TaskTemplateEntity = TaskTemplateEntity(
 )
 
 private fun DailyTaskEntity.toDomain(): DailyTask {
-    val schedule = if (startMinute != null && endMinute != null) {
-        ScheduleBlock(startMinute, endMinute, reminderEnabled)
-    } else {
-        null
-    }
     return DailyTask(
         id = id,
         templateId = templateId,
-        date = LocalDate.parse(dateIso),
+        date = runCatching { LocalDate.parse(dateIso) }.getOrDefault(LocalDate.now()),
         title = title,
         note = note,
         tags = tagsSerialized.deserializeTags(),
         isBig3 = isBig3,
         isCompleted = isCompleted,
-        schedule = schedule,
-        source = DailyTaskSource.valueOf(source)
+        schedule = safeScheduleBlock(startMinute, endMinute, reminderEnabled),
+        source = runCatching { DailyTaskSource.valueOf(source) }.getOrDefault(DailyTaskSource.ONE_OFF)
     )
 }
 
@@ -405,4 +397,13 @@ private fun TaskTemplate.toDailyTask(date: LocalDate): DailyTask = DailyTask(
 private fun List<String>.serialize(): String = joinToString("|")
 private fun String.deserializeTags(): List<String> = if (isBlank()) emptyList() else split("|").filter { it.isNotBlank() }
 private fun Set<DayOfWeek>.serializeDays(): String = map { it.name }.joinToString(",")
-private fun String.deserializeDays(): Set<DayOfWeek> = if (isBlank()) emptySet() else split(",").map { DayOfWeek.valueOf(it) }.toSet()
+private fun String.deserializeDays(): Set<DayOfWeek> =
+    if (isBlank()) emptySet()
+    else split(",").mapNotNull { runCatching { DayOfWeek.valueOf(it) }.getOrNull() }.toSet()
+
+private fun safeScheduleBlock(startMinute: Int?, endMinute: Int?, reminderEnabled: Boolean): ScheduleBlock? {
+    if (startMinute == null || endMinute == null) return null
+    return runCatching {
+        ScheduleBlock(startMinute = startMinute, endMinute = endMinute, reminderEnabled = reminderEnabled)
+    }.getOrNull()
+}

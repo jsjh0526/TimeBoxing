@@ -207,7 +207,7 @@ fun TodoScreen(
 
         // RECURRING HABITS
         item { Spacer(Modifier.height(SECTION_GAP)) }
-        item { SectionHeader("RECURRING HABITS", RecurringSection, recurring.size) }
+        item { SectionHeader("TODAY'S HABITS", RecurringSection, recurring.size) }
         item { Spacer(Modifier.height(HEADER_GAP)) }
         item {
             if (recurring.isEmpty()) EmptySectionHint("No recurring habits for today.")
@@ -794,7 +794,7 @@ private fun OtherHabitsHeader(count: Int, expanded: Boolean, onToggle: () -> Uni
         ) {
             if (expanded) ChevronUpIcon(TextMuted) else ChevronDownIcon(TextMuted)
             Spacer(Modifier.width(6.dp))
-            Text("Other Habits", style = TextStyle(color = TextMuted, fontSize = 14.sp, lineHeight = 20.sp))
+            Text("OTHER HABITs", style = TextStyle(color = TextMuted, fontSize = 14.sp, lineHeight = 20.sp))
             Spacer(Modifier.width(8.dp))
             Box(modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(CardBackground).padding(horizontal = 7.dp, vertical = 2.dp)) {
                 Text(count.toString(), style = TextStyle(color = TextMuted, fontSize = 12.sp, lineHeight = 16.sp))

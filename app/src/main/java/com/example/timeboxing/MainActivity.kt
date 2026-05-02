@@ -35,7 +35,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         initSupabase(this)
         ReminderScheduler.createChannels(this)
-        requestNotificationPermissionIfNeeded()
         enableEdgeToEdge(
             statusBarStyle     = SystemBarStyle.dark(Color(0xFF121212).toArgb()),
             navigationBarStyle = SystemBarStyle.dark(Color(0xFF1E1E1E).toArgb())
@@ -43,6 +42,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             TimeBoxingTheme {
                 TimeBoxingApp(
+                    onRequestNotificationPermission = ::requestNotificationPermissionIfNeeded,
                     onRequestBatteryOptimizationExemption = ::requestIgnoreBatteryOptimizationsIfNeeded,
                     onLoginScreenVisible = { visible ->
                         keepSystemBarsVisible = visible

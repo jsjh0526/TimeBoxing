@@ -36,9 +36,9 @@ class ReminderReceiver : BroadcastReceiver() {
 
         val notification = NotificationCompat.Builder(context, ReminderScheduler.channelId(settings))
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("타임블록이 시작됐어요")
-            .setContentText(if (timeRange.isBlank()) title else "$title · $timeRange")
-            .setStyle(NotificationCompat.BigTextStyle().bigText(listOf(title, timeRange).filter { it.isNotBlank() }.joinToString("\n")))
+            .setContentTitle(title.ifBlank { "TimeBoxing" })
+            .setContentText(timeRange)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(timeRange))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)

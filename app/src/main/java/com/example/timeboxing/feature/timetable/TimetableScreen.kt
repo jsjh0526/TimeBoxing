@@ -435,7 +435,7 @@ private fun TrayDropPreviewCard(task: DailyTask, schedule: ScheduleBlock) {
 @Composable
 private fun TopHeader(currentTime: LocalTime) {
     Row(modifier = Modifier.fillMaxWidth().height(69.dp).background(HeaderBackground).padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text("Time Blocks", style = TextStyle(color = TextPrimary, fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp))
+        Text("Time Table", style = TextStyle(color = TextPrimary, fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp))
         Text(currentTime.format(DateTimeFormatter.ofPattern("HH:mm")), style = TextStyle(color = Accent, fontSize = 16.sp, lineHeight = 24.sp))
     }
 }

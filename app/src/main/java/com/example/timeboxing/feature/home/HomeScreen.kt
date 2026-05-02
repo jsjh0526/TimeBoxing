@@ -139,8 +139,8 @@ fun HomeScreen(
             if (unscheduled.isNotEmpty()) {
                 item { UnscheduledCard(unscheduled, unscheduledExpanded, { unscheduledExpanded = !unscheduledExpanded }, onOpenTask, onMarkTaskComplete) }
             }
-            item { PrimaryButton("Open Timetable", onOpenTimetable) }
-            item { SecondaryButton("Add New Task", onAddTask) }
+            item { PrimaryButton("시간표 열기", onOpenTimetable) }
+            item { SecondaryButton("새 할일 추가", onAddTask) }
         }
 
         // 알림 패널 오버레이
@@ -189,8 +189,8 @@ private fun NowCard(task: DailyTask?, currentMinute: Int, onOpenTask: () -> Unit
         Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardBackground).border(0.7.dp, CardBorder, RoundedCornerShape(16.dp)).padding(horizontal = 20.dp, vertical = 20.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 LabelWithDot("NOW", Tertiary, Muted)
-                Text("No scheduled task right now", style = titleStyle(15.sp, FontWeight.Normal), color = Secondary)
-                Text("Take a break or plan your next block", style = bodyStyle(13.sp, Tertiary))
+                Text("진행 중인 타임블록이 없어요", style = titleStyle(15.sp, FontWeight.Normal), color = Secondary)
+                Text("잠깐 쉬거나 다음 블록을 준비해보세요", style = bodyStyle(13.sp, Tertiary))
             }
         }
         return
@@ -212,12 +212,12 @@ private fun NowCard(task: DailyTask?, currentMinute: Int, onOpenTask: () -> Unit
                         Text(formatRange(schedule), style = bodyStyle(14.sp, Color.White.copy(alpha = 0.9f), FontWeight.Medium))
                     }
                     Box(modifier = Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.2f)).padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        Text("$remaining min left", style = bodyStyle(13.sp, Color.White, FontWeight.SemiBold))
+                        Text("${remaining}min left", style = bodyStyle(13.sp, Color.White, FontWeight.SemiBold))
                     }
                 }
             }
             Box(modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.2f)).clickable(onClick = onMarkComplete), contentAlignment = Alignment.Center) {
-                Text(if (task.isCompleted) "Completed" else "Mark Complete", style = bodyStyle(16.sp, Color.White, FontWeight.SemiBold))
+                Text(if (task.isCompleted) "completed" else "complete", style = bodyStyle(16.sp, Color.White, FontWeight.SemiBold))
             }
         }
     }
@@ -228,7 +228,7 @@ private fun UpNextCard(task: DailyTask) {
     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CardBackground).border(0.7.dp, CardBorder, RoundedCornerShape(14.dp)).padding(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("UP NEXT", style = sectionTitle(Muted))
+                Text("NEXT", style = sectionTitle(Muted))
                 Text(task.schedule?.let { formatClock(it.startMinute) }.orEmpty(), style = bodyStyle(13.sp, Secondary, FontWeight.Medium))
             }
             Text(task.title, style = titleStyle(16.sp, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -329,12 +329,12 @@ private fun UnscheduledCard(tasks: List<DailyTask>, expanded: Boolean, onToggle:
             Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("UNSCHEDULED", style = sectionTitle(Secondary))
-                    Text("Tasks waiting to be planned", style = bodyStyle(12.sp, Tertiary))
+                    Text("계획이 필요한 작업", style = bodyStyle(12.sp, Tertiary))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(horizontalAlignment = Alignment.End) {
                         Text(tasks.size.toString(), style = TextStyle(color = Accent, fontSize = 24.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold))
-                        Text("items", style = bodyStyle(11.sp, Tertiary))
+                        Text("tasks", style = bodyStyle(11.sp, Tertiary))
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     ChevronIcon(expanded = expanded, color = Secondary)
@@ -472,10 +472,10 @@ private fun NotificationPanel(
         currentMinute in schedule.startMinute until schedule.endMinute
     }
     val summary = when {
-        alertTasks.isEmpty() -> "No alerts set"
-        activeAlert != null -> "Now · ${activeAlert.title}"
-        nextAlert != null -> "Next at ${formatClock(nextAlert.schedule!!.startMinute)}"
-        else -> "All reminders passed"
+        alertTasks.isEmpty() -> "설정된 알림 없음"
+        activeAlert != null -> "지금 · ${activeAlert.title}"
+        nextAlert != null -> "다음 ${formatClock(nextAlert.schedule!!.startMinute)}"
+        else -> "오늘 알림 모두 지남"
     }
 
     Box(
@@ -505,7 +505,7 @@ private fun NotificationPanel(
                         Text("Reminders", style = TextStyle(color = Color.White, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold))
                     }
                     Text(
-                        "${alertTasks.size} alerts today · $summary",
+                        "오늘 알림 ${alertTasks.size}개 · $summary",
                         style = TextStyle(color = Secondary, fontSize = 12.sp, lineHeight = 18.sp)
                     )
                 }
@@ -537,7 +537,7 @@ private fun NotificationPanel(
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (activeAndUpcomingAlerts.isEmpty()) {
                         Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF202020)).padding(horizontal = 14.dp, vertical = 16.dp)) {
-                            Text("No upcoming reminders left today.", style = TextStyle(color = Secondary, fontSize = 13.sp, lineHeight = 19.sp))
+                            Text("오늘 남은 알림이 없어요.", style = TextStyle(color = Secondary, fontSize = 13.sp, lineHeight = 19.sp))
                         }
                     } else {
                         activeAndUpcomingAlerts.forEach { task ->

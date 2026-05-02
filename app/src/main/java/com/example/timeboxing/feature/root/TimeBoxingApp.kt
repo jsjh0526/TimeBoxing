@@ -75,6 +75,7 @@ private val NavInactive   = Color(0xFF99A1AF)
 
 @Composable
 fun TimeBoxingApp(
+    onRequestNotificationPermission: () -> Unit = {},
     onRequestBatteryOptimizationExemption: () -> Unit = {},
     onLoginScreenVisible: (Boolean) -> Unit = {}
 ) {
@@ -103,6 +104,7 @@ fun TimeBoxingApp(
             userId = "guest",
             isGuest = true,
             reloadKey = migrationReloadKey,
+            onRequestNotificationPermission = onRequestNotificationPermission,
             onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption
         )
 
@@ -151,6 +153,7 @@ fun TimeBoxingApp(
                 userId = state.userId,
                 isGuest = false,
                 reloadKey = migrationReloadKey,
+                onRequestNotificationPermission = onRequestNotificationPermission,
                 onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption
             )
         }
@@ -163,6 +166,7 @@ private fun MainApp(
     userId: String,
     isGuest: Boolean,
     reloadKey: Int,
+    onRequestNotificationPermission: () -> Unit,
     onRequestBatteryOptimizationExemption: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -191,6 +195,11 @@ private fun MainApp(
         return
     }
 
+    LaunchedEffect(userId, reloadKey) {
+        onRequestNotificationPermission()
+        onRequestBatteryOptimizationExemption()
+    }
+
     val repository: TaskRepository = remember(userId, isGuest, reloadKey) {
         val database = TaskDatabase.get(context, userId)
         val room = RoomTaskRepository(
@@ -205,14 +214,13 @@ private fun MainApp(
     val appState = rememberTimeBoxingAppState(repository)
     val reminderSettingsStore = remember(context) { ReminderSettingsStore(context) }
     var reminderSettings by remember { mutableStateOf(reminderSettingsStore.read()) }
-    var showBatteryOptimizationPrompt by remember { mutableStateOf(false) }
 
     fun updateReminderSettings(next: ReminderSettings) {
         val enablingNotifications = !reminderSettings.notificationsEnabled && next.notificationsEnabled
         reminderSettingsStore.write(next); reminderSettings = next
         ReminderScheduler.createChannels(context)
         if (!next.notificationsEnabled) ReminderScheduler.cancelAll(context)
-        if (enablingNotifications) showBatteryOptimizationPrompt = true
+        if (enablingNotifications) onRequestNotificationPermission()
     }
 
     LaunchedEffect(appState.todayTasks, reminderSettings) {
@@ -293,62 +301,7 @@ private fun MainApp(
             )
         }
 
-        if (showBatteryOptimizationPrompt) {
-            BatteryOptimizationDialog(
-                onConfirm = {
-                    showBatteryOptimizationPrompt = false
-                    onRequestBatteryOptimizationExemption()
-                },
-                onDismiss = { showBatteryOptimizationPrompt = false }
-            )
-        }
     }
-}
-
-@Composable
-private fun BatteryOptimizationDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    val CardBg      = Color(0xFF1E1E1E)
-    val Accent      = Color(0xFF8687E7)
-    val TextPrimary = Color.White
-    val TextMuted   = Color(0xFF99A1AF)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor   = CardBg,
-        title = {
-            Text(
-                "Keep reminders reliable",
-                style = TextStyle(color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-            )
-        },
-        text = {
-            Text(
-                "Time block reminders can be delayed if Android puts the app to sleep. Allowing a battery optimization exception helps alerts fire at the scheduled time.",
-                style = TextStyle(color = TextMuted, fontSize = 14.sp, lineHeight = 21.sp)
-            )
-        },
-        confirmButton = {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Accent)
-                    .clickable(onClick = onConfirm)
-                    .padding(horizontal = 20.dp, vertical = 10.dp)
-            ) {
-                Text("Open Settings", style = TextStyle(color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold))
-            }
-        },
-        dismissButton = {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .border(0.7.dp, Color(0xFF2A2A2A), RoundedCornerShape(10.dp))
-                    .clickable(onClick = onDismiss)
-                    .padding(horizontal = 20.dp, vertical = 10.dp)
-            ) {
-                Text("Not now", style = TextStyle(color = TextMuted, fontSize = 14.sp))
-            }
-        }
-    )
 }
 
 // ── 마이그레이션 다이얼로그 ──────────────────────────────────────────────────────

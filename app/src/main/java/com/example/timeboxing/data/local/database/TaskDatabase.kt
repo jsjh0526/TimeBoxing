@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.timeboxing.data.local.dao.DailyTaskDao
 import com.example.timeboxing.data.local.dao.TaskTemplateDao
 import com.example.timeboxing.data.local.entity.DailyTaskEntity
@@ -33,7 +35,7 @@ abstract class TaskDatabase : RoomDatabase() {
                     TaskDatabase::class.java,
                     "timeboxing_$key.db"
                 )
-                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .addMigrations(MIGRATION_1_2)
                     .allowMainThreadQueries()
                     .build()
                     .also { instances[key] = it }
@@ -72,6 +74,13 @@ abstract class TaskDatabase : RoomDatabase() {
             if (filteredTasks.isNotEmpty()) userDb.dailyTaskDao().upsertAll(filteredTasks)
 
             return templates.size + filteredTasks.size
+        }
+
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE task_templates ADD COLUMN reminderEnabled INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE daily_tasks ADD COLUMN reminderEnabled INTEGER NOT NULL DEFAULT 0")
+            }
         }
     }
 }
