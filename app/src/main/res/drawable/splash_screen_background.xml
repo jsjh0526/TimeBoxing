@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@android:color/black" />
+    <item
+        android:width="144dp"
+        android:height="144dp"
+        android:drawable="@drawable/ic_launcher_background"
+        android:gravity="center" />
+    <item
+        android:width="144dp"
+        android:height="144dp"
+        android:drawable="@drawable/ic_timebox_logo"
+        android:gravity="center" />
+</layer-list>

@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.timeboxing"
+    namespace = "dev.jsjh.timebox"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -15,7 +15,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.timeboxing"
+        applicationId = "dev.jsjh.timebox"
         minSdk = 28
         targetSdk = 36
         versionCode = 1
@@ -39,6 +39,10 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    dependenciesInfo {
+        includeInApk = true
+        includeInBundle = true
     }
 }
 
