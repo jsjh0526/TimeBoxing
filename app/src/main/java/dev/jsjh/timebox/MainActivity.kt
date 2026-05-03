@@ -23,17 +23,29 @@ import dev.jsjh.timebox.auth.initSupabase
 import dev.jsjh.timebox.feature.root.TimeBoxingApp
 import dev.jsjh.timebox.notification.ReminderScheduler
 import dev.jsjh.timebox.ui.theme.TimeBoxingTheme
+import com.google.android.play.core.appupdate.AppUpdateManager
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.install.model.AppUpdateType
+import com.google.android.play.core.install.model.UpdateAvailability
 
 class MainActivity : ComponentActivity() {
     private var keepSystemBarsVisible = false
+    private lateinit var appUpdateManager: AppUpdateManager
 
     private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        if (!keepSystemBarsVisible) hideSystemBars()
+    }
+
+    private val appUpdateLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
         if (!keepSystemBarsVisible) hideSystemBars()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.Theme_TimeBoxing)
         super.onCreate(savedInstanceState)
+        appUpdateManager = AppUpdateManagerFactory.create(this)
+        checkForAppUpdate()
         initSupabase(this)
         ReminderScheduler.createChannels(this)
         enableEdgeToEdge(
@@ -54,9 +66,41 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        resumeAppUpdateIfNeeded()
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus && !keepSystemBarsVisible) hideSystemBars()
+    }
+
+    private fun checkForAppUpdate() {
+        appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
+            val updateAvailable = appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
+            val immediateAllowed = appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)
+            if (updateAvailable && immediateAllowed) {
+                appUpdateManager.startUpdateFlowForResult(
+                    appUpdateInfo,
+                    appUpdateLauncher,
+                    AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
+                )
+            }
+        }
+    }
+
+    private fun resumeAppUpdateIfNeeded() {
+        if (!::appUpdateManager.isInitialized) return
+        appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
+            if (appUpdateInfo.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
+                appUpdateManager.startUpdateFlowForResult(
+                    appUpdateInfo,
+                    appUpdateLauncher,
+                    AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
+                )
+            }
+        }
     }
 
     private fun requestNotificationPermissionIfNeeded() {
