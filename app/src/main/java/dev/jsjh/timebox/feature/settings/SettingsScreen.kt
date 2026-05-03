@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.feature.settings
+package dev.jsjh.timebox.feature.settings
 
 import android.content.Intent
 import androidx.compose.animation.animateColorAsState

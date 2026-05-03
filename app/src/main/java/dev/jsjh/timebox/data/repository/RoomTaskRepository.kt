@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.data.repository
+package dev.jsjh.timebox.data.repository
 
 import dev.jsjh.timebox.data.local.dao.DailyTaskDao
 import dev.jsjh.timebox.data.local.dao.TaskTemplateDao

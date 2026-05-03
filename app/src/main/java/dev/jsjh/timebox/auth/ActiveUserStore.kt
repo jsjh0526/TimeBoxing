@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.auth
+package dev.jsjh.timebox.auth
 
 import android.content.Context
 

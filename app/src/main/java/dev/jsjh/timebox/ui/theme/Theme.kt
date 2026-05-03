@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.ui.theme
+package dev.jsjh.timebox.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme

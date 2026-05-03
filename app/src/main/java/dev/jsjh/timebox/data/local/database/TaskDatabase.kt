@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.data.local.database
+package dev.jsjh.timebox.data.local.database
 
 import android.content.Context
 import androidx.room.Database

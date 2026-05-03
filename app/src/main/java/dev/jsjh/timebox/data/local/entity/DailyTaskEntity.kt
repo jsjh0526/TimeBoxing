@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.data.local.entity
+package dev.jsjh.timebox.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

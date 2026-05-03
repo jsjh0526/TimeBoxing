@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.feature.editor
+package dev.jsjh.timebox.feature.editor
 
 import android.view.WindowManager
 import androidx.compose.foundation.background

@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox
+package dev.jsjh.timebox
 
 import android.Manifest
 import android.content.Intent

@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.feature.timetable
+package dev.jsjh.timebox.feature.timetable
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize

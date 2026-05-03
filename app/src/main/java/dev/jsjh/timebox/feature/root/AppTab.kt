@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.feature.root
+package dev.jsjh.timebox.feature.root
 
 enum class AppTab(
     val label: String,

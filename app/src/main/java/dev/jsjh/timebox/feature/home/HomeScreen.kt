@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.feature.home
+package dev.jsjh.timebox.feature.home
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween

@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.domain.model
+package dev.jsjh.timebox.domain.model
 
 import java.time.DayOfWeek
 import java.time.LocalDate

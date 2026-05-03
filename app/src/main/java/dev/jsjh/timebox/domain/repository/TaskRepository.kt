@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.domain.repository
+package dev.jsjh.timebox.domain.repository
 
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.ScheduleBlock

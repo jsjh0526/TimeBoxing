@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.data.local.dao
+package dev.jsjh.timebox.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Insert

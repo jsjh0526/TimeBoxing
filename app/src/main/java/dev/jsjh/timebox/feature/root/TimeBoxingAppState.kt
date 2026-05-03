@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.feature.root
+package dev.jsjh.timebox.feature.root
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable

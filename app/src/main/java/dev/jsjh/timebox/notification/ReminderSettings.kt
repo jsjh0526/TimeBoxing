@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.notification
+package dev.jsjh.timebox.notification
 
 import android.content.Context
 

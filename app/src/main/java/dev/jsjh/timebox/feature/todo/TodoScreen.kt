@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.feature.todo
+package dev.jsjh.timebox.feature.todo
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState

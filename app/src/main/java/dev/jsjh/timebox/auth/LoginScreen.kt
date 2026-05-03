@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.auth
+package dev.jsjh.timebox.auth
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image

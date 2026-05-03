@@ -1,4 +1,4 @@
-﻿package dev.jsjh.timebox.data.remote
+package dev.jsjh.timebox.data.remote
 
 import dev.jsjh.timebox.auth.supabase
 import dev.jsjh.timebox.data.local.dao.DailyTaskDao
