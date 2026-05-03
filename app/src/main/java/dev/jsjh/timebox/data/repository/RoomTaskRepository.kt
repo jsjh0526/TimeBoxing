@@ -124,6 +124,9 @@ class RoomTaskRepository(
             dailyTaskDao.deleteById(dateIso, existing.id)
         }
 
+        val isCarryOverTask = existing?.source == DailyTaskSource.CARRY_OVER ||
+            existing?.id?.startsWith("carry-") == true
+
         val updated = DailyTask(
             id = targetId,
             templateId = templateId,
@@ -136,6 +139,7 @@ class RoomTaskRepository(
             schedule = input.schedule,
             source = when {
                 templateId != null -> DailyTaskSource.RECURRING
+                isCarryOverTask -> DailyTaskSource.CARRY_OVER
                 else -> DailyTaskSource.ONE_OFF
             }
         )
@@ -190,15 +194,36 @@ class RoomTaskRepository(
     }
 
     private fun seedIfNeeded() {
-        if (templateDao.count() > 0 || dailyTaskDao.count() > 0) return
-        templateDao.upsertAll(seedTemplates().map { it.toEntity() })
-        dailyTaskDao.upsertAll(seedAnchorTasks().map { it.toEntity() })
+        val templates = templateDao.getAll()
+        val tasks = dailyTaskDao.getAll()
+        if (templates.isNotEmpty() || tasks.isNotEmpty()) {
+            if (containsOnlyDefaultSeedData(templates, tasks)) {
+                templateDao.upsertAll(tutorialSeedTemplatesV2().map { it.toEntity() })
+                dailyTaskDao.upsertAll(tutorialSeedInitialTasksV2().map { it.toEntity() })
+            }
+            return
+        }
+        templateDao.upsertAll(tutorialSeedTemplatesV2().map { it.toEntity() })
+        dailyTaskDao.upsertAll(tutorialSeedInitialTasksV2().map { it.toEntity() })
+    }
+
+    private fun containsOnlyDefaultSeedData(
+        templates: List<TaskTemplateEntity>,
+        tasks: List<DailyTaskEntity>
+    ): Boolean {
+        val seedTemplateIds = setOf("tpl-standup", "tpl-break")
+        return templates.all { it.id in seedTemplateIds } &&
+            tasks.all { task ->
+                task.id.startsWith("seed-") ||
+                    task.templateId in seedTemplateIds ||
+                    seedTemplateIds.any { templateId -> task.id.startsWith("$templateId-") }
+            }
     }
 
     private fun ensureDate(date: LocalDate) {
         if (dailyTaskDao.getByDate(date.toString()).isNotEmpty()) return
         val tasks = when {
-            seedInitialData && date == anchorDate -> seedAnchorTasks()
+            seedInitialData && date == anchorDate -> tutorialSeedAnchorTasksV2()
             else -> buildRecurringTasks(date)
         }
         if (tasks.isNotEmpty()) {
@@ -256,6 +281,153 @@ class RoomTaskRepository(
     private fun buildRecurringTasks(date: LocalDate): List<DailyTask> {
         return templateDao.getAll().map { it.toDomain() }
             .mapNotNull { template -> if (template.occursOn(date.dayOfWeek)) template.toDailyTask(date) else null }
+    }
+
+    private fun tutorialSeedTemplatesV2(): List<TaskTemplate> = listOf(
+        TaskTemplate(
+            id = "tpl-standup",
+            title = "습관 계획하기",
+            note = "반복 습관은 매일 자동으로 생성돼요.",
+            tags = listOf("Habit", "Plan"),
+            recurrenceRule = RecurrenceRule(RecurrenceType.DAILY),
+            defaultSchedule = null
+        )
+    )
+
+    private fun tutorialSeedInitialTasksV2(): List<DailyTask> =
+        tutorialSeedAnchorTasksV2() + tutorialSeedYesterdayTasksV2()
+
+    private fun tutorialSeedYesterdayTasksV2(): List<DailyTask> = listOf(
+        DailyTask(
+            id = "seed-yesterday-leftover",
+            date = anchorDate.minusDays(1),
+            title = "어제 못 끝낸 할 일 넘겨보기",
+            note = "Move all to today를 누르면 오늘 할 일로 이월돼요.",
+            tags = listOf("Leftover"),
+            source = DailyTaskSource.ONE_OFF
+        )
+    )
+
+    private fun tutorialSeedAnchorTasksV2(): List<DailyTask> {
+        val recurring = tutorialSeedTemplatesV2().mapNotNull { template ->
+            if (template.occursOn(anchorDate.dayOfWeek)) template.toDailyTask(anchorDate) else null
+        }
+        val oneOffs = listOf(
+            DailyTask(
+                id = "seed-deep-work",
+                date = anchorDate,
+                title = "유튜브에 타임박싱 기법을 검색",
+                tags = listOf("Timebox", "Timeboxing"),
+                isBig3 = true
+            ),
+            DailyTask(
+                id = "seed-ui-review",
+                date = anchorDate,
+                title = "오늘의 중요할일 3가지 정하기",
+                tags = listOf("Big3", "Focus"),
+                isBig3 = true
+            ),
+            DailyTask(
+                id = "seed-email",
+                date = anchorDate,
+                title = "할 일은 여기에 쏟아두기",
+                tags = listOf("BrainDump")
+            ),
+            DailyTask(
+                id = "seed-plan",
+                date = anchorDate,
+                title = "<< 완료 체크하기",
+                tags = listOf("Done")
+            ),
+            DailyTask(
+                id = "seed-docs",
+                date = anchorDate,
+                title = "BIG3를 지정하기 >>",
+                tags = listOf("Big3")
+            ),
+            DailyTask(
+                id = "seed-reminder",
+                date = anchorDate,
+                title = "클릭해서 알림 켜고 시간설정",
+                tags = listOf("Reminder")
+            ),
+            DailyTask(
+                id = "seed-timetable",
+                date = anchorDate,
+                title = "시간표에서 드래그로 할일을 배치",
+                tags = listOf("TimeTable")
+            )
+        )
+        return recurring + oneOffs
+    }
+
+    private fun tutorialSeedTemplates(): List<TaskTemplate> = listOf(
+        TaskTemplate(
+            id = "tpl-standup",
+            title = "매일 아침 5분 계획하기",
+            note = "반복 습관은 매일 자동으로 나타나요.",
+            tags = listOf("Habit", "Plan"),
+            recurrenceRule = RecurrenceRule(RecurrenceType.DAILY),
+            defaultSchedule = ScheduleBlock(9 * 60, 9 * 60 + 15)
+        ),
+        TaskTemplate(
+            id = "tpl-break",
+            title = "하루 마무리 리뷰",
+            note = "오늘 끝낸 일과 내일 넘길 일을 정리해보세요.",
+            tags = listOf("Review"),
+            recurrenceRule = RecurrenceRule(RecurrenceType.DAILY),
+            defaultSchedule = ScheduleBlock(21 * 60, 21 * 60 + 30)
+        )
+    )
+
+    private fun tutorialSeedAnchorTasks(): List<DailyTask> {
+        val recurring = tutorialSeedTemplates().mapNotNull { template ->
+            if (template.occursOn(anchorDate.dayOfWeek)) template.toDailyTask(anchorDate) else null
+        }
+        val oneOffs = listOf(
+            DailyTask(
+                id = "seed-deep-work",
+                date = anchorDate,
+                title = "오늘의 Big 3 정하기",
+                note = "별표를 눌러 오늘 가장 중요한 3가지를 고정해보세요.",
+                tags = listOf("Big3", "Focus"),
+                isBig3 = true,
+                schedule = ScheduleBlock(10 * 60, 10 * 60 + 45)
+            ),
+            DailyTask(
+                id = "seed-ui-review",
+                date = anchorDate,
+                title = "시간표에 할 일 배치하기",
+                note = "시간이 정해진 할 일은 Time Table에 블록으로 보여요.",
+                tags = listOf("Timebox", "Guide"),
+                isBig3 = true,
+                schedule = ScheduleBlock(14 * 60, 15 * 60)
+            ),
+            DailyTask(
+                id = "seed-email",
+                date = anchorDate,
+                title = "알림 켜고 시작 시간 맞추기",
+                note = "시간을 설정하면 알림을 켜서 시작을 놓치지 않을 수 있어요.",
+                tags = listOf("Reminder"),
+                isBig3 = true,
+                schedule = ScheduleBlock(16 * 60, 16 * 60 + 30)
+            ),
+            DailyTask(
+                id = "seed-plan",
+                date = anchorDate,
+                title = "나중에 할 일은 Brain Dump에 두기",
+                note = "시간이 정해지지 않은 일은 아래 목록에 잠시 모아둘 수 있어요.",
+                tags = listOf("BrainDump")
+            ),
+            DailyTask(
+                id = "seed-docs",
+                date = anchorDate,
+                title = "완료 체크하고 하루 흐름 보기",
+                note = "끝낸 일은 체크해서 오늘의 진행감을 확인해보세요.",
+                tags = listOf("Done")
+            )
+        )
+        return recurring + oneOffs
     }
 
     private fun seedTemplates(): List<TaskTemplate> = listOf(

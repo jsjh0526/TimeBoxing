@@ -205,7 +205,7 @@ private fun MainApp(
         val room = RoomTaskRepository(
             templateDao = database.taskTemplateDao(),
             dailyTaskDao = database.dailyTaskDao(),
-            seedInitialData = isGuest
+            seedInitialData = true
         )
         if (isGuest) room
         else SyncedTaskRepository(local = room, templateDao = database.taskTemplateDao(), dailyTaskDao = database.dailyTaskDao(), userId = userId)

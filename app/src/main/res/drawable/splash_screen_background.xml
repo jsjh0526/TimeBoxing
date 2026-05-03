@@ -4,11 +4,6 @@
     <item
         android:width="144dp"
         android:height="144dp"
-        android:drawable="@drawable/ic_launcher_background"
-        android:gravity="center" />
-    <item
-        android:width="144dp"
-        android:height="144dp"
-        android:drawable="@drawable/ic_timebox_logo"
+        android:drawable="@drawable/ic_timebox_splash_icon"
         android:gravity="center" />
 </layer-list>

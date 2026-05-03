@@ -138,6 +138,9 @@ class InMemoryTaskRepository(
             input.taskId ?: UUID.randomUUID().toString()
         }
 
+        val isCarryOverTask = existing?.source == DailyTaskSource.CARRY_OVER ||
+            existing?.id?.startsWith("carry-") == true
+
         val updatedTask = DailyTask(
             id = targetId,
             templateId = templateId,
@@ -150,6 +153,7 @@ class InMemoryTaskRepository(
             schedule = input.schedule,
             source = when {
                 templateId != null -> DailyTaskSource.RECURRING
+                isCarryOverTask -> DailyTaskSource.CARRY_OVER
                 else -> DailyTaskSource.ONE_OFF
             }
         )

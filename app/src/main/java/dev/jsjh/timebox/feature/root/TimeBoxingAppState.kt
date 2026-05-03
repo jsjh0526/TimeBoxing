@@ -220,7 +220,7 @@ class TimeBoxingAppState(
     private fun refreshYesterdayIncomplete() {
         val yesterday = today.minusDays(1)
         val carriedTodayIds = repository.getTasks(today)
-            .filter { task -> task.source == DailyTaskSource.CARRY_OVER }
+            .filter { task -> task.source == DailyTaskSource.CARRY_OVER || task.id.startsWith("carry-") }
             .map { task -> task.id }
             .toSet()
         yesterdayIncompleteTasks = repository.getTasks(yesterday)
