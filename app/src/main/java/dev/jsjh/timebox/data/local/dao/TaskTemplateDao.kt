@@ -26,6 +26,9 @@ interface TaskTemplateDao {
     @Query("DELETE FROM task_templates WHERE id IN (:ids)")
     fun deleteByIds(ids: List<String>)
 
+    @Query("DELETE FROM task_templates")
+    fun clearAll()
+
     @Query("SELECT COUNT(*) FROM task_templates")
     fun count(): Int
 }

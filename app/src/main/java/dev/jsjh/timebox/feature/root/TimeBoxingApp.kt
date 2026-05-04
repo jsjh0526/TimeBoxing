@@ -1,8 +1,8 @@
 package dev.jsjh.timebox.feature.root
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -69,9 +68,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private val NavBackground = Color(0xFF1E1E1E)
-private val NavDivider    = Color(0xFF2A2A2A)
-private val NavActive     = Color(0xFF8687E7)
-private val NavInactive   = Color(0xFF99A1AF)
+private val NavDivider = Color(0xFF2A2A2A)
+private val NavActive = Color(0xFF8687E7)
+private val NavInactive = Color(0xFF99A1AF)
 
 @Composable
 fun TimeBoxingApp(
@@ -80,7 +79,7 @@ fun TimeBoxingApp(
     onLoginScreenVisible: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val scope   = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { AuthRepository.restoreSession(context) }
 
     val authState by AuthRepository.authState.collectAsState()
@@ -92,7 +91,7 @@ fun TimeBoxingApp(
 
     var showMigrationDialog by remember { mutableStateOf(false) }
     var migrationCheckedFor by remember { mutableStateOf("") }
-    var migrationReloadKey  by remember { mutableStateOf(0) }
+    var migrationReloadKey by remember { mutableStateOf(0) }
 
     when (val state = authState) {
         AuthState.Loading -> Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D0D)))
@@ -109,7 +108,6 @@ fun TimeBoxingApp(
         )
 
         is AuthState.LoggedIn -> {
-            // Fix 2: LaunchedEffect??議곌굔臾?諛뽰뿉??臾댁“嫄??몄텧 ???대??먯꽌 議곌굔 泥댄겕
             LaunchedEffect(state.userId) {
                 if (AuthRepository.hadGuestSessionBeforeLogin && migrationCheckedFor != state.userId) {
                     migrationCheckedFor = state.userId
@@ -124,10 +122,19 @@ fun TimeBoxingApp(
                         showMigrationDialog = false
                         scope.launch {
                             withContext(Dispatchers.IO) {
-                                TaskDatabase.migrateGuestData(context, state.userId)
                                 runCatching {
                                     val db = TaskDatabase.get(context, state.userId)
-                                    SupabaseSync.syncAll(userId = state.userId, templateDao = db.taskTemplateDao(), dailyTaskDao = db.dailyTaskDao())
+                                    SupabaseSync.pull(
+                                        userId = state.userId,
+                                        templateDao = db.taskTemplateDao(),
+                                        dailyTaskDao = db.dailyTaskDao()
+                                    )
+                                    TaskDatabase.migrateGuestData(context, state.userId)
+                                    SupabaseSync.syncAll(
+                                        userId = state.userId,
+                                        templateDao = db.taskTemplateDao(),
+                                        dailyTaskDao = db.dailyTaskDao()
+                                    )
                                 }
                             }
                             migrationReloadKey++
@@ -139,7 +146,12 @@ fun TimeBoxingApp(
                             withContext(Dispatchers.IO) {
                                 runCatching {
                                     val db = TaskDatabase.get(context, state.userId)
-                                    SupabaseSync.pull(userId = state.userId, templateDao = db.taskTemplateDao(), dailyTaskDao = db.dailyTaskDao())
+                                    SupabaseSync.pull(
+                                        userId = state.userId,
+                                        templateDao = db.taskTemplateDao(),
+                                        dailyTaskDao = db.dailyTaskDao(),
+                                        replaceLocal = true
+                                    )
                                 }
                             }
                             migrationReloadKey++
@@ -183,7 +195,11 @@ private fun MainApp(
                     val hasLocalData = templateDao.count() > 0 || dailyTaskDao.count() > 0
 
                     if (!hasLocalData) {
-                        val remoteStatus = SupabaseSync.pull(userId = userId, templateDao = templateDao, dailyTaskDao = dailyTaskDao)
+                        val remoteStatus = SupabaseSync.pull(
+                            userId = userId,
+                            templateDao = templateDao,
+                            dailyTaskDao = dailyTaskDao
+                        )
                         val hasDataAfterPull = templateDao.count() > 0 || dailyTaskDao.count() > 0
                         if (!hadLocalDatabase && !hasDataAfterPull && remoteStatus.templateCount == 0 && remoteStatus.taskCount == 0) {
                             RoomTaskRepository(
@@ -191,7 +207,11 @@ private fun MainApp(
                                 dailyTaskDao = dailyTaskDao,
                                 seedInitialData = true
                             )
-                            SupabaseSync.syncAll(userId = userId, templateDao = templateDao, dailyTaskDao = dailyTaskDao)
+                            SupabaseSync.syncAll(
+                                userId = userId,
+                                templateDao = templateDao,
+                                dailyTaskDao = dailyTaskDao
+                            )
                         }
                     }
                 }
@@ -218,8 +238,16 @@ private fun MainApp(
             dailyTaskDao = database.dailyTaskDao(),
             seedInitialData = shouldSeedGuest
         )
-        if (isGuest) room
-        else SyncedTaskRepository(local = room, templateDao = database.taskTemplateDao(), dailyTaskDao = database.dailyTaskDao(), userId = userId)
+        if (isGuest) {
+            room
+        } else {
+            SyncedTaskRepository(
+                local = room,
+                templateDao = database.taskTemplateDao(),
+                dailyTaskDao = database.dailyTaskDao(),
+                userId = userId
+            )
+        }
     }
 
     val appState = rememberTimeBoxingAppState(repository)
@@ -228,7 +256,8 @@ private fun MainApp(
 
     fun updateReminderSettings(next: ReminderSettings) {
         val enablingNotifications = !reminderSettings.notificationsEnabled && next.notificationsEnabled
-        reminderSettingsStore.write(next); reminderSettings = next
+        reminderSettingsStore.write(next)
+        reminderSettings = next
         ReminderScheduler.createChannels(context)
         if (!next.notificationsEnabled) ReminderScheduler.cancelAll(context)
         if (enablingNotifications) onRequestNotificationPermission()
@@ -238,8 +267,9 @@ private fun MainApp(
         ReminderScheduler.syncTasks(context, LocalDate.now(), appState.todayTasks, reminderSettings)
     }
     LaunchedEffect(appState.selectedDate, appState.selectedDateTasks, reminderSettings) {
-        if (appState.selectedDate != LocalDate.now())
+        if (appState.selectedDate != LocalDate.now()) {
             ReminderScheduler.syncTasks(context, appState.selectedDate, appState.selectedDateTasks, reminderSettings)
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -250,16 +280,22 @@ private fun MainApp(
             val contentModifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)
             when (appState.currentTab) {
                 AppTab.HOME -> HomeScreen(
-                    modifier = contentModifier, tasks = appState.todayTasks, date = LocalDate.now(),
-                    currentTime = appState.currentTime, onOpenTimetable = appState::openTimetable,
+                    modifier = contentModifier,
+                    tasks = appState.todayTasks,
+                    date = LocalDate.now(),
+                    currentTime = appState.currentTime,
+                    onOpenTimetable = appState::openTimetable,
                     onMarkTaskComplete = { appState.toggleCompleted(it, LocalDate.now()) },
                     onOpenTask = { appState.openTaskEditor(it, LocalDate.now()) },
                     onAddTask = { appState.openNewTaskEditor(date = LocalDate.now()) },
                     onNotificationsClick = {}
                 )
                 AppTab.TODO -> TodoScreen(
-                    modifier = contentModifier, tasks = appState.todayTodoTasks, date = LocalDate.now(),
-                    recurrenceByTemplateId = appState.recurrenceByTemplateId, otherHabits = appState.otherHabits,
+                    modifier = contentModifier,
+                    tasks = appState.todayTodoTasks,
+                    date = LocalDate.now(),
+                    recurrenceByTemplateId = appState.recurrenceByTemplateId,
+                    otherHabits = appState.otherHabits,
                     yesterdayIncompleteTasks = appState.yesterdayIncompleteTasks,
                     onQuickAddTask = { appState.quickAddTask(it, LocalDate.now()) },
                     onOpenAddTaskEditor = { appState.openNewTaskEditor(date = LocalDate.now(), initialTitle = it) },
@@ -271,9 +307,13 @@ private fun MainApp(
                     onReorderTask = { id, toIndex -> appState.reorderTodayTodoTask(id, toIndex) }
                 )
                 AppTab.TIMETABLE -> TimetableScreen(
-                    modifier = contentModifier, tasks = appState.selectedDateTasks, date = appState.selectedDate,
-                    currentTime = appState.currentTime, showCurrentTime = appState.selectedDate == LocalDate.now(),
-                    onPreviousDay = { appState.moveSelectedDateBy(-1) }, onNextDay = { appState.moveSelectedDateBy(1) },
+                    modifier = contentModifier,
+                    tasks = appState.selectedDateTasks,
+                    date = appState.selectedDate,
+                    currentTime = appState.currentTime,
+                    showCurrentTime = appState.selectedDate == LocalDate.now(),
+                    onPreviousDay = { appState.moveSelectedDateBy(-1) },
+                    onNextDay = { appState.moveSelectedDateBy(1) },
                     onToday = appState::goToToday,
                     onOpenTask = { appState.openTaskEditor(it, appState.selectedDate) },
                     onToggleComplete = { appState.toggleCompleted(it, appState.selectedDate) },
@@ -285,12 +325,16 @@ private fun MainApp(
                     modifier = contentModifier,
                     reminderSettings = reminderSettings,
                     onReminderSettingsChange = ::updateReminderSettings,
-                    onSignIn  = { scope.launch { AuthRepository.signInWithGoogle(context) } },
+                    onSignIn = { scope.launch { AuthRepository.signInWithGoogle(context) } },
                     onSignOut = { scope.launch { AuthRepository.signOut(context) } },
                     onSyncNow = {
                         scope.launch {
                             val database = TaskDatabase.get(context, userId)
-                            SyncManager.syncAll(userId = userId, templateDao = database.taskTemplateDao(), dailyTaskDao = database.dailyTaskDao())
+                            SyncManager.syncAll(
+                                userId = userId,
+                                templateDao = database.taskTemplateDao(),
+                                dailyTaskDao = database.dailyTaskDao()
+                            )
                             appState.refreshAll()
                         }
                     },
@@ -305,51 +349,80 @@ private fun MainApp(
 
         appState.editorDraft?.let { draft ->
             TaskEditorDialog(
-                draft = draft, onDismiss = appState::dismissEditor,
+                draft = draft,
+                onDismiss = appState::dismissEditor,
                 onDelete = if (draft.taskId != null || draft.templateId != null) appState::deleteEditingTask else null,
                 onSave = appState::saveEditor,
                 onChange = { updated -> appState.updateEditor { updated } }
             )
         }
-
     }
 }
 
-// ?? 留덉씠洹몃젅?댁뀡 ?ㅼ씠?쇰줈洹???????????????????????????????????????????????????????
-
 @Composable
 private fun MigrationDialog(onMigrate: () -> Unit, onStartFresh: () -> Unit) {
-    val CardBg      = Color(0xFF1E1E1E)
-    val Accent      = Color(0xFF8687E7)
-    val TextPrimary = Color.White
-    val TextMuted   = Color(0xFF99A1AF)
+    val cardBg = Color(0xFF1E1E1E)
+    val accent = Color(0xFF8687E7)
+    val textPrimary = Color.White
+    val textMuted = Color(0xFF99A1AF)
     AlertDialog(
         onDismissRequest = {},
-        containerColor   = CardBg,
-        title = { Text("이전 데이터 이전", style = TextStyle(color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)) },
-        text  = { Text("게스트로 작성한 로컬 데이터를\nGoogle 계정으로 옮길까요?\n\n새로 시작하면 계정에 저장된\n클라우드 데이터를 불러옵니다.", style = TextStyle(color = TextMuted, fontSize = 14.sp, lineHeight = 21.sp)) },
+        containerColor = cardBg,
+        title = {
+            Text(
+                "이전 데이터 이동",
+                style = TextStyle(color = textPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            )
+        },
+        text = {
+            Text(
+                "게스트로 작성한 로컬 데이터를\nGoogle 계정으로 옮길까요?\n\n새로 시작하면 계정에 저장된\n클라우드 데이터를 불러옵니다.",
+                style = TextStyle(color = textMuted, fontSize = 14.sp, lineHeight = 21.sp)
+            )
+        },
         confirmButton = {
-            Box(modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Accent).clickable(onClick = onMigrate).padding(horizontal = 20.dp, vertical = 10.dp)) {
-                Text("옮기기", style = TextStyle(color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(accent)
+                    .clickable(onClick = onMigrate)
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    "옮기기",
+                    style = TextStyle(color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                )
             }
         },
         dismissButton = {
-            Box(modifier = Modifier.clip(RoundedCornerShape(10.dp)).border(0.7.dp, Color(0xFF2A2A2A), RoundedCornerShape(10.dp)).clickable(onClick = onStartFresh).padding(horizontal = 20.dp, vertical = 10.dp)) {
-                Text("새로 시작", style = TextStyle(color = TextMuted, fontSize = 14.sp))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .border(0.7.dp, Color(0xFF2A2A2A), RoundedCornerShape(10.dp))
+                    .clickable(onClick = onStartFresh)
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+            ) {
+                Text("새로 시작", style = TextStyle(color = textMuted, fontSize = 14.sp))
             }
         }
     )
 }
 
-// ?? ?섎떒 諛???????????????????????????????????????????????????????????????????
-
 @Composable
 private fun AppBottomBar(currentTab: AppTab, onTabSelected: (AppTab) -> Unit) {
     Box(modifier = Modifier.fillMaxWidth().background(NavBackground)) {
         Box(modifier = Modifier.fillMaxWidth().background(NavBackground).navigationBarsPadding()) {
-            Row(modifier = Modifier.fillMaxWidth().height(78.dp).background(NavBackground), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(78.dp).background(NavBackground),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 AppTab.entries.forEach { tab ->
-                    BottomBarItem(tab = tab, selected = currentTab == tab, modifier = Modifier.weight(1f), onClick = { onTabSelected(tab) })
+                    BottomBarItem(
+                        tab = tab,
+                        selected = currentTab == tab,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onTabSelected(tab) }
+                    )
                 }
             }
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(NavDivider).align(Alignment.TopCenter))
@@ -360,9 +433,19 @@ private fun AppBottomBar(currentTab: AppTab, onTabSelected: (AppTab) -> Unit) {
 @Composable
 private fun BottomBarItem(tab: AppTab, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val color = if (selected) NavActive else NavInactive
-    Column(modifier = modifier.fillMaxHeight().clickable(onClick = onClick).padding(top = 12.dp, bottom = 10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .clickable(onClick = onClick)
+            .padding(top = 12.dp, bottom = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         TabIcon(tab = tab, color = color)
-        Text(text = tab.label, style = TextStyle(color = color, fontSize = 11.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium))
+        Text(
+            text = tab.label,
+            style = TextStyle(color = color, fontSize = 11.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium)
+        )
     }
 }
 

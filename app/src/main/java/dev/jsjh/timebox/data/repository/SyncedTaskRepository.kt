@@ -40,14 +40,13 @@ class SyncedTaskRepository(
     }
 
     override fun setSchedule(date: LocalDate, taskId: String, schedule: ScheduleBlock?) {
+        val before = local.getTask(date, taskId)
         local.setSchedule(date, taskId, schedule)
         val taskEntity = dailyTaskDao.getById(date.toString(), taskId)
-        val templateId = taskEntity?.templateId
+        val templateId = before?.templateId ?: taskEntity?.templateId
         if (templateId != null) {
-            val tplEntity = templateDao.getById(templateId)
             syncScope.launch {
-                if (tplEntity != null) SupabaseSync.pushTemplate(userId, tplEntity)
-                SupabaseSync.pushTask(userId, taskEntity)
+                pushTemplateSnapshot(templateId)
             }
         } else if (taskEntity != null) {
             syncScope.launch { SupabaseSync.pushTask(userId, taskEntity) }
@@ -62,24 +61,39 @@ class SyncedTaskRepository(
     }
 
     override fun upsertTask(input: TaskEditInput): DailyTask {
+        val previous = input.taskId?.let { local.getTask(input.date, it) }
+        val previousTemplateId = previous?.templateId ?: input.templateId
         val task = local.upsertTask(input)
         syncScope.launch {
+            if (previousTemplateId != null && previousTemplateId != task.templateId) {
+                SupabaseSync.deleteTemplate(userId, previousTemplateId)
+                SupabaseSync.deleteTasksByTemplateId(userId, previousTemplateId)
+            }
             dailyTaskDao.getById(task.date.toString(), task.id)?.let {
                 SupabaseSync.pushTask(userId, it)
             }
             task.templateId?.let { tplId ->
-                templateDao.getById(tplId)?.let { SupabaseSync.pushTemplate(userId, it) }
+                pushTemplateSnapshot(tplId)
             }
         }
         return task
     }
 
     override fun deleteTask(date: LocalDate, taskId: String) {
+        if (taskId.startsWith("template-")) {
+            val templateId = taskId.removePrefix("template-")
+            local.deleteTask(date, taskId)
+            syncScope.launch {
+                SupabaseSync.deleteTemplate(userId, templateId)
+                SupabaseSync.deleteTasksByTemplateId(userId, templateId)
+            }
+            return
+        }
+
         val existing = local.getTask(date, taskId)
         local.deleteTask(date, taskId)
         syncScope.launch {
             val templateId = existing?.templateId
-                ?: taskId.takeIf { it.startsWith("template-") }?.removePrefix("template-")
             if (templateId != null) {
                 SupabaseSync.deleteTemplate(userId, templateId)
                 SupabaseSync.deleteTasksByTemplateId(userId, templateId)
@@ -97,5 +111,10 @@ class SyncedTaskRepository(
             SupabaseSync.pushTasks(userId, carried)
         }
         return count
+    }
+
+    private suspend fun pushTemplateSnapshot(templateId: String) {
+        templateDao.getById(templateId)?.let { SupabaseSync.pushTemplate(userId, it) }
+        SupabaseSync.replaceTasksForTemplate(userId, templateId, dailyTaskDao.getByTemplateId(templateId))
     }
 }

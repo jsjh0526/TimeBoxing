@@ -17,6 +17,9 @@ interface DailyTaskDao {
     @Query("SELECT * FROM daily_tasks ORDER BY dateIso")
     fun getAll(): List<DailyTaskEntity>
 
+    @Query("SELECT * FROM daily_tasks WHERE templateId = :templateId")
+    fun getByTemplateId(templateId: String): List<DailyTaskEntity>
+
     @Query("SELECT DISTINCT dateIso FROM daily_tasks ORDER BY dateIso")
     fun getCachedDates(): List<String>
 
@@ -43,6 +46,9 @@ interface DailyTaskDao {
 
     @Query("DELETE FROM daily_tasks WHERE dateIso = :dateIso AND source = :source")
     fun deleteByDateAndSource(dateIso: String, source: String)
+
+    @Query("DELETE FROM daily_tasks")
+    fun clearAll()
 
     @Query("SELECT COUNT(*) FROM daily_tasks")
     fun count(): Int

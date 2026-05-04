@@ -20,6 +20,7 @@ import dev.jsjh.timebox.feature.editor.TaskEditorDraft
 import dev.jsjh.timebox.feature.editor.newTaskDraft
 import dev.jsjh.timebox.feature.editor.parseTime
 import dev.jsjh.timebox.feature.editor.toEditorDraft
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.Locale
@@ -31,17 +32,17 @@ class TimeBoxingAppState(
     private val sectionOrderByDate = mutableMapOf<LocalDate, MutableMap<String, MutableList<String>>>()
     private val today: LocalDate get() = LocalDate.now()
 
-    var currentTab        by mutableStateOf(AppTab.HOME)
+    var currentTab by mutableStateOf(AppTab.HOME)
         private set
-    var selectedDate      by mutableStateOf(today)
+    var selectedDate by mutableStateOf(today)
         private set
-    var todayTasks        by mutableStateOf(repository.getTasks(today))
+    var todayTasks by mutableStateOf(repository.getTasks(today))
         private set
-    var todayTodoTasks    by mutableStateOf(repository.getTasks(today))
+    var todayTodoTasks by mutableStateOf(repository.getTasks(today))
         private set
     var selectedDateTasks by mutableStateOf(repository.getTasks(selectedDate))
         private set
-    var editorDraft       by mutableStateOf<TaskEditorDraft?>(null)
+    var editorDraft by mutableStateOf<TaskEditorDraft?>(null)
         private set
 
     var recurrenceByTemplateId by mutableStateOf<Map<String, RecurrenceRule?>>(emptyMap())
@@ -129,8 +130,6 @@ class TimeBoxingAppState(
         refreshAll()
     }
 
-    // ?댁젣 ?댁썡 由ъ뒪?몄뿉???뱀젙 ?쒖뒪?щ쭔 ?쒓굅 (??젣)
-    // ?댁썡?섏? ?딄퀬 踰꾨━怨??띠쓣 ???ъ슜
     fun dismissYesterdayTask(taskId: String) {
         val yesterday = today.minusDays(1)
         repository.deleteTask(yesterday, taskId)
@@ -148,6 +147,7 @@ class TimeBoxingAppState(
             editorDraft = task.toEditorDraft(existingRule = recurrenceRule)
             return
         }
+
         val templateId = taskId.removePrefix("template-")
         val template = repository.getTemplate(templateId) ?: return
         editorDraft = template.toTemplateEditorDraft(date)
@@ -157,24 +157,42 @@ class TimeBoxingAppState(
         editorDraft = editorDraft?.let(transform)
     }
 
-    fun dismissEditor() { editorDraft = null }
+    fun dismissEditor() {
+        editorDraft = null
+    }
 
     fun saveEditor() {
         val draft = editorDraft ?: return
         if (draft.title.isBlank()) return
+
         val startMinute = parseTime(draft.startText)
-        val endMinute   = parseTime(draft.endText)
+        val endMinute = parseTime(draft.endText)
         val schedule = if (draft.timeBlockEnabled && endMinute > startMinute) {
-            ScheduleBlock(startMinute = startMinute, endMinute = endMinute, reminderEnabled = draft.alertEnabled)
-        } else null
+            ScheduleBlock(
+                startMinute = startMinute,
+                endMinute = endMinute,
+                reminderEnabled = draft.alertEnabled
+            )
+        } else {
+            null
+        }
         val recurrence = if (draft.recurringEnabled) {
             RecurrenceRule(type = draft.recurrenceType, repeatDays = draft.repeatDays)
-        } else null
+        } else {
+            null
+        }
+
         repository.upsertTask(
             TaskEditInput(
-                taskId = draft.taskId, templateId = draft.templateId, date = draft.date,
-                title = draft.title.trim(), note = draft.note.trim().ifEmpty { null },
-                tags = draft.tags, isBig3 = draft.isBig3, recurrenceRule = recurrence, schedule = schedule
+                taskId = draft.taskId,
+                templateId = draft.templateId,
+                date = draft.date,
+                title = draft.title.trim(),
+                note = draft.note.trim().ifEmpty { null },
+                tags = draft.tags,
+                isBig3 = draft.isBig3,
+                recurrenceRule = recurrence,
+                schedule = schedule
             )
         )
         dismissEditor()
@@ -182,17 +200,17 @@ class TimeBoxingAppState(
     }
 
     fun deleteEditingTask() {
-        val draft  = editorDraft ?: return
+        val draft = editorDraft ?: return
         val taskId = draft.taskId ?: draft.templateId?.let { "template-$it" } ?: return
         repository.deleteTask(draft.date, taskId)
         dismissEditor()
         refreshAll()
     }
 
-    // ?? Fix 3: public?쇰줈 蹂寃???pull ?꾨즺 ??TimeBoxingApp?먯꽌 ?몄텧 媛???????
-    fun refreshAll() { refreshToday(); refreshSelectedDate() }
-
-    // ?? private ?????????????????????????????????????????????????????????????
+    fun refreshAll() {
+        refreshToday()
+        refreshSelectedDate()
+    }
 
     private fun refreshToday() {
         val fresh = repository.getTasks(today)
@@ -231,7 +249,7 @@ class TimeBoxingAppState(
     private fun syncSectionOrders(date: LocalDate, tasks: List<DailyTask>) {
         val sectionOrders = sectionOrderByDate.getOrPut(date) { mutableMapOf() }
         listOf("big3", "brainDump", "recurring").forEach { key ->
-            val ids   = sectionTaskIds(key, tasks)
+            val ids = sectionTaskIds(key, tasks)
             val order = sectionOrders.getOrPut(key) { ids.toMutableList() }
             order.removeAll { it !in ids }
             ids.forEach { id -> if (id !in order) order.add(id) }
@@ -241,11 +259,11 @@ class TimeBoxingAppState(
     private fun applyAllSectionOrders(date: LocalDate, tasks: List<DailyTask>): List<DailyTask> {
         val sectionOrders = sectionOrderByDate[date]
         val taskById = tasks.associateBy { it.id }
-        val result   = mutableListOf<DailyTask>()
+        val result = mutableListOf<DailyTask>()
         listOf("big3", "brainDump", "recurring").forEach { key ->
-            val ids     = sectionTaskIds(key, tasks)
-            val order   = sectionOrders?.get(key) ?: ids
-            val idSet   = ids.toSet()
+            val ids = sectionTaskIds(key, tasks)
+            val order = sectionOrders?.get(key) ?: ids
+            val idSet = ids.toSet()
             val ordered = order.filter { it in idSet } + ids.filter { it !in order.toSet() }
             result += ordered.mapNotNull { taskById[it] }
         }
@@ -255,16 +273,16 @@ class TimeBoxingAppState(
     }
 
     private fun sectionTaskIds(sectionKey: String, tasks: List<DailyTask>): List<String> = when (sectionKey) {
-        "big3"      -> tasks.filter { it.isBig3 }.map { it.id }
+        "big3" -> tasks.filter { it.isBig3 }.map { it.id }
         "brainDump" -> tasks.filter { !it.isBig3 && it.source != DailyTaskSource.RECURRING }.map { it.id }
         "recurring" -> tasks.filter { it.source == DailyTaskSource.RECURRING && !it.isBig3 }.map { it.id }
-        else        -> emptyList()
+        else -> emptyList()
     }
 
     private fun inferSectionKey(taskId: String, tasks: List<DailyTask>): String? {
         val task = tasks.firstOrNull { it.id == taskId } ?: return null
         return when {
-            task.isBig3  -> "big3"
+            task.isBig3 -> "big3"
             task.source != DailyTaskSource.RECURRING -> "brainDump"
             else -> "recurring"
         }
@@ -272,30 +290,43 @@ class TimeBoxingAppState(
 }
 
 private fun TaskTemplate.toOtherHabitTask(date: LocalDate): DailyTask = DailyTask(
-    id = "template-$id", templateId = id, date = date,
-    title = title, note = note, tags = tags, schedule = defaultSchedule,
+    id = "template-$id",
+    templateId = id,
+    date = date,
+    title = title,
+    note = note,
+    tags = tags,
+    schedule = defaultSchedule,
     source = DailyTaskSource.RECURRING
 )
 
 private fun TaskTemplate.toTemplateEditorDraft(date: LocalDate): TaskEditorDraft {
     val rule = recurrenceRule ?: RecurrenceRule(RecurrenceType.DAILY)
     return TaskEditorDraft(
-        taskId = null, templateId = id, date = date,
-        title = title, note = note.orEmpty(), tags = tags,
-        isBig3 = false, recurringEnabled = true,
+        taskId = null,
+        templateId = id,
+        date = date,
+        title = title,
+        note = note.orEmpty(),
+        tags = tags,
+        isBig3 = false,
+        recurringEnabled = true,
         recurrenceType = rule.type,
         repeatDays = when {
             rule.repeatDays.isNotEmpty() -> rule.repeatDays
             rule.type == RecurrenceType.WEEKDAYS -> setOf(
-                java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.TUESDAY, java.time.DayOfWeek.WEDNESDAY,
-                java.time.DayOfWeek.THURSDAY, java.time.DayOfWeek.FRIDAY
+                DayOfWeek.MONDAY,
+                DayOfWeek.TUESDAY,
+                DayOfWeek.WEDNESDAY,
+                DayOfWeek.THURSDAY,
+                DayOfWeek.FRIDAY
             )
             rule.type == RecurrenceType.CUSTOM -> setOf(date.dayOfWeek)
             else -> emptySet()
         },
         timeBlockEnabled = defaultSchedule != null,
-        startText    = defaultSchedule?.let { formatEditorTime(it.startMinute) } ?: "09:00",
-        endText      = defaultSchedule?.let { formatEditorTime(it.endMinute) }   ?: "09:30",
+        startText = defaultSchedule?.let { formatEditorTime(it.startMinute) } ?: "09:00",
+        endText = defaultSchedule?.let { formatEditorTime(it.endMinute) } ?: "09:30",
         alertEnabled = defaultSchedule?.reminderEnabled == true
     )
 }
