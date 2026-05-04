@@ -24,16 +24,17 @@ abstract class TaskDatabase : RoomDatabase() {
         private val instances = mutableMapOf<String, TaskDatabase>()
         private val seedTemplateIds = setOf("tpl-standup", "tpl-break")
 
+        fun exists(context: Context, userId: String): Boolean {
+            return context.applicationContext.getDatabasePath(databaseName(userId)).exists()
+        }
+
         fun get(context: Context, userId: String): TaskDatabase {
-            val key = userId
-                .ifBlank { "unknown_user" }
-                .replace(Regex("[^a-zA-Z0-9_]"), "_")
-                .take(64)
+            val key = databaseKey(userId)
             return instances[key] ?: synchronized(this) {
                 instances[key] ?: Room.databaseBuilder(
                     context.applicationContext,
                     TaskDatabase::class.java,
-                    "timeboxing_$key.db"
+                    databaseName(userId)
                 )
                     .addMigrations(MIGRATION_1_2)
                     .allowMainThreadQueries()
@@ -41,6 +42,13 @@ abstract class TaskDatabase : RoomDatabase() {
                     .also { instances[key] = it }
             }
         }
+
+        private fun databaseName(userId: String): String = "timeboxing_${databaseKey(userId)}.db"
+
+        private fun databaseKey(userId: String): String = userId
+            .ifBlank { "unknown_user" }
+            .replace(Regex("[^a-zA-Z0-9_]"), "_")
+            .take(64)
 
         /**
          * 寃뚯뒪??DB???ъ슜?먭? 吏곸젒 留뚮뱺 ?곗씠?곌? ?덈뒗吏 ?뺤씤.

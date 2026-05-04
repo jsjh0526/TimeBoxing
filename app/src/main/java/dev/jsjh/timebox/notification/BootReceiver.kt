@@ -38,7 +38,8 @@ class BootReceiver : BroadcastReceiver() {
                 val database     = TaskDatabase.get(context, userId)
                 val repository   = RoomTaskRepository(
                     templateDao  = database.taskTemplateDao(),
-                    dailyTaskDao = database.dailyTaskDao()
+                    dailyTaskDao = database.dailyTaskDao(),
+                    seedInitialData = false
                 )
                 val today    = LocalDate.now()
                 val tomorrow = today.plusDays(1)

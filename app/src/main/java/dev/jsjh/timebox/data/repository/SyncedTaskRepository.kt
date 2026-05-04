@@ -7,7 +7,6 @@ import dev.jsjh.timebox.data.remote.SupabaseSync
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.ScheduleBlock
 import dev.jsjh.timebox.domain.model.TaskEditInput
-import dev.jsjh.timebox.domain.model.TaskTemplate
 import dev.jsjh.timebox.domain.repository.TaskRepository
 import java.time.LocalDate
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -16,11 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-/**
- * RoomTaskRepository瑜?媛먯떥??紐⑤뱺 ?곌린 ?묒뾽 ?? * 諛깃렇?쇱슫?쒕줈 Supabase???숆린?뷀븯??Repository.
- *
- * ?쎄린: Room(濡쒖뺄) ?곗꽑 ??鍮좊Ⅴ怨??ㅽ봽?쇱씤 吏?? * ?곌린: Room ?????Supabase ?낅줈??(?ㅽ뙣?대룄 濡쒖뺄????λ맖)
- */
 class SyncedTaskRepository(
     private val local: RoomTaskRepository,
     private val templateDao: TaskTemplateDao,
@@ -84,11 +78,13 @@ class SyncedTaskRepository(
         val existing = local.getTask(date, taskId)
         local.deleteTask(date, taskId)
         syncScope.launch {
-            // Fix 1: user_id ?꾪꽣 異붽? ??蹂몄씤 ?곗씠?곕쭔 ??젣
-            SupabaseSync.deleteTask(userId, taskId)
-            existing?.templateId?.let { tplId ->
-                SupabaseSync.deleteTemplate(userId, tplId)
-                SupabaseSync.deleteTasksByTemplateId(userId, tplId)
+            val templateId = existing?.templateId
+                ?: taskId.takeIf { it.startsWith("template-") }?.removePrefix("template-")
+            if (templateId != null) {
+                SupabaseSync.deleteTemplate(userId, templateId)
+                SupabaseSync.deleteTasksByTemplateId(userId, templateId)
+            } else {
+                SupabaseSync.deleteTask(userId, taskId)
             }
         }
     }

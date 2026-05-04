@@ -21,7 +21,7 @@ class RoomTaskRepository(
     private val templateDao: TaskTemplateDao,
     private val dailyTaskDao: DailyTaskDao,
     private val anchorDate: LocalDate = LocalDate.now(),
-    private val seedInitialData: Boolean = true
+    private val seedInitialData: Boolean = false
 ) : TaskRepository, TemplateProvider {
 
     init {
@@ -153,6 +153,12 @@ class RoomTaskRepository(
     }
 
     override fun deleteTask(date: LocalDate, taskId: String) {
+        if (taskId.startsWith("template-")) {
+            val templateId = taskId.removePrefix("template-")
+            templateDao.deleteById(templateId)
+            dailyTaskDao.deleteByTemplateId(templateId)
+            return
+        }
         ensureDate(date)
         val existing = getTask(date, taskId) ?: return
         dailyTaskDao.deleteById(date.toString(), taskId)
@@ -222,10 +228,7 @@ class RoomTaskRepository(
 
     private fun ensureDate(date: LocalDate) {
         if (dailyTaskDao.getByDate(date.toString()).isNotEmpty()) return
-        val tasks = when {
-            seedInitialData && date == anchorDate -> tutorialSeedAnchorTasksV2()
-            else -> buildRecurringTasks(date)
-        }
+        val tasks = buildRecurringTasks(date)
         if (tasks.isNotEmpty()) {
             dailyTaskDao.upsertAll(tasks.map { it.toEntity() })
         }

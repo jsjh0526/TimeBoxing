@@ -176,13 +176,23 @@ private fun MainApp(
         if (!isGuest) {
             runCatching {
                 withContext(Dispatchers.IO) {
+                    val hadLocalDatabase = TaskDatabase.exists(context, userId)
                     val database = TaskDatabase.get(context, userId)
                     val templateDao = database.taskTemplateDao()
                     val dailyTaskDao = database.dailyTaskDao()
                     val hasLocalData = templateDao.count() > 0 || dailyTaskDao.count() > 0
 
                     if (!hasLocalData) {
-                        SupabaseSync.pull(userId = userId, templateDao = templateDao, dailyTaskDao = dailyTaskDao)
+                        val remoteStatus = SupabaseSync.pull(userId = userId, templateDao = templateDao, dailyTaskDao = dailyTaskDao)
+                        val hasDataAfterPull = templateDao.count() > 0 || dailyTaskDao.count() > 0
+                        if (!hadLocalDatabase && !hasDataAfterPull && remoteStatus.templateCount == 0 && remoteStatus.taskCount == 0) {
+                            RoomTaskRepository(
+                                templateDao = templateDao,
+                                dailyTaskDao = dailyTaskDao,
+                                seedInitialData = true
+                            )
+                            SupabaseSync.syncAll(userId = userId, templateDao = templateDao, dailyTaskDao = dailyTaskDao)
+                        }
                     }
                 }
             }
@@ -201,11 +211,12 @@ private fun MainApp(
     }
 
     val repository: TaskRepository = remember(userId, isGuest, reloadKey) {
+        val shouldSeedGuest = isGuest && !TaskDatabase.exists(context, userId)
         val database = TaskDatabase.get(context, userId)
         val room = RoomTaskRepository(
             templateDao = database.taskTemplateDao(),
             dailyTaskDao = database.dailyTaskDao(),
-            seedInitialData = true
+            seedInitialData = shouldSeedGuest
         )
         if (isGuest) room
         else SyncedTaskRepository(local = room, templateDao = database.taskTemplateDao(), dailyTaskDao = database.dailyTaskDao(), userId = userId)
@@ -295,7 +306,7 @@ private fun MainApp(
         appState.editorDraft?.let { draft ->
             TaskEditorDialog(
                 draft = draft, onDismiss = appState::dismissEditor,
-                onDelete = if (draft.taskId != null) appState::deleteEditingTask else null,
+                onDelete = if (draft.taskId != null || draft.templateId != null) appState::deleteEditingTask else null,
                 onSave = appState::saveEditor,
                 onChange = { updated -> appState.updateEditor { updated } }
             )

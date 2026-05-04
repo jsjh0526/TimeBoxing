@@ -183,7 +183,7 @@ class TimeBoxingAppState(
 
     fun deleteEditingTask() {
         val draft  = editorDraft ?: return
-        val taskId = draft.taskId ?: return
+        val taskId = draft.taskId ?: draft.templateId?.let { "template-$it" } ?: return
         repository.deleteTask(draft.date, taskId)
         dismissEditor()
         refreshAll()
