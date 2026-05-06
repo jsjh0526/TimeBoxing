@@ -12,10 +12,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-/**
- * 湲곌린 ?щ?????AlarmManager ?뚮엺???щ벑濡?
- * Android???щ?????紐⑤뱺 ?뚮엺??吏?곌린 ?뚮Ц???꾩닔.
- */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
@@ -49,7 +45,7 @@ class BootReceiver : BroadcastReceiver() {
                     ReminderScheduler.syncTasks(context, date, tasks, settings)
                 }
             } catch (_: Exception) {
-                // ?щ???吏곹썑??DB 濡쒕뱶 ?ㅽ뙣?????덉쓬 ??議곗슜??臾댁떆
+                // Ignore boot-time database load failures quietly.
             }
         }
     }

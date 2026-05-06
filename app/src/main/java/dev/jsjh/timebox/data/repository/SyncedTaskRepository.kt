@@ -5,6 +5,7 @@ import dev.jsjh.timebox.data.local.dao.DailyTaskDao
 import dev.jsjh.timebox.data.local.dao.TaskTemplateDao
 import dev.jsjh.timebox.data.remote.SupabaseSync
 import dev.jsjh.timebox.domain.model.DailyTask
+import dev.jsjh.timebox.domain.model.DailyTaskSource
 import dev.jsjh.timebox.domain.model.ScheduleBlock
 import dev.jsjh.timebox.domain.model.TaskEditInput
 import dev.jsjh.timebox.domain.repository.TaskRepository
@@ -107,7 +108,7 @@ class SyncedTaskRepository(
         val count = local.carryOverIncompleteTasks(fromDate, toDate)
         syncScope.launch {
             val carried = dailyTaskDao.getByDate(toDate.toString())
-                .filter { it.source == "CARRY_OVER" }
+                .filter { it.source == DailyTaskSource.CARRY_OVER.name }
             SupabaseSync.pushTasks(userId, carried)
         }
         return count

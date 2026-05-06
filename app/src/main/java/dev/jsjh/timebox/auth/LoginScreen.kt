@@ -93,14 +93,12 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 style    = TextStyle(color = TextPrimary, fontSize = 30.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.75).sp, lineHeight = 36.sp, textAlign = TextAlign.Center)
             )
 
-            // ?? ?쒕툕??댄? ?????????????????????????????????????????????????
             Text(
                 text     = "Focus on what matters most.",
                 modifier = Modifier.offset(x = 0.dp, y = fdp(131.27f)).width(fdp(345.334f)),
                 style    = TextStyle(color = TextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 20.sp, textAlign = TextAlign.Center)
             )
 
-            // ?? 援ш? 濡쒓렇??踰꾪듉 ???????????????????????????????????????????
             GoogleSignInButton(
                 modifier  = Modifier.offset(x = 0.dp, y = fdp(199.95f)),
                 width     = fdp(345.334f),

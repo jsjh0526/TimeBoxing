@@ -63,10 +63,10 @@ abstract class TaskDatabase : RoomDatabase() {
         }
 
         /**
-         * 寃뚯뒪??DB ????怨꾩젙 DB濡??곗씠???댁쟾.
-         * 寃뚯뒪?몃줈 ?ъ슜?섎떎 援ш? 濡쒓렇?????ъ슜?먭? "??린湲?瑜??좏깮?덉쓣 ???몄텧.
+         * Migrates guest data into the signed-in user's database.
          *
-         * @return ?댁쟾????ぉ ??         */
+         * @return migrated item count
+         */
         fun migrateGuestData(context: Context, newUserId: String): Int {
             val guestDb = get(context, "guest")
             val userDb  = get(context, newUserId)

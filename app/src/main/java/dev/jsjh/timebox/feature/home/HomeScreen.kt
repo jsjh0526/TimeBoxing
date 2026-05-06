@@ -700,7 +700,6 @@ private fun BellIcon(color: Color) {
         val stroke = 1.6.dp.toPx()
         val w = size.width
         val h = size.height
-        // 醫?紐명넻 ???꾩뿉???꾨옒濡??쇱????꾩썐?쇱씤
         val path = Path().apply {
             moveTo(w * 0.5f, h * 0.09f)
             cubicTo(w * 0.22f, h * 0.09f, w * 0.17f, h * 0.30f, w * 0.17f, h * 0.52f)
