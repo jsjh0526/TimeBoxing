@@ -555,10 +555,11 @@ private fun ScheduledCard(
             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(text = task.title, modifier = Modifier.weight(1f), style = TextStyle(color = titleColor, fontSize = if (width < 130.dp) 12.sp else 13.sp, lineHeight = if (width < 130.dp) 15.sp else 16.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 DurationChip(durationMinutes = durationMinutes, expanded = durationExpanded, readOnly = readOnly || isDragging, options = durationOptions, onExpandedChange = { durationExpanded = it }, onSelect = onChangeDuration, compact = width < 150.dp)
+                if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.55f), onClick = onUnschedule)
             }
         } else when {
             cardH < 36.dp -> {
-                Row(modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(modifier = Modifier.fillMaxSize().padding(start = 6.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(text = task.title, modifier = Modifier.weight(1f), style = TextStyle(color = titleColor, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (!hideTimeText) Text(text = timeText, style = TextStyle(color = detailColor, fontSize = 9.sp, lineHeight = 12.sp, fontFamily = FontFamily.Monospace), maxLines = 1)
                     DurationChip(durationMinutes = durationMinutes, expanded = durationExpanded, readOnly = readOnly || isDragging, options = durationOptions, onExpandedChange = { durationExpanded = it }, onSelect = onChangeDuration, compact = true)
@@ -610,7 +611,7 @@ private fun ScheduledCard(
                             }
                         }
                         if (!narrow && task.tags.isNotEmpty()) {
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Spacer(Modifier.width(24.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
