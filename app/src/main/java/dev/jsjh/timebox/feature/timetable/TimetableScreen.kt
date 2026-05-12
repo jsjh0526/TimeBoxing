@@ -59,6 +59,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -561,6 +562,7 @@ private fun ScheduledCard(
                     Text(text = task.title, modifier = Modifier.weight(1f), style = TextStyle(color = titleColor, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (!hideTimeText) Text(text = timeText, style = TextStyle(color = detailColor, fontSize = 9.sp, lineHeight = 12.sp, fontFamily = FontFamily.Monospace), maxLines = 1)
                     DurationChip(durationMinutes = durationMinutes, expanded = durationExpanded, readOnly = readOnly || isDragging, options = durationOptions, onExpandedChange = { durationExpanded = it }, onSelect = onChangeDuration, compact = true)
+                    if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.5f), onClick = onUnschedule)
                 }
             }
             cardH < 60.dp && !prefersExpandedLayout -> {
@@ -592,37 +594,37 @@ private fun ScheduledCard(
                 }
             }
             else -> {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalArrangement = if (showFullTimeRow) Arrangement.SpaceEvenly else Arrangement.SpaceAround
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CompletionStub(completed = task.isCompleted, enabled = !readOnly && !isDragging, onClick = onToggleComplete)
-                        Spacer(Modifier.width(8.dp))
-                        Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = task.title, modifier = Modifier.weight(1f, fill = false), style = TextStyle(color = titleColor, fontSize = if (narrow) 12.sp else 14.sp, lineHeight = if (narrow) 15.sp else 17.5.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (task.isBig3) Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Big3Badge).padding(horizontal = 6.dp, vertical = 2.dp)) { Text("Big 3", style = TextStyle(color = Big3Text, fontSize = 9.sp, lineHeight = 13.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.45.sp)) }
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            DurationChip(durationMinutes = durationMinutes, expanded = durationExpanded, readOnly = readOnly || isDragging, options = durationOptions, onExpandedChange = { durationExpanded = it }, onSelect = onChangeDuration, compact = narrow)
-                            if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.6f), onClick = onUnschedule)
-                        }
-                    }
-                    if (!narrow && task.tags.isNotEmpty()) {
+                Box(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp)) {
+                    Column(modifier = Modifier.align(Alignment.TopStart).fillMaxWidth()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Spacer(Modifier.width(24.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                task.tags.take(2).forEach { tag ->
-                                    Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color.Black.copy(alpha = 0.1f)).padding(horizontal = 6.dp, vertical = 1.dp)) {
-                                        Text("#$tag", style = TextStyle(color = tagTextColor, fontSize = 9.sp, lineHeight = 12.sp), maxLines = 1)
+                            CompletionStub(completed = task.isCompleted, enabled = !readOnly && !isDragging, onClick = onToggleComplete)
+                            Spacer(Modifier.width(8.dp))
+                            Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = task.title, modifier = Modifier.weight(1f, fill = false), style = TextStyle(color = titleColor, fontSize = if (narrow) 12.sp else 14.sp, lineHeight = if (narrow) 15.sp else 17.5.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (task.isBig3) Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Big3Badge).padding(horizontal = 6.dp, vertical = 2.dp)) { Text("Big 3", style = TextStyle(color = Big3Text, fontSize = 9.sp, lineHeight = 13.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.45.sp)) }
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                DurationChip(durationMinutes = durationMinutes, expanded = durationExpanded, readOnly = readOnly || isDragging, options = durationOptions, onExpandedChange = { durationExpanded = it }, onSelect = onChangeDuration, compact = narrow)
+                                if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.6f), onClick = onUnschedule)
+                            }
+                        }
+                        if (!narrow && task.tags.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Spacer(Modifier.width(24.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    task.tags.take(2).forEach { tag ->
+                                        Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color.Black.copy(alpha = 0.1f)).padding(horizontal = 6.dp, vertical = 1.dp)) {
+                                            Text("#$tag", style = TextStyle(color = tagTextColor, fontSize = 9.sp, lineHeight = 12.sp), maxLines = 1)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                     if (showFullTimeRow) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(modifier = Modifier.align(Alignment.BottomStart), verticalAlignment = Alignment.CenterVertically) {
                             Spacer(Modifier.width(24.dp))
                             Text(text = timeText, style = TextStyle(color = detailColor, fontSize = if (narrow) 10.sp else 11.sp, lineHeight = 16.5.sp, fontFamily = FontFamily.Monospace))
                             if (showNow) {
@@ -721,12 +723,13 @@ private fun BottomTray(
                         val updatedOnDragStart by rememberUpdatedState(onDragStart)
                         val updatedOnDrag by rememberUpdatedState(onDrag)
                         val updatedOnDragEnd by rememberUpdatedState(onDragEnd)
+                        val completed = task.isCompleted
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .onGloballyPositioned { itemTopInRootPx = it.positionInRoot().y }
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF2A2A2A))
+                                .background(if (completed) Color(0xFF242424) else Color(0xFF2A2A2A))
                                 .clickable(enabled = !readOnly) { onOpenTask(task.id) }
                                 .then(
                                     if (readOnly) Modifier else Modifier.pointerInput(task.id) {
@@ -744,11 +747,33 @@ private fun BottomTray(
                                 .padding(horizontal = 14.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(Accent.copy(alpha = 0.35f)))
+                            Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(Accent.copy(alpha = if (completed) 0.18f else 0.35f)))
                             Spacer(modifier = Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(task.title, style = TextStyle(color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (task.tags.isNotEmpty()) Text(task.tags.joinToString("  ") { "#$it" }, style = TextStyle(color = TextSecondary, fontSize = 11.sp, lineHeight = 15.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    task.title,
+                                    style = TextStyle(
+                                        color = if (completed) TextSecondary else TextPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        textDecoration = if (completed) TextDecoration.LineThrough else TextDecoration.None
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                if (task.tags.isNotEmpty()) {
+                                    Text(
+                                        task.tags.joinToString("  ") { "#$it" },
+                                        style = TextStyle(
+                                            color = if (completed) TextSecondary.copy(alpha = 0.65f) else TextSecondary,
+                                            fontSize = 11.sp,
+                                            lineHeight = 15.sp,
+                                            textDecoration = if (completed) TextDecoration.LineThrough else TextDecoration.None
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }

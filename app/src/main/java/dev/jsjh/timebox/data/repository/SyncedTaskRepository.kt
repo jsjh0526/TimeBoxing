@@ -92,6 +92,7 @@ class SyncedTaskRepository(
         }
 
         val existing = local.getTask(date, taskId)
+        val carryOverSourceId = existing?.let { carryOverSourceId(it, date) }
         local.deleteTask(date, taskId)
         syncScope.launch {
             val templateId = existing?.templateId
@@ -100,6 +101,7 @@ class SyncedTaskRepository(
                 SupabaseSync.deleteTasksByTemplateId(userId, templateId)
             } else {
                 SupabaseSync.deleteTask(userId, taskId)
+                carryOverSourceId?.let { SupabaseSync.deleteTask(userId, it) }
             }
         }
     }
@@ -117,5 +119,15 @@ class SyncedTaskRepository(
     private suspend fun pushTemplateSnapshot(templateId: String) {
         templateDao.getById(templateId)?.let { SupabaseSync.pushTemplate(userId, it) }
         SupabaseSync.replaceTasksForTemplate(userId, templateId, dailyTaskDao.getByTemplateId(templateId))
+    }
+
+    private fun carryOverSourceId(task: DailyTask, toDate: LocalDate): String? {
+        if (task.source != DailyTaskSource.CARRY_OVER && !task.id.startsWith("carry-")) return null
+        val suffix = "-$toDate"
+        return task.id
+            .takeIf { it.startsWith("carry-") && it.endsWith(suffix) }
+            ?.removePrefix("carry-")
+            ?.removeSuffix(suffix)
+            ?.takeIf { it.isNotBlank() }
     }
 }

@@ -162,6 +162,9 @@ class RoomTaskRepository(
         ensureDate(date)
         val existing = getTask(date, taskId) ?: return
         dailyTaskDao.deleteById(date.toString(), taskId)
+        carryOverSourceId(existing, date)?.let { sourceId ->
+            dailyTaskDao.deleteById(date.minusDays(1).toString(), sourceId)
+        }
         if (existing.templateId != null) {
             templateDao.deleteById(existing.templateId)
             dailyTaskDao.deleteByTemplateId(existing.templateId)
@@ -224,6 +227,16 @@ class RoomTaskRepository(
                     task.templateId in seedTemplateIds ||
                     seedTemplateIds.any { templateId -> task.id.startsWith("$templateId-") }
             }
+    }
+
+    private fun carryOverSourceId(task: DailyTask, toDate: LocalDate): String? {
+        if (task.source != DailyTaskSource.CARRY_OVER && !task.id.startsWith("carry-")) return null
+        val suffix = "-$toDate"
+        return task.id
+            .takeIf { it.startsWith("carry-") && it.endsWith(suffix) }
+            ?.removePrefix("carry-")
+            ?.removeSuffix(suffix)
+            ?.takeIf { it.isNotBlank() }
     }
 
     private fun ensureDate(date: LocalDate) {
