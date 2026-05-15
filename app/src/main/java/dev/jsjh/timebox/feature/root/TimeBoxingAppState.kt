@@ -27,10 +27,12 @@ import java.util.Locale
 
 @Stable
 class TimeBoxingAppState(
-    private val repository: TaskRepository
+    private val repository: TaskRepository,
+    initialTodayDate: LocalDate
 ) {
     private val sectionOrderByDate = mutableMapOf<LocalDate, MutableMap<String, MutableList<String>>>()
-    private val today: LocalDate get() = LocalDate.now()
+    private var todayDate by mutableStateOf(initialTodayDate)
+    val today: LocalDate get() = todayDate
 
     var currentTab by mutableStateOf(AppTab.HOME)
         private set
@@ -59,14 +61,20 @@ class TimeBoxingAppState(
         refreshYesterdayIncomplete()
     }
 
+    fun updateTodayDate(nextToday: LocalDate) {
+        if (todayDate == nextToday) return
+        todayDate = nextToday
+        refreshAll()
+    }
+
     fun selectTab(tab: AppTab) {
         currentTab = tab
         if (tab == AppTab.TIMETABLE) refreshSelectedDate() else refreshToday()
     }
 
-    fun openTimetable() {
+    fun openTimetable(date: LocalDate = today) {
         currentTab = AppTab.TIMETABLE
-        selectedDate = today
+        selectedDate = date
         refreshSelectedDate()
     }
 
@@ -82,6 +90,11 @@ class TimeBoxingAppState(
 
     fun goToToday() {
         selectedDate = today
+        refreshSelectedDate()
+    }
+
+    fun selectDate(date: LocalDate) {
+        selectedDate = date
         refreshSelectedDate()
     }
 
@@ -338,5 +351,5 @@ private fun formatEditorTime(totalMinutes: Int): String {
 }
 
 @Composable
-fun rememberTimeBoxingAppState(repository: TaskRepository): TimeBoxingAppState =
-    remember(repository) { TimeBoxingAppState(repository = repository) }
+fun rememberTimeBoxingAppState(repository: TaskRepository, today: LocalDate): TimeBoxingAppState =
+    remember(repository) { TimeBoxingAppState(repository = repository, initialTodayDate = today) }

@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Policy
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -59,6 +60,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.jsjh.timebox.BuildConfig
 import dev.jsjh.timebox.auth.AuthRepository
 import dev.jsjh.timebox.auth.AuthState
 import dev.jsjh.timebox.data.remote.SyncManager
@@ -83,6 +85,8 @@ private const val CONTACT_EMAIL = "jsjh.dev@gmail.com"
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
+    appSettings: AppSettings,
+    onAppSettingsChange: (AppSettings) -> Unit,
     reminderSettings: ReminderSettings,
     onReminderSettingsChange: (ReminderSettings) -> Unit,
     onSignIn: () -> Unit,
@@ -111,29 +115,6 @@ fun SettingsScreen(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("설정", style = TextStyle(color = TextPrimary, fontSize = 28.sp, lineHeight = 42.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.7).sp))
                 Text("Manage your preferences", style = TextStyle(color = TextSecondary, fontSize = 14.sp, lineHeight = 21.sp))
-            }
-        }
-
-        item {
-            SectionCard(title = "계정", icon = { MaterialSettingsIcon(SettingsIcon.Account, Accent) }) {
-                when (val state = authState) {
-                    is AuthState.LoggedIn -> {
-                        AccountSummary(
-                            name  = state.displayName?.takeIf { it.isNotBlank() },
-                            email = state.email.takeIf { it.isNotBlank() } ?: "로그인됨"
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        ActionButton(label = "로그아웃", filled = false, icon = { MaterialSettingsIcon(SettingsIcon.Logout, ButtonText, 18) }, onClick = onSignOut)
-                    }
-                    is AuthState.Loading -> AccountSummary(null, "로그인 상태 확인 중...")
-                    is AuthState.Error   -> AccountSummary(null, state.message)
-                    AuthState.Guest      -> {
-                        AccountSummary("게스트 모드", "이 기기에만 저장돼요")
-                        Spacer(modifier = Modifier.height(16.dp))
-                        ActionButton(label = "Google로 로그인", filled = true, icon = { MaterialSettingsIcon(SettingsIcon.Account, Color.White, 18) }, onClick = onSignIn)
-                    }
-                    AuthState.SignedOut  -> AccountSummary(null, "로그인되지 않음")
-                }
             }
         }
 
@@ -205,10 +186,48 @@ fun SettingsScreen(
         }
 
         item {
+            SectionCard(title = "앱 설정", icon = { MaterialSettingsIcon(SettingsIcon.Display, Accent) }) {
+                ToggleRow(
+                    "시스템 네비게이션바",
+                    "Android 하단 네비게이션바를 항상 표시해요",
+                    appSettings.showSystemNavigationBar,
+                    { onAppSettingsChange(appSettings.copy(showSystemNavigationBar = it)) }
+                )
+                DayStartSelector(
+                    selectedHour = appSettings.dayStartHour,
+                    onSelect = { hour -> onAppSettingsChange(appSettings.copy(dayStartHour = hour)) }
+                )
+            }
+        }
+
+        item {
             SectionCard(title = "알림", icon = { MaterialSettingsIcon(SettingsIcon.Notifications, Accent) }) {
                 ToggleRow("알림", "타임블록 시작 알림을 받아요", reminderSettings.notificationsEnabled, { onReminderSettingsChange(reminderSettings.copy(notificationsEnabled = it)) })
                 ToggleRow("소리", "알림이 올 때 소리를 재생해요", reminderSettings.soundEnabled, { onReminderSettingsChange(reminderSettings.copy(soundEnabled = it)) }, enabled = reminderSettings.notificationsEnabled)
                 ToggleRow("진동", "알림이 올 때 진동으로 알려줘요", reminderSettings.vibrationEnabled, { onReminderSettingsChange(reminderSettings.copy(vibrationEnabled = it)) }, enabled = reminderSettings.notificationsEnabled, showDivider = false)
+            }
+        }
+
+        item {
+            SectionCard(title = "계정", icon = { MaterialSettingsIcon(SettingsIcon.Account, Accent) }) {
+                when (val state = authState) {
+                    is AuthState.LoggedIn -> {
+                        AccountSummary(
+                            name  = state.displayName?.takeIf { it.isNotBlank() },
+                            email = state.email.takeIf { it.isNotBlank() } ?: "로그인됨"
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        ActionButton(label = "로그아웃", filled = false, icon = { MaterialSettingsIcon(SettingsIcon.Logout, ButtonText, 18) }, onClick = onSignOut)
+                    }
+                    is AuthState.Loading -> AccountSummary(null, "로그인 상태 확인 중...")
+                    is AuthState.Error   -> AccountSummary(null, state.message)
+                    AuthState.Guest      -> {
+                        AccountSummary("게스트 모드", "이 기기에만 저장돼요")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        ActionButton(label = "Google로 로그인", filled = true, icon = { MaterialSettingsIcon(SettingsIcon.Account, Color.White, 18) }, onClick = onSignIn)
+                    }
+                    AuthState.SignedOut  -> AccountSummary(null, "로그인되지 않음")
+                }
             }
         }
 
@@ -247,14 +266,13 @@ fun SettingsScreen(
                     OssLicensesMenuActivity.setActivityTitle("오픈소스 라이선스")
                     context.startActivity(Intent(context, OssLicensesMenuActivity::class.java))
                 })
-                SettingsMenuRow("앱 버전", "TimeBox v1.0.0", SettingsIcon.Info, showChevron = false, showDivider = false)
+                SettingsMenuRow("앱 버전", "TimeBox v${BuildConfig.VERSION_NAME}", SettingsIcon.Info, showChevron = false, showDivider = false)
             }
         }
 
     }
 }
 
-// ?? 怨듯넻 而댄룷?뚰듃 ??????????????????????????????????????????????????????????????
 
 @Composable
 private fun SectionCard(title: String, icon: @Composable () -> Unit, content: @Composable () -> Unit) {
@@ -292,6 +310,56 @@ private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onToggl
 private fun TogglePill(checked: Boolean, enabled: Boolean, onToggle: (Boolean) -> Unit) {
     Box(modifier = Modifier.width(44.dp).height(24.dp).clip(RoundedCornerShape(999.dp)).background(if (checked && enabled) Accent else Color(0xFF4A4A4A)).clickable(enabled = enabled) { onToggle(!checked) }.padding(horizontal = 4.dp, vertical = 4.dp), contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart) {
         Box(modifier = Modifier.size(16.dp).clip(CircleShape).background(Color.White))
+    }
+}
+
+@Composable
+private fun DayStartSelector(selectedHour: Int, onSelect: (Int) -> Unit) {
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("하루 시작 시간", style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium))
+            Text("선택한 시간 전까지는 전날로 계산해요", style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp))
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(0..3, 4..6).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { hour ->
+                        DayStartChip(
+                            label = "%02d:00".format(hour),
+                            selected = selectedHour == hour,
+                            onClick = { onSelect(hour) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayStartChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .height(34.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(if (selected) Accent.copy(alpha = 0.28f) else Color(0xFF2A2A2A))
+            .border(0.7.dp, if (selected) Accent else CardBorder, RoundedCornerShape(999.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            style = TextStyle(
+                color = if (selected) Accent else ButtonText,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        )
     }
 }
 
@@ -368,7 +436,8 @@ private enum class SettingsIcon {
     Info,
     Terms,
     Privacy,
-    License
+    License,
+    Display
 }
 
 @Composable
@@ -404,6 +473,7 @@ private fun MaterialSettingsIcon(icon: SettingsIcon, color: Color, size: Int = 1
         SettingsIcon.Terms -> Icons.Filled.Description
         SettingsIcon.Privacy -> Icons.Filled.Policy
         SettingsIcon.License -> Icons.Filled.Description
+        SettingsIcon.Display -> Icons.Filled.Settings
     }
     Icon(imageVector = imageVector, contentDescription = null, tint = color, modifier = Modifier.size(size.dp))
 }

@@ -6,7 +6,8 @@ import android.content.Intent
 import dev.jsjh.timebox.data.local.database.TaskDatabase
 import dev.jsjh.timebox.auth.ActiveUserStore
 import dev.jsjh.timebox.data.repository.RoomTaskRepository
-import java.time.LocalDate
+import dev.jsjh.timebox.feature.settings.AppSettingsStore
+import dev.jsjh.timebox.feature.settings.effectiveToday
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +25,7 @@ class BootReceiver : BroadcastReceiver() {
 
         val settings = ReminderSettingsStore(context).read()
         if (!settings.notificationsEnabled) return
+        val appSettings = AppSettingsStore(context).read()
 
         ReminderScheduler.createChannels(context)
 
@@ -37,7 +39,7 @@ class BootReceiver : BroadcastReceiver() {
                     dailyTaskDao = database.dailyTaskDao(),
                     seedInitialData = false
                 )
-                val today    = LocalDate.now()
+                val today    = effectiveToday(appSettings.dayStartHour)
                 val tomorrow = today.plusDays(1)
 
                 listOf(today, tomorrow).forEach { date ->

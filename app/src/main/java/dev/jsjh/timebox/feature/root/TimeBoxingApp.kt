@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -56,14 +57,18 @@ import dev.jsjh.timebox.data.repository.SyncedTaskRepository
 import dev.jsjh.timebox.domain.repository.TaskRepository
 import dev.jsjh.timebox.feature.editor.TaskEditorDialog
 import dev.jsjh.timebox.feature.home.HomeScreen
+import dev.jsjh.timebox.feature.settings.AppSettings
+import dev.jsjh.timebox.feature.settings.AppSettingsStore
 import dev.jsjh.timebox.feature.settings.SettingsScreen
+import dev.jsjh.timebox.feature.settings.effectiveToday
 import dev.jsjh.timebox.feature.timetable.TimetableScreen
 import dev.jsjh.timebox.feature.todo.TodoScreen
 import dev.jsjh.timebox.notification.ReminderScheduler
 import dev.jsjh.timebox.notification.ReminderSettings
 import dev.jsjh.timebox.notification.ReminderSettingsStore
-import java.time.LocalDate
+import java.time.LocalDateTime
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -76,7 +81,9 @@ private val NavInactive = Color(0xFF99A1AF)
 fun TimeBoxingApp(
     onRequestNotificationPermission: () -> Unit = {},
     onRequestBatteryOptimizationExemption: () -> Unit = {},
-    onLoginScreenVisible: (Boolean) -> Unit = {}
+    onLoginScreenVisible: (Boolean) -> Unit = {},
+    initialShowSystemNavigationBar: Boolean = false,
+    onSystemNavigationBarPreferenceChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -104,7 +111,9 @@ fun TimeBoxingApp(
             isGuest = true,
             reloadKey = migrationReloadKey,
             onRequestNotificationPermission = onRequestNotificationPermission,
-            onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption
+            onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption,
+            initialShowSystemNavigationBar = initialShowSystemNavigationBar,
+            onSystemNavigationBarPreferenceChange = onSystemNavigationBarPreferenceChange
         )
 
         is AuthState.LoggedIn -> {
@@ -166,7 +175,9 @@ fun TimeBoxingApp(
                 isGuest = false,
                 reloadKey = migrationReloadKey,
                 onRequestNotificationPermission = onRequestNotificationPermission,
-                onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption
+                onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption,
+                initialShowSystemNavigationBar = initialShowSystemNavigationBar,
+                onSystemNavigationBarPreferenceChange = onSystemNavigationBarPreferenceChange
             )
         }
     }
@@ -179,7 +190,9 @@ private fun MainApp(
     isGuest: Boolean,
     reloadKey: Int,
     onRequestNotificationPermission: () -> Unit,
-    onRequestBatteryOptimizationExemption: () -> Unit
+    onRequestBatteryOptimizationExemption: () -> Unit,
+    initialShowSystemNavigationBar: Boolean,
+    onSystemNavigationBarPreferenceChange: (Boolean) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var restoreReady by remember(userId, isGuest, reloadKey) { mutableStateOf(isGuest) }
@@ -250,7 +263,30 @@ private fun MainApp(
         }
     }
 
-    val appState = rememberTimeBoxingAppState(repository)
+    val appSettingsStore = remember(context) { AppSettingsStore(context) }
+    var appSettings by remember {
+        mutableStateOf(appSettingsStore.read().copy(showSystemNavigationBar = initialShowSystemNavigationBar))
+    }
+    val nowForDayBoundary by produceState(initialValue = LocalDateTime.now(), appSettings.dayStartHour) {
+        while (true) {
+            value = LocalDateTime.now()
+            delay(60_000)
+        }
+    }
+    val appToday = effectiveToday(appSettings.dayStartHour, nowForDayBoundary)
+    val actualToday = nowForDayBoundary.toLocalDate()
+    val appState = rememberTimeBoxingAppState(repository, appToday)
+    LaunchedEffect(appToday) {
+        appState.updateTodayDate(appToday)
+    }
+
+    fun updateAppSettings(next: AppSettings) {
+        val sanitized = next.copy(dayStartHour = next.dayStartHour.coerceIn(0, 6))
+        appSettingsStore.write(sanitized)
+        appSettings = sanitized
+        onSystemNavigationBarPreferenceChange(sanitized.showSystemNavigationBar)
+    }
+
     val reminderSettingsStore = remember(context) { ReminderSettingsStore(context) }
     var reminderSettings by remember { mutableStateOf(reminderSettingsStore.read()) }
 
@@ -263,11 +299,11 @@ private fun MainApp(
         if (enablingNotifications) onRequestNotificationPermission()
     }
 
-    LaunchedEffect(appState.todayTasks, reminderSettings) {
-        ReminderScheduler.syncTasks(context, LocalDate.now(), appState.todayTasks, reminderSettings)
+    LaunchedEffect(appState.today, appState.todayTasks, reminderSettings) {
+        ReminderScheduler.syncTasks(context, appState.today, appState.todayTasks, reminderSettings)
     }
     LaunchedEffect(appState.selectedDate, appState.selectedDateTasks, reminderSettings) {
-        if (appState.selectedDate != LocalDate.now()) {
+        if (appState.selectedDate != appState.today) {
             ReminderScheduler.syncTasks(context, appState.selectedDate, appState.selectedDateTasks, reminderSettings)
         }
     }
@@ -275,35 +311,42 @@ private fun MainApp(
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            bottomBar = { AppBottomBar(currentTab = appState.currentTab, onTabSelected = appState::selectTab) }
+            bottomBar = {
+                AppBottomBar(
+                    currentTab = appState.currentTab,
+                    onTabSelected = { tab ->
+                        if (tab == AppTab.TIMETABLE) appState.openTimetable(actualToday) else appState.selectTab(tab)
+                    }
+                )
+            }
         ) { innerPadding ->
             val contentModifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)
             when (appState.currentTab) {
                 AppTab.HOME -> HomeScreen(
                     modifier = contentModifier,
                     tasks = appState.todayTasks,
-                    date = LocalDate.now(),
+                    date = appState.today,
                     currentTime = appState.currentTime,
-                    onOpenTimetable = appState::openTimetable,
-                    onMarkTaskComplete = { appState.toggleCompleted(it, LocalDate.now()) },
-                    onOpenTask = { appState.openTaskEditor(it, LocalDate.now()) },
-                    onAddTask = { appState.openNewTaskEditor(date = LocalDate.now()) },
+                    onOpenTimetable = { appState.openTimetable(actualToday) },
+                    onMarkTaskComplete = { appState.toggleCompleted(it, appState.today) },
+                    onOpenTask = { appState.openTaskEditor(it, appState.today) },
+                    onAddTask = { appState.openNewTaskEditor(date = appState.today) },
                     onNotificationsClick = {}
                 )
                 AppTab.TODO -> TodoScreen(
                     modifier = contentModifier,
                     tasks = appState.todayTodoTasks,
-                    date = LocalDate.now(),
+                    date = appState.today,
                     recurrenceByTemplateId = appState.recurrenceByTemplateId,
                     otherHabits = appState.otherHabits,
                     yesterdayIncompleteTasks = appState.yesterdayIncompleteTasks,
-                    onQuickAddTask = { appState.quickAddTask(it, LocalDate.now()) },
-                    onOpenAddTaskEditor = { appState.openNewTaskEditor(date = LocalDate.now(), initialTitle = it) },
+                    onQuickAddTask = { appState.quickAddTask(it, appState.today) },
+                    onOpenAddTaskEditor = { appState.openNewTaskEditor(date = appState.today, initialTitle = it) },
                     onCarryOverYesterday = appState::carryOverYesterdayIncompleteTasks,
                     onDismissYesterdayTask = appState::dismissYesterdayTask,
                     onToggleBig3 = appState::toggleBig3,
-                    onToggleComplete = { appState.toggleCompleted(it, LocalDate.now()) },
-                    onOpenTask = { appState.openTaskEditor(it, LocalDate.now()) },
+                    onToggleComplete = { appState.toggleCompleted(it, appState.today) },
+                    onOpenTask = { appState.openTaskEditor(it, appState.today) },
                     onReorderTask = { id, toIndex -> appState.reorderTodayTodoTask(id, toIndex) }
                 )
                 AppTab.TIMETABLE -> TimetableScreen(
@@ -311,10 +354,10 @@ private fun MainApp(
                     tasks = appState.selectedDateTasks,
                     date = appState.selectedDate,
                     currentTime = appState.currentTime,
-                    showCurrentTime = appState.selectedDate == LocalDate.now(),
+                    showCurrentTime = appState.selectedDate == actualToday,
                     onPreviousDay = { appState.moveSelectedDateBy(-1) },
                     onNextDay = { appState.moveSelectedDateBy(1) },
-                    onToday = appState::goToToday,
+                    onToday = { appState.selectDate(actualToday) },
                     onOpenTask = { appState.openTaskEditor(it, appState.selectedDate) },
                     onToggleComplete = { appState.toggleCompleted(it, appState.selectedDate) },
                     onMoveToUnscheduled = { appState.moveToUnscheduled(it, appState.selectedDate) },
@@ -323,6 +366,8 @@ private fun MainApp(
                 )
                 AppTab.SETTINGS -> SettingsScreen(
                     modifier = contentModifier,
+                    appSettings = appSettings,
+                    onAppSettingsChange = ::updateAppSettings,
                     reminderSettings = reminderSettings,
                     onReminderSettingsChange = ::updateReminderSettings,
                     onSignIn = { scope.launch { AuthRepository.signInWithGoogle(context) } },

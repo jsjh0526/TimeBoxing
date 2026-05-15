@@ -15,12 +15,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -356,7 +358,12 @@ private fun UnscheduledCard(tasks: List<DailyTask>, expanded: Boolean, onToggle:
                                     Spacer(modifier = Modifier.width(16.dp))
                                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Text(task.title, style = titleStyle(16.sp, FontWeight.Medium).copy(color = if (task.isCompleted) Secondary else Color.White, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { task.tags.forEach { tag -> TagChip("#$tag") } }
+                                        FlowRow(
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            task.tags.forEach { tag -> TagChip("#$tag") }
+                                        }
                                     }
                                 }
                             }

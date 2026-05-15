@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -552,10 +553,24 @@ private fun ScheduledCard(
         val cardH = maxHeight
 
         if (overlapCompact) {
-            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = task.title, modifier = Modifier.weight(1f), style = TextStyle(color = titleColor, fontSize = if (width < 130.dp) 12.sp else 13.sp, lineHeight = if (width < 130.dp) 15.sp else 16.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                DurationChip(durationMinutes = durationMinutes, expanded = durationExpanded, readOnly = readOnly || isDragging, options = durationOptions, onExpandedChange = { durationExpanded = it }, onSelect = onChangeDuration, compact = width < 150.dp)
-                if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.55f), onClick = onUnschedule)
+            val showOverlapTags = durationMinutes > 45 && task.tags.isNotEmpty()
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = task.title, modifier = Modifier.weight(1f), style = TextStyle(color = titleColor, fontSize = if (width < 130.dp) 12.sp else 13.sp, lineHeight = if (width < 130.dp) 15.sp else 16.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    DurationChip(durationMinutes = durationMinutes, expanded = durationExpanded, readOnly = readOnly || isDragging, options = durationOptions, onExpandedChange = { durationExpanded = it }, onSelect = onChangeDuration, compact = width < 150.dp)
+                    if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.55f), onClick = onUnschedule)
+                }
+                if (showOverlapTags) {
+                    Spacer(Modifier.height(6.dp))
+                    TimetableTagRow(
+                        tags = task.tags,
+                        color = tagTextColor,
+                        modifier = Modifier.heightIn(max = 28.dp).clipToBounds(),
+                    )
+                }
             }
         } else when {
             cardH < 36.dp -> {
@@ -596,7 +611,13 @@ private fun ScheduledCard(
             }
             else -> {
                 Box(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp)) {
-                    Column(modifier = Modifier.align(Alignment.TopStart).fillMaxWidth()) {
+                    val showTagRow = durationMinutes > 45 && task.tags.isNotEmpty()
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .fillMaxWidth()
+                            .padding(bottom = if (showFullTimeRow) 18.dp else 0.dp)
+                    ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             CompletionStub(completed = task.isCompleted, enabled = !readOnly && !isDragging, onClick = onToggleComplete)
                             Spacer(Modifier.width(8.dp))
@@ -610,19 +631,18 @@ private fun ScheduledCard(
                                 if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.6f), onClick = onUnschedule)
                             }
                         }
-                        if (!narrow && task.tags.isNotEmpty()) {
-                            Spacer(Modifier.height(4.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Spacer(Modifier.width(24.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    task.tags.take(2).forEach { tag ->
-                                        Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color.Black.copy(alpha = 0.1f)).padding(horizontal = 6.dp, vertical = 1.dp)) {
-                                            Text("#$tag", style = TextStyle(color = tagTextColor, fontSize = 9.sp, lineHeight = 12.sp), maxLines = 1)
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    }
+                    if (showTagRow) {
+                        TimetableTagRow(
+                            tags = task.tags,
+                            color = tagTextColor,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(start = 32.dp, top = if (durationMinutes <= 60) 27.dp else 30.dp, end = 10.dp)
+                                .fillMaxWidth()
+                                .heightIn(max = 28.dp)
+                                .clipToBounds()
+                        )
                     }
                     if (showFullTimeRow) {
                         Row(modifier = Modifier.align(Alignment.BottomStart), verticalAlignment = Alignment.CenterVertically) {
@@ -637,6 +657,31 @@ private fun ScheduledCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TimetableTagRow(tags: List<String>, color: Color, modifier: Modifier = Modifier) {
+    val visibleTags = if (tags.size > 4) tags.take(3) else tags.take(4)
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        visibleTags.forEach { tag -> TimetableTagChip("#$tag", color) }
+        if (tags.size > visibleTags.size) TimetableTagChip("...", color)
+    }
+}
+
+@Composable
+private fun TimetableTagChip(label: String, color: Color) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color.Black.copy(alpha = 0.1f))
+            .padding(horizontal = 6.dp, vertical = 1.dp)
+    ) {
+        Text(label, style = TextStyle(color = color, fontSize = 9.sp, lineHeight = 12.sp), maxLines = 1)
     }
 }
 

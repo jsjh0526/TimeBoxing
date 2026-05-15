@@ -21,6 +21,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import dev.jsjh.timebox.auth.initSupabase
 import dev.jsjh.timebox.feature.root.TimeBoxingApp
+import dev.jsjh.timebox.feature.settings.AppSettingsStore
 import dev.jsjh.timebox.notification.ReminderScheduler
 import dev.jsjh.timebox.ui.theme.TimeBoxingTheme
 import com.google.android.play.core.appupdate.AppUpdateManager
@@ -31,6 +32,8 @@ import com.google.android.play.core.install.model.UpdateAvailability
 
 class MainActivity : ComponentActivity() {
     private var keepSystemBarsVisible = false
+    private var loginScreenVisible = false
+    private var showSystemNavigationBar = false
     private lateinit var appUpdateManager: AppUpdateManager
 
     private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -48,6 +51,7 @@ class MainActivity : ComponentActivity() {
         checkForAppUpdate()
         initSupabase(this)
         ReminderScheduler.createChannels(this)
+        showSystemNavigationBar = AppSettingsStore(this).read().showSystemNavigationBar
         enableEdgeToEdge(
             statusBarStyle     = SystemBarStyle.dark(Color(0xFF121212).toArgb()),
             navigationBarStyle = SystemBarStyle.dark(Color(0xFF1E1E1E).toArgb())
@@ -58,8 +62,13 @@ class MainActivity : ComponentActivity() {
                     onRequestNotificationPermission = ::requestNotificationPermissionIfNeeded,
                     onRequestBatteryOptimizationExemption = ::requestIgnoreBatteryOptimizationsIfNeeded,
                     onLoginScreenVisible = { visible ->
-                        keepSystemBarsVisible = visible
-                        if (visible) showSystemBars() else hideSystemBars()
+                        loginScreenVisible = visible
+                        updateSystemBarsVisibility()
+                    },
+                    initialShowSystemNavigationBar = showSystemNavigationBar,
+                    onSystemNavigationBarPreferenceChange = { visible ->
+                        showSystemNavigationBar = visible
+                        updateSystemBarsVisibility()
                     }
                 )
             }
@@ -122,6 +131,11 @@ class MainActivity : ComponentActivity() {
         } catch (_: Exception) {
             // Some devices do not expose this settings panel.
         }
+    }
+
+    private fun updateSystemBarsVisibility() {
+        keepSystemBarsVisible = loginScreenVisible || showSystemNavigationBar
+        if (keepSystemBarsVisible) showSystemBars() else hideSystemBars()
     }
 
     private fun hideSystemBars() {
