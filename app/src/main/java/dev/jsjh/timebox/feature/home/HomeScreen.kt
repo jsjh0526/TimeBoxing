@@ -206,7 +206,7 @@ private fun NowCard(task: DailyTask?, currentMinute: Int, onOpenTask: () -> Unit
         Column(modifier = Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 LabelWithDot("NOW", Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0.8f))
-                Text(task.title, style = titleStyle(20.sp, FontWeight.SemiBold), color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(task.title, style = titleStyle(20.sp, FontWeight.SemiBold), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         ClockIcon(Color.White.copy(alpha = 0.9f), modifier = Modifier.size(16.dp))

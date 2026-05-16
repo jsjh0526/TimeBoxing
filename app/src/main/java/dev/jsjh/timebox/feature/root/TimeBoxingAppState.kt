@@ -25,6 +25,8 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.util.Locale
 
+private const val MaxConcurrentTimeBlocks = 5
+
 @Stable
 class TimeBoxingAppState(
     private val repository: TaskRepository,
@@ -52,6 +54,8 @@ class TimeBoxingAppState(
     var otherHabits by mutableStateOf<List<DailyTask>>(emptyList())
         private set
     var yesterdayIncompleteTasks by mutableStateOf<List<DailyTask>>(emptyList())
+        private set
+    var scheduleLimitMessage by mutableStateOf<String?>(null)
         private set
 
     val currentTime: LocalTime get() = LocalTime.now()
@@ -113,9 +117,14 @@ class TimeBoxingAppState(
         refreshAll()
     }
 
-    fun updateSchedule(taskId: String, date: LocalDate = selectedDate, schedule: ScheduleBlock) {
+    fun updateSchedule(taskId: String, date: LocalDate = selectedDate, schedule: ScheduleBlock): Boolean {
+        if (!canPlaceSchedule(date = date, replacingTaskId = taskId, schedule = schedule)) {
+            notifyScheduleLimit()
+            return false
+        }
         repository.setSchedule(date, taskId, schedule)
         refreshAll()
+        return true
     }
 
     fun quickAddTask(title: String, date: LocalDate = today) {
@@ -194,6 +203,13 @@ class TimeBoxingAppState(
         } else {
             null
         }
+        if (schedule != null) {
+            val replacingTaskId = draft.taskId ?: draft.templateId?.let { "$it-${draft.date}" }
+            if (!canPlaceSchedule(date = draft.date, replacingTaskId = replacingTaskId, schedule = schedule)) {
+                notifyScheduleLimit()
+                return
+            }
+        }
 
         repository.upsertTask(
             TaskEditInput(
@@ -210,6 +226,10 @@ class TimeBoxingAppState(
         )
         dismissEditor()
         refreshAll()
+    }
+
+    fun clearScheduleLimitMessage() {
+        scheduleLimitMessage = null
     }
 
     fun deleteEditingTask() {
@@ -259,6 +279,15 @@ class TimeBoxingAppState(
             .filter { task -> "carry-${task.id}-$today" !in carriedTodayIds }
     }
 
+    private fun canPlaceSchedule(date: LocalDate, replacingTaskId: String?, schedule: ScheduleBlock): Boolean {
+        val tasks = repository.getTasks(date)
+        return !exceedsMaxConcurrentTimeBlocks(tasks, replacingTaskId, schedule)
+    }
+
+    private fun notifyScheduleLimit() {
+        scheduleLimitMessage = "같은 시간에는 최대 ${MaxConcurrentTimeBlocks}개까지만 배치할 수 있어요."
+    }
+
     private fun syncSectionOrders(date: LocalDate, tasks: List<DailyTask>) {
         val sectionOrders = sectionOrderByDate.getOrPut(date) { mutableMapOf() }
         listOf("big3", "brainDump", "recurring").forEach { key ->
@@ -300,6 +329,33 @@ class TimeBoxingAppState(
             else -> "recurring"
         }
     }
+}
+
+private fun exceedsMaxConcurrentTimeBlocks(
+    tasks: List<DailyTask>,
+    replacingTaskId: String?,
+    proposedSchedule: ScheduleBlock
+): Boolean {
+    val events = mutableListOf<Pair<Int, Int>>()
+    fun add(schedule: ScheduleBlock) {
+        events += schedule.startMinute to 1
+        events += schedule.endMinute to -1
+    }
+
+    tasks.forEach { task ->
+        if (task.id == replacingTaskId) return@forEach
+        task.schedule?.let(::add)
+    }
+    add(proposedSchedule)
+
+    var active = 0
+    events
+        .sortedWith(compareBy<Pair<Int, Int>> { it.first }.thenBy { it.second })
+        .forEach { (_, delta) ->
+            active += delta
+            if (active > MaxConcurrentTimeBlocks) return true
+        }
+    return false
 }
 
 private fun TaskTemplate.toOtherHabitTask(date: LocalDate): DailyTask = DailyTask(

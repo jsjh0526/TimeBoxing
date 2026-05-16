@@ -17,7 +17,9 @@ import java.util.Locale
 
 object ReminderScheduler {
     const val ACTION_SHOW_REMINDER = "dev.jsjh.timebox.notification.SHOW_REMINDER"
+    const val ACTION_COMPLETE_TASK = "dev.jsjh.timebox.notification.COMPLETE_TASK"
     const val EXTRA_KEY = "extra_key"
+    const val EXTRA_DATE = "extra_date"
     const val EXTRA_TITLE = "extra_title"
     const val EXTRA_TIME_RANGE = "extra_time_range"
     const val EXTRA_TASK_ID = "extra_task_id"
@@ -97,6 +99,7 @@ object ReminderScheduler {
         val intent = Intent(context, ReminderReceiver::class.java).apply {
             action = ACTION_SHOW_REMINDER
             putExtra(EXTRA_KEY, key)
+            putExtra(EXTRA_DATE, task.date.toString())
             putExtra(EXTRA_TITLE, task.title)
             putExtra(EXTRA_TIME_RANGE, "${formatMinute(schedule.startMinute)} - ${formatMinute(schedule.endMinute)}")
             putExtra(EXTRA_TASK_ID, task.id)

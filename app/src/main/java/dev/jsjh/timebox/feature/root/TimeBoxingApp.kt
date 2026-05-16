@@ -1,5 +1,6 @@
 package dev.jsjh.timebox.feature.root
 
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,6 +65,7 @@ import dev.jsjh.timebox.feature.settings.effectiveToday
 import dev.jsjh.timebox.feature.timetable.TimetableScreen
 import dev.jsjh.timebox.feature.todo.TodoScreen
 import dev.jsjh.timebox.notification.ReminderScheduler
+import dev.jsjh.timebox.notification.ReminderRefreshBus
 import dev.jsjh.timebox.notification.ReminderSettings
 import dev.jsjh.timebox.notification.ReminderSettingsStore
 import java.time.LocalDateTime
@@ -278,6 +280,16 @@ private fun MainApp(
     val appState = rememberTimeBoxingAppState(repository, appToday)
     LaunchedEffect(appToday) {
         appState.updateTodayDate(appToday)
+    }
+    LaunchedEffect(appState.scheduleLimitMessage) {
+        val message = appState.scheduleLimitMessage ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        appState.clearScheduleLimitMessage()
+    }
+    LaunchedEffect(appState) {
+        ReminderRefreshBus.events.collect {
+            appState.refreshAll()
+        }
     }
 
     fun updateAppSettings(next: AppSettings) {

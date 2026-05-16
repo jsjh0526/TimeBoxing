@@ -381,6 +381,7 @@ private fun TimetableGrid(
                         ScheduledCard(
                             task = block.task, schedule = renderedSchedule, gestureSchedule = originalSchedule,
                             isOverlapping = block.columnCount > 1,
+                            overlapCount = block.columnCount,
                             showNow = showCurrentTime && currentMinute in renderedSchedule.startMinute until renderedSchedule.endMinute,
                             isDragging = session != null, readOnly = readOnly, width = width, viewportTopInRootPx = viewportTopInRootPx,
                             onOpen = { onOpenTask(block.task.id) },
@@ -491,7 +492,7 @@ private fun CurrentLine(minute: Int, hourHeight: Dp, horizontalInset: Dp, horizo
 @Composable
 private fun ScheduledCard(
     task: DailyTask, schedule: ScheduleBlock, gestureSchedule: ScheduleBlock,
-    isOverlapping: Boolean, showNow: Boolean, isDragging: Boolean, readOnly: Boolean,
+    isOverlapping: Boolean, overlapCount: Int, showNow: Boolean, isDragging: Boolean, readOnly: Boolean,
     width: Dp, viewportTopInRootPx: Float,
     onOpen: () -> Unit, onToggleComplete: () -> Unit, onUnschedule: () -> Unit, onChangeDuration: (Int) -> Unit,
     onDragStart: (Float) -> Unit, onDrag: (Float, Float) -> Unit, onDragEnd: () -> Unit
@@ -553,28 +554,91 @@ private fun ScheduledCard(
         val cardH = maxHeight
 
         if (overlapCompact) {
-            val showOverlapTags = durationMinutes > 45 && task.tags.isNotEmpty()
-            Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = task.title, modifier = Modifier.weight(1f), style = TextStyle(color = titleColor, fontSize = if (width < 130.dp) 12.sp else 13.sp, lineHeight = if (width < 130.dp) 15.sp else 16.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    DurationChip(durationMinutes = durationMinutes, expanded = durationExpanded, readOnly = readOnly || isDragging, options = durationOptions, onExpandedChange = { durationExpanded = it }, onSelect = onChangeDuration, compact = width < 150.dp)
-                    if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.55f), onClick = onUnschedule)
+            if (durationMinutes <= 15) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 7.dp, end = 7.dp)
+                ) {
+                    if (width >= 82.dp) {
+                        Text(
+                            text = task.title,
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .padding(end = if (readOnly) 0.dp else 20.dp),
+                            style = TextStyle(color = titleColor, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.SemiBold),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (!readOnly) {
+                        CloseIcon(Color.White.copy(alpha = 0.52f), onClick = onUnschedule, modifier = Modifier.align(Alignment.CenterEnd))
+                    }
                 }
-                if (showOverlapTags) {
-                    Spacer(Modifier.height(6.dp))
-                    TimetableTagRow(
-                        tags = task.tags,
-                        color = tagTextColor,
-                        modifier = Modifier.heightIn(max = 28.dp).clipToBounds(),
-                    )
+                return@BoxWithConstraints
+            }
+            val useTallOverlapLayout = durationMinutes >= 60 && cardH >= 60.dp
+            if (useTallOverlapLayout) {
+                val showOverlapDuration = width >= 150.dp
+                val showOverlapCheckbox = overlapCount <= 3 && width >= 84.dp
+                Box(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp)) {
+                    if (showOverlapCheckbox) {
+                        CompletionStub(
+                            completed = task.isCompleted,
+                            enabled = !readOnly && !isDragging,
+                            onClick = onToggleComplete,
+                            modifier = Modifier.align(Alignment.TopStart)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.align(Alignment.TopEnd),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (showOverlapDuration) {
+                            DurationChip(durationMinutes = durationMinutes, expanded = durationExpanded, readOnly = readOnly || isDragging, options = durationOptions, onExpandedChange = { durationExpanded = it }, onSelect = onChangeDuration, compact = false)
+                        }
+                        if (!readOnly) {
+                            CloseIcon(Color.White.copy(alpha = 0.55f), onClick = onUnschedule)
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(top = 34.dp, end = 4.dp)
+                            .fillMaxSize(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = task.title,
+                            style = TextStyle(color = titleColor, fontSize = if (width < 130.dp) 13.sp else 15.sp, lineHeight = if (width < 130.dp) 16.sp else 19.sp, fontWeight = FontWeight.SemiBold),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            } else {
+                val wrapOverlapTitle = cardH >= 80.dp && width >= 110.dp
+                val showOverlapDuration = width >= 120.dp
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(text = task.title, modifier = Modifier.weight(1f), style = TextStyle(color = titleColor, fontSize = if (width < 130.dp) 12.sp else 13.sp, lineHeight = if (width < 130.dp) 15.sp else 16.sp, fontWeight = FontWeight.SemiBold), maxLines = if (wrapOverlapTitle) 2 else 1, overflow = TextOverflow.Ellipsis)
+                        if (showOverlapDuration) {
+                            DurationChip(durationMinutes = durationMinutes, expanded = durationExpanded, readOnly = readOnly || isDragging, options = durationOptions, onExpandedChange = { durationExpanded = it }, onSelect = onChangeDuration, compact = width < 150.dp)
+                        }
+                        if (!readOnly) CloseIcon(Color.White.copy(alpha = 0.55f), onClick = onUnschedule)
+                    }
                 }
             }
         } else when {
             cardH < 36.dp -> {
                 Row(modifier = Modifier.fillMaxSize().padding(start = 6.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (durationMinutes >= 30) {
+                        CompletionStub(completed = task.isCompleted, enabled = !readOnly && !isDragging, onClick = onToggleComplete)
+                    }
                     Text(text = task.title, modifier = Modifier.weight(1f), style = TextStyle(color = titleColor, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (!hideTimeText) Text(text = timeText, style = TextStyle(color = detailColor, fontSize = 9.sp, lineHeight = 12.sp, fontFamily = FontFamily.Monospace), maxLines = 1)
                     DurationChip(durationMinutes = durationMinutes, expanded = durationExpanded, readOnly = readOnly || isDragging, options = durationOptions, onExpandedChange = { durationExpanded = it }, onSelect = onChangeDuration, compact = true)
@@ -612,6 +676,9 @@ private fun ScheduledCard(
             else -> {
                 Box(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp)) {
                     val showTagRow = durationMinutes > 45 && task.tags.isNotEmpty()
+                    val wrapTitle = durationMinutes >= 90 && width >= 180.dp
+                    var titleLineCount by remember(task.id, width, durationMinutes, wrapTitle) { mutableStateOf(1) }
+                    val titleActuallyWrapped = wrapTitle && titleLineCount > 1
                     Column(
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -622,7 +689,10 @@ private fun ScheduledCard(
                             CompletionStub(completed = task.isCompleted, enabled = !readOnly && !isDragging, onClick = onToggleComplete)
                             Spacer(Modifier.width(8.dp))
                             Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(text = task.title, modifier = Modifier.weight(1f, fill = false), style = TextStyle(color = titleColor, fontSize = if (narrow) 12.sp else 14.sp, lineHeight = if (narrow) 15.sp else 17.5.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(text = task.title, modifier = Modifier.weight(1f, fill = false), style = TextStyle(color = titleColor, fontSize = if (narrow) 12.sp else 14.sp, lineHeight = if (narrow) 15.sp else 17.5.sp, fontWeight = FontWeight.SemiBold), maxLines = if (wrapTitle) 2 else 1, overflow = TextOverflow.Ellipsis, onTextLayout = { result ->
+                                    val nextLineCount = result.lineCount
+                                    if (titleLineCount != nextLineCount) titleLineCount = nextLineCount
+                                })
                                 if (task.isBig3) Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Big3Badge).padding(horizontal = 6.dp, vertical = 2.dp)) { Text("Big 3", style = TextStyle(color = Big3Text, fontSize = 9.sp, lineHeight = 13.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.45.sp)) }
                             }
                             Spacer(Modifier.width(8.dp))
@@ -638,7 +708,7 @@ private fun ScheduledCard(
                             color = tagTextColor,
                             modifier = Modifier
                                 .align(Alignment.TopStart)
-                                .padding(start = 32.dp, top = if (durationMinutes <= 60) 27.dp else 30.dp, end = 10.dp)
+                                .padding(start = 32.dp, top = if (titleActuallyWrapped) 48.dp else if (durationMinutes <= 60) 27.dp else 30.dp, end = 10.dp)
                                 .fillMaxWidth()
                                 .heightIn(max = 28.dp)
                                 .clipToBounds()
@@ -710,6 +780,7 @@ private fun DurationChip(durationMinutes: Int, expanded: Boolean, readOnly: Bool
 private fun CompletionStub(
     completed: Boolean = false,
     enabled: Boolean = false,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
     val fillColor by animateColorAsState(
@@ -724,7 +795,7 @@ private fun CompletionStub(
     )
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(16.dp)
             .clip(RoundedCornerShape(4.dp))
             .background(fillColor)
@@ -846,8 +917,8 @@ private fun CircleArrow(direction: Int, onClick: () -> Unit) {
 }
 
 @Composable
-private fun CloseIcon(color: Color, onClick: () -> Unit) {
-    Canvas(modifier = Modifier.size(17.dp).clickable(onClick = onClick)) {
+private fun CloseIcon(color: Color, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(17.dp).clickable(onClick = onClick)) {
         val stroke = 1.4.dp.toPx()
         drawLine(color, Offset(size.width * 0.28f, size.height * 0.28f), Offset(size.width * 0.72f, size.height * 0.72f), stroke, StrokeCap.Round)
         drawLine(color, Offset(size.width * 0.72f, size.height * 0.28f), Offset(size.width * 0.28f, size.height * 0.72f), stroke, StrokeCap.Round)

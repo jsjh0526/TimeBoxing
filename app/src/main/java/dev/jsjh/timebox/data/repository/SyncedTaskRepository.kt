@@ -34,6 +34,12 @@ class SyncedTaskRepository(
         syncScope.launch { SupabaseSync.pushTask(userId, entity) }
     }
 
+    override fun markCompleted(date: LocalDate, taskId: String) {
+        local.markCompleted(date, taskId)
+        val entity = dailyTaskDao.getById(date.toString(), taskId) ?: return
+        syncScope.launch { SupabaseSync.pushTask(userId, entity) }
+    }
+
     override fun toggleBig3(date: LocalDate, taskId: String) {
         local.toggleBig3(date, taskId)
         val entity = dailyTaskDao.getById(date.toString(), taskId) ?: return

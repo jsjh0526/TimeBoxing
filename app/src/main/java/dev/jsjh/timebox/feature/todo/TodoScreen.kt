@@ -639,7 +639,7 @@ private fun TaskCard(
                         fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium,
                         textDecoration = TextDecoration.None
                     ),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                    maxLines = 2, overflow = TextOverflow.Ellipsis
                 )
                 if (task.tags.isNotEmpty()) {
                     FlowRow(
@@ -706,7 +706,7 @@ private fun CompactCard(
                         fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium,
                         textDecoration = TextDecoration.None
                     ),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                    maxLines = 2, overflow = TextOverflow.Ellipsis
                 )
                 Text(recurrenceLabel(recurrenceRule), style = TextStyle(color = TextMuted, fontSize = 10.sp, lineHeight = 15.sp))
             }

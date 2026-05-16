@@ -11,6 +11,7 @@ interface TaskRepository {
     fun getTask(date: LocalDate, taskId: String): DailyTask?
     fun getTemplate(templateId: String): TaskTemplate?
     fun toggleCompleted(date: LocalDate, taskId: String)
+    fun markCompleted(date: LocalDate, taskId: String)
     fun toggleBig3(date: LocalDate, taskId: String)
     fun setSchedule(date: LocalDate, taskId: String, schedule: ScheduleBlock?)
     fun addTask(date: LocalDate, title: String): DailyTask

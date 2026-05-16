@@ -53,6 +53,12 @@ class RoomTaskRepository(
         dailyTaskDao.upsert(current.copy(isCompleted = !current.isCompleted).toEntity())
     }
 
+    override fun markCompleted(date: LocalDate, taskId: String) {
+        val current = getTask(date, taskId) ?: return
+        if (current.isCompleted) return
+        dailyTaskDao.upsert(current.copy(isCompleted = true).toEntity())
+    }
+
     override fun toggleBig3(date: LocalDate, taskId: String) {
         ensureDate(date)
         val current = getTask(date, taskId) ?: return
