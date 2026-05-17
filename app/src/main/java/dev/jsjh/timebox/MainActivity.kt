@@ -13,6 +13,9 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
@@ -24,6 +27,7 @@ import dev.jsjh.timebox.feature.root.TimeBoxingApp
 import dev.jsjh.timebox.feature.settings.AppSettingsStore
 import dev.jsjh.timebox.notification.ReminderScheduler
 import dev.jsjh.timebox.ui.theme.TimeBoxingTheme
+import dev.jsjh.timebox.widget.WidgetLaunchRequest
 import com.google.android.play.core.appupdate.AppUpdateManager
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.google.android.play.core.appupdate.AppUpdateOptions
@@ -35,6 +39,7 @@ class MainActivity : ComponentActivity() {
     private var loginScreenVisible = false
     private var showSystemNavigationBar = false
     private lateinit var appUpdateManager: AppUpdateManager
+    private var widgetLaunchRequest by mutableStateOf<WidgetLaunchRequest?>(null)
 
     private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         if (!keepSystemBarsVisible) hideSystemBars()
@@ -51,6 +56,7 @@ class MainActivity : ComponentActivity() {
         checkForAppUpdate()
         initSupabase(this)
         ReminderScheduler.createChannels(this)
+        widgetLaunchRequest = WidgetLaunchRequest.from(intent)
         showSystemNavigationBar = AppSettingsStore(this).read().showSystemNavigationBar
         enableEdgeToEdge(
             statusBarStyle     = SystemBarStyle.dark(Color(0xFF121212).toArgb()),
@@ -69,10 +75,18 @@ class MainActivity : ComponentActivity() {
                     onSystemNavigationBarPreferenceChange = { visible ->
                         showSystemNavigationBar = visible
                         updateSystemBarsVisibility()
-                    }
+                    },
+                    widgetLaunchRequest = widgetLaunchRequest,
+                    onWidgetLaunchRequestConsumed = { widgetLaunchRequest = null }
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        widgetLaunchRequest = WidgetLaunchRequest.from(intent)
     }
 
     override fun onResume() {

@@ -68,6 +68,8 @@ import dev.jsjh.timebox.notification.ReminderScheduler
 import dev.jsjh.timebox.notification.ReminderRefreshBus
 import dev.jsjh.timebox.notification.ReminderSettings
 import dev.jsjh.timebox.notification.ReminderSettingsStore
+import dev.jsjh.timebox.widget.TodoWidgetUpdater
+import dev.jsjh.timebox.widget.WidgetLaunchRequest
 import java.time.LocalDateTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -85,7 +87,9 @@ fun TimeBoxingApp(
     onRequestBatteryOptimizationExemption: () -> Unit = {},
     onLoginScreenVisible: (Boolean) -> Unit = {},
     initialShowSystemNavigationBar: Boolean = false,
-    onSystemNavigationBarPreferenceChange: (Boolean) -> Unit = {}
+    onSystemNavigationBarPreferenceChange: (Boolean) -> Unit = {},
+    widgetLaunchRequest: WidgetLaunchRequest? = null,
+    onWidgetLaunchRequestConsumed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -115,7 +119,9 @@ fun TimeBoxingApp(
             onRequestNotificationPermission = onRequestNotificationPermission,
             onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption,
             initialShowSystemNavigationBar = initialShowSystemNavigationBar,
-            onSystemNavigationBarPreferenceChange = onSystemNavigationBarPreferenceChange
+            onSystemNavigationBarPreferenceChange = onSystemNavigationBarPreferenceChange,
+            widgetLaunchRequest = widgetLaunchRequest,
+            onWidgetLaunchRequestConsumed = onWidgetLaunchRequestConsumed
         )
 
         is AuthState.LoggedIn -> {
@@ -179,7 +185,9 @@ fun TimeBoxingApp(
                 onRequestNotificationPermission = onRequestNotificationPermission,
                 onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption,
                 initialShowSystemNavigationBar = initialShowSystemNavigationBar,
-                onSystemNavigationBarPreferenceChange = onSystemNavigationBarPreferenceChange
+                onSystemNavigationBarPreferenceChange = onSystemNavigationBarPreferenceChange,
+                widgetLaunchRequest = widgetLaunchRequest,
+                onWidgetLaunchRequestConsumed = onWidgetLaunchRequestConsumed
             )
         }
     }
@@ -194,7 +202,9 @@ private fun MainApp(
     onRequestNotificationPermission: () -> Unit,
     onRequestBatteryOptimizationExemption: () -> Unit,
     initialShowSystemNavigationBar: Boolean,
-    onSystemNavigationBarPreferenceChange: (Boolean) -> Unit
+    onSystemNavigationBarPreferenceChange: (Boolean) -> Unit,
+    widgetLaunchRequest: WidgetLaunchRequest?,
+    onWidgetLaunchRequestConsumed: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var restoreReady by remember(userId, isGuest, reloadKey) { mutableStateOf(isGuest) }
@@ -281,10 +291,19 @@ private fun MainApp(
     LaunchedEffect(appToday) {
         appState.updateTodayDate(appToday)
     }
+    LaunchedEffect(widgetLaunchRequest?.nonce, appState) {
+        val request = widgetLaunchRequest ?: return@LaunchedEffect
+        if (request.openTodo) appState.selectTab(AppTab.TODO)
+        if (request.openAddTask) appState.openNewTaskEditor(date = appState.today)
+        onWidgetLaunchRequestConsumed()
+    }
     LaunchedEffect(appState.scheduleLimitMessage) {
         val message = appState.scheduleLimitMessage ?: return@LaunchedEffect
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         appState.clearScheduleLimitMessage()
+    }
+    LaunchedEffect(userId, appState.todayTasks, appSettings.dayStartHour) {
+        TodoWidgetUpdater.requestUpdate(context)
     }
     LaunchedEffect(appState) {
         ReminderRefreshBus.events.collect {

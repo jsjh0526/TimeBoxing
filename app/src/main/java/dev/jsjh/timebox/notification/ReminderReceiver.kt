@@ -19,6 +19,7 @@ import dev.jsjh.timebox.auth.supabase
 import dev.jsjh.timebox.data.local.database.TaskDatabase
 import dev.jsjh.timebox.data.remote.SupabaseSync
 import dev.jsjh.timebox.data.repository.RoomTaskRepository
+import dev.jsjh.timebox.widget.TodoWidgetUpdater
 import io.github.jan.supabase.auth.auth
 import java.time.LocalDate
 import kotlinx.coroutines.CoroutineScope
@@ -114,6 +115,7 @@ class ReminderReceiver : BroadcastReceiver() {
                         }
                     }
                     ReminderRefreshBus.notifyTaskChanged()
+                    TodoWidgetUpdater.requestUpdate(appContext)
                 }
             } finally {
                 if (key.isNotBlank()) {
