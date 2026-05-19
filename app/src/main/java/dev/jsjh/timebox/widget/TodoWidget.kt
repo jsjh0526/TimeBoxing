@@ -68,6 +68,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+
 private val WidgetBg = Color(0xFF151515)
 private val WidgetCard = Color(0xFF24242A)
 private val WidgetCardCompleted = Color(0xFF1E1E22)
@@ -430,7 +431,7 @@ private suspend fun refreshAfterWidgetMutation(
     ReminderRefreshBus.notifyTaskChanged()
     TodoWidgetRefreshBus.notifyChanged()
     runCatching { TodoWidget().update(appContext, glanceId) }
-    CoroutineScope(Dispatchers.IO).launch {
+    withContext(Dispatchers.IO) {
         ReminderScheduler.syncTasks(
             context = appContext,
             date = date,

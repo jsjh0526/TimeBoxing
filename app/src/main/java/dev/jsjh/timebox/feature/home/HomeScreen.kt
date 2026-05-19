@@ -153,6 +153,7 @@ fun HomeScreen(
         ) {
             NotificationPanel(
                 tasks         = tasks,
+                date          = date,
                 currentMinute = currentMinute,
                 onDismiss     = { showNotificationPanel = false },
                 onOpenTask    = { id -> showNotificationPanel = false; onOpenTask(id) }
@@ -458,6 +459,7 @@ private fun Modifier.dashedBorder(color: Color): Modifier = drawBehind {
 @Composable
 private fun NotificationPanel(
     tasks: List<DailyTask>,
+    date: LocalDate,
     currentMinute: Int,
     onDismiss: () -> Unit,
     onOpenTask: (String) -> Unit
@@ -466,9 +468,10 @@ private fun NotificationPanel(
         .filter { it.schedule?.reminderEnabled == true }
         .sortedBy { it.schedule!!.startMinute }
     var pastExpanded by rememberSaveable { mutableStateOf(false) }
+    val dateIsInPast = date < LocalDate.now()
     val (pastAlerts, activeAndUpcomingAlerts) = alertTasks.partition { task ->
         val schedule = task.schedule ?: return@partition false
-        schedule.endMinute <= currentMinute
+        dateIsInPast || schedule.endMinute <= currentMinute
     }
     val nextAlert = alertTasks.firstOrNull { task ->
         val schedule = task.schedule ?: return@firstOrNull false

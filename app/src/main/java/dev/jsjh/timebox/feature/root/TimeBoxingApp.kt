@@ -138,7 +138,7 @@ fun TimeBoxingApp(
                     onMigrate = {
                         showMigrationDialog = false
                         scope.launch {
-                            withContext(Dispatchers.IO) {
+                            val success = withContext(Dispatchers.IO) {
                                 runCatching {
                                     val db = TaskDatabase.get(context, state.userId)
                                     SupabaseSync.pull(
@@ -152,9 +152,13 @@ fun TimeBoxingApp(
                                         templateDao = db.taskTemplateDao(),
                                         dailyTaskDao = db.dailyTaskDao()
                                     )
-                                }
+                                }.isSuccess
                             }
-                            migrationReloadKey++
+                            if (success) {
+                                migrationReloadKey++
+                            } else {
+                                Toast.makeText(context, "데이터 이동 실패. 네트워크를 확인하고 다시 시도해 주세요.", Toast.LENGTH_LONG).show()
+                            }
                         }
                     },
                     onStartFresh = {

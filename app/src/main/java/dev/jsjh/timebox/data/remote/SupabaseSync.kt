@@ -182,8 +182,10 @@ object SupabaseSync {
 
     suspend fun pushTasks(userId: String, entities: List<DailyTaskEntity>) {
         if (entities.isEmpty()) return
-        supabase.from("daily_tasks").upsert(entities.map { it.toRemote(userId) }) {
-            onConflict = USER_SCOPED_CONFLICT
+        entities.chunked(100).forEach { chunk ->
+            supabase.from("daily_tasks").upsert(chunk.map { it.toRemote(userId) }) {
+                onConflict = USER_SCOPED_CONFLICT
+            }
         }
     }
 
@@ -195,8 +197,10 @@ object SupabaseSync {
 
     suspend fun pushTemplates(userId: String, entities: List<TaskTemplateEntity>) {
         if (entities.isEmpty()) return
-        supabase.from("task_templates").upsert(entities.map { it.toRemote(userId) }) {
-            onConflict = USER_SCOPED_CONFLICT
+        entities.chunked(100).forEach { chunk ->
+            supabase.from("task_templates").upsert(chunk.map { it.toRemote(userId) }) {
+                onConflict = USER_SCOPED_CONFLICT
+            }
         }
     }
 
@@ -226,14 +230,18 @@ object SupabaseSync {
     }
 
     private suspend fun pushTasksInternal(userId: String, entities: List<DailyTaskEntity>) {
-        supabase.from("daily_tasks").upsert(entities.map { it.toRemote(userId) }) {
-            onConflict = USER_SCOPED_CONFLICT
+        entities.chunked(100).forEach { chunk ->
+            supabase.from("daily_tasks").upsert(chunk.map { it.toRemote(userId) }) {
+                onConflict = USER_SCOPED_CONFLICT
+            }
         }
     }
 
     private suspend fun pushTemplatesInternal(userId: String, entities: List<TaskTemplateEntity>) {
-        supabase.from("task_templates").upsert(entities.map { it.toRemote(userId) }) {
-            onConflict = USER_SCOPED_CONFLICT
+        entities.chunked(100).forEach { chunk ->
+            supabase.from("task_templates").upsert(chunk.map { it.toRemote(userId) }) {
+                onConflict = USER_SCOPED_CONFLICT
+            }
         }
     }
 

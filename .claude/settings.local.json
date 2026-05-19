@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\AndroidStudio\\\\TimeBoxing\" -Recurse -Directory)",
+      "Bash(Select-Object FullName)",
+      "Bash(Editor\")"
+    ]
+  }
+}
