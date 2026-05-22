@@ -11,6 +11,7 @@ data class TaskTemplateEntity(
     val tagsSerialized: String,
     val recurrenceType: String?,
     val repeatDaysSerialized: String,
+    val startDateIso: String?,
     val defaultStartMinute: Int?,
     val defaultEndMinute: Int?,
     val reminderEnabled: Boolean

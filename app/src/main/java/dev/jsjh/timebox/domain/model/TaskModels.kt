@@ -48,11 +48,17 @@ data class TaskTemplate(
     val note: String? = null,
     val tags: List<String> = emptyList(),
     val recurrenceRule: RecurrenceRule? = null,
+    val startDate: LocalDate? = null,
     val defaultSchedule: ScheduleBlock? = null
 )
 
 fun TaskTemplate.occursOn(dayOfWeek: DayOfWeek): Boolean {
     return recurrenceRule?.occursOn(dayOfWeek) ?: false
+}
+
+fun TaskTemplate.occursOn(date: LocalDate): Boolean {
+    if (startDate != null && date.isBefore(startDate)) return false
+    return occursOn(date.dayOfWeek)
 }
 
 enum class DailyTaskSource {

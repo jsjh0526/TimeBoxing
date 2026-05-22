@@ -290,7 +290,7 @@ private fun MainApp(
         }
     }
     val appToday = effectiveToday(appSettings.dayStartHour, nowForDayBoundary)
-    val actualToday = nowForDayBoundary.toLocalDate()
+    val currentTime = nowForDayBoundary.toLocalTime()
     val appState = rememberTimeBoxingAppState(repository, appToday)
     LaunchedEffect(appToday) {
         appState.updateTodayDate(appToday)
@@ -350,7 +350,7 @@ private fun MainApp(
                 AppBottomBar(
                     currentTab = appState.currentTab,
                     onTabSelected = { tab ->
-                        if (tab == AppTab.TIMETABLE) appState.openTimetable(actualToday) else appState.selectTab(tab)
+                        if (tab == AppTab.TIMETABLE) appState.openTimetable(appToday) else appState.selectTab(tab)
                     }
                 )
             }
@@ -361,8 +361,8 @@ private fun MainApp(
                     modifier = contentModifier,
                     tasks = appState.todayTasks,
                     date = appState.today,
-                    currentTime = appState.currentTime,
-                    onOpenTimetable = { appState.openTimetable(actualToday) },
+                    currentTime = currentTime,
+                    onOpenTimetable = { appState.openTimetable(appToday) },
                     onMarkTaskComplete = { appState.toggleCompleted(it, appState.today) },
                     onOpenTask = { appState.openTaskEditor(it, appState.today) },
                     onAddTask = { appState.openNewTaskEditor(date = appState.today) },
@@ -388,11 +388,17 @@ private fun MainApp(
                     modifier = contentModifier,
                     tasks = appState.selectedDateTasks,
                     date = appState.selectedDate,
-                    currentTime = appState.currentTime,
-                    showCurrentTime = appState.selectedDate == actualToday,
+                    currentTime = currentTime,
+                    showCurrentTime = appState.selectedDate == appToday,
                     onPreviousDay = { appState.moveSelectedDateBy(-1) },
                     onNextDay = { appState.moveSelectedDateBy(1) },
-                    onToday = { appState.selectDate(actualToday) },
+                    onToday = { appState.selectDate(appToday) },
+                    today = appToday,
+                    calendarStatsForDates = { dates ->
+                        withContext(Dispatchers.IO) { appState.completionCounts(dates) }
+                    },
+                    onSelectDate = { date -> appState.selectDate(date) },
+                    onAddTaskForDate = { date -> appState.openNewTaskEditor(date) },
                     onOpenTask = { appState.openTaskEditor(it, appState.selectedDate) },
                     onToggleComplete = { appState.toggleCompleted(it, appState.selectedDate) },
                     onMoveToUnscheduled = { appState.moveToUnscheduled(it, appState.selectedDate) },

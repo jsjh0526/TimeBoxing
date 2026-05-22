@@ -1,5 +1,6 @@
 package dev.jsjh.timebox.feature.timetable
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
@@ -37,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -70,6 +72,7 @@ import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.ScheduleBlock
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.delay
@@ -131,6 +134,10 @@ fun TimetableScreen(
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
     onToday: () -> Unit,
+    today: LocalDate,
+    calendarStatsForDates: suspend (List<LocalDate>) -> Map<LocalDate, Pair<Int, Int>>,
+    onSelectDate: (LocalDate) -> Unit,
+    onAddTaskForDate: (LocalDate) -> Unit,
     onOpenTask: (String) -> Unit,
     onToggleComplete: (String) -> Unit,
     onMoveToUnscheduled: (String) -> Unit,
@@ -148,9 +155,53 @@ fun TimetableScreen(
     var viewportHeightPx by remember { mutableStateOf(0f) }
     var viewportTopInRootPx by remember { mutableStateOf(0f) }
     var trayHeightPx by remember { mutableStateOf(0f) }
+    var calendarVisible by rememberSaveable { mutableStateOf(false) }
+    var calendarFocusedDate by rememberSaveable { mutableStateOf(date) }
+
+    BackHandler(enabled = calendarVisible) {
+        calendarVisible = false
+    }
 
     Column(modifier = modifier.fillMaxSize().background(ScreenBackground)) {
-        TopHeader(currentTime = currentTime)
+        TopHeader(
+            currentTime = currentTime,
+            onCalendarClick = {
+                if (calendarVisible) {
+                    calendarVisible = false
+                } else {
+                    calendarFocusedDate = date
+                    calendarVisible = true
+                }
+            }
+        )
+        if (calendarVisible) {
+            CalendarPanel(
+                focusedDate = calendarFocusedDate,
+                today = today,
+                statsRefreshKey = tasks,
+                calendarStatsForDates = calendarStatsForDates,
+                onFocusedDateChange = { calendarFocusedDate = it },
+                onAddTaskForDate = { pickedDate ->
+                    calendarFocusedDate = pickedDate
+                    onSelectDate(pickedDate)
+                    calendarVisible = false
+                    onAddTaskForDate(pickedDate)
+                },
+                onOpenTimeline = { pickedDate ->
+                    calendarFocusedDate = pickedDate
+                    onSelectDate(pickedDate)
+                    calendarVisible = false
+                },
+                onReturnToday = {
+                    calendarFocusedDate = today
+                    onSelectDate(today)
+                    calendarVisible = false
+                },
+                onClose = { calendarVisible = false },
+                modifier = Modifier.weight(1f)
+            )
+            return@Column
+        }
         DateHeader(date = date, showTodayButton = !showCurrentTime, onPreviousDay = onPreviousDay, onNextDay = onNextDay, onToday = onToday)
         if (readOnly) ReadOnlyNotice()
         BoxWithConstraints(modifier = Modifier.weight(1f).background(PanelBackground)) {
@@ -436,10 +487,311 @@ private fun TrayDropPreviewCard(task: DailyTask, schedule: ScheduleBlock) {
 }
 
 @Composable
-private fun TopHeader(currentTime: LocalTime) {
+private fun TopHeader(currentTime: LocalTime, onCalendarClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().height(69.dp).background(HeaderBackground).padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text("Time Table", style = TextStyle(color = TextPrimary, fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp))
-        Text(currentTime.format(DateTimeFormatter.ofPattern("HH:mm")), style = TextStyle(color = Accent, fontSize = 16.sp, lineHeight = 24.sp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            CalendarHeaderButton(onClick = onCalendarClick)
+            Text(currentTime.format(DateTimeFormatter.ofPattern("HH:mm")), style = TextStyle(color = Accent, fontSize = 16.sp, lineHeight = 24.sp))
+        }
+    }
+}
+
+@Composable
+private fun CalendarHeaderButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size(20.dp)) {
+            val stroke = 1.6.dp.toPx()
+            val color = TextSecondary
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(size.width * 0.16f, size.height * 0.2f),
+                size = androidx.compose.ui.geometry.Size(size.width * 0.68f, size.height * 0.64f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx()),
+                style = Stroke(width = stroke)
+            )
+            drawLine(color, Offset(size.width * 0.16f, size.height * 0.4f), Offset(size.width * 0.84f, size.height * 0.4f), stroke, StrokeCap.Round)
+            drawLine(color, Offset(size.width * 0.34f, size.height * 0.12f), Offset(size.width * 0.34f, size.height * 0.28f), stroke, StrokeCap.Round)
+            drawLine(color, Offset(size.width * 0.66f, size.height * 0.12f), Offset(size.width * 0.66f, size.height * 0.28f), stroke, StrokeCap.Round)
+        }
+    }
+}
+
+@Composable
+private fun CalendarPanel(
+    focusedDate: LocalDate,
+    today: LocalDate,
+    statsRefreshKey: Any?,
+    calendarStatsForDates: suspend (List<LocalDate>) -> Map<LocalDate, Pair<Int, Int>>,
+    onFocusedDateChange: (LocalDate) -> Unit,
+    onAddTaskForDate: (LocalDate) -> Unit,
+    onOpenTimeline: (LocalDate) -> Unit,
+    onReturnToday: () -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scrollState = rememberScrollState()
+    val month = YearMonth.from(focusedDate)
+    val visibleDates = remember(month) { calendarGridDates(month) }
+    val statsByDate by produceState(
+        initialValue = emptyMap<LocalDate, Pair<Int, Int>>(),
+        visibleDates,
+        statsRefreshKey
+    ) {
+        value = calendarStatsForDates(visibleDates)
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(PanelBackground)
+            .verticalScroll(scrollState)
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(32.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CalendarCloseButton(onClick = onClose)
+        }
+        CalendarMonthCard(
+            focusedDate = focusedDate,
+            today = today,
+            visibleDates = visibleDates,
+            statsByDate = statsByDate,
+            onFocusedDateChange = onFocusedDateChange
+        )
+        CalendarStatsCard(date = focusedDate, stats = statsByDate[focusedDate] ?: (0 to 0))
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (!focusedDate.isBefore(today)) {
+                CalendarActionButton(
+                    text = "해당 날짜에 할 일 추가",
+                    variant = CalendarActionVariant.Outline,
+                    onClick = { onAddTaskForDate(focusedDate) }
+                )
+            }
+            CalendarActionButton(
+                text = "해당 날짜 타임라인 보기",
+                variant = CalendarActionVariant.Primary,
+                onClick = { onOpenTimeline(focusedDate) }
+            )
+            CalendarActionButton(
+                text = "오늘로 돌아가기",
+                variant = CalendarActionVariant.Neutral,
+                onClick = onReturnToday
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun CalendarMonthCard(
+    focusedDate: LocalDate,
+    today: LocalDate,
+    visibleDates: List<LocalDate>,
+    statsByDate: Map<LocalDate, Pair<Int, Int>>,
+    onFocusedDateChange: (LocalDate) -> Unit
+) {
+    val month = YearMonth.from(focusedDate)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(462.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF1E1E1E))
+            .border(0.7.dp, Divider, RoundedCornerShape(16.dp))
+            .padding(start = 17.dp, end = 17.dp, top = 17.dp, bottom = 16.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth().height(56.dp)) {
+            CircleArrow(direction = -1, onClick = { onFocusedDateChange(focusedDate.minusMonths(1)) })
+            Text(
+                text = month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp),
+                style = TextStyle(color = TextPrimary, fontSize = 18.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
+            )
+            Box(modifier = Modifier.align(Alignment.TopEnd)) {
+                CircleArrow(direction = 1, onClick = { onFocusedDateChange(focusedDate.plusMonths(1)) })
+            }
+        }
+        Row(modifier = Modifier.fillMaxWidth().height(36.dp)) {
+            listOf("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa").forEach { label ->
+                Text(
+                    text = label,
+                    modifier = Modifier.weight(1f),
+                    style = TextStyle(color = Color(0xFF6A7282), fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Center)
+                )
+            }
+        }
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            visibleDates.chunked(7).forEach { week ->
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    week.forEach { day ->
+                        CalendarDayCell(
+                            date = day,
+                            inMonth = YearMonth.from(day) == month,
+                            selected = day == focusedDate,
+                            today = day == today,
+                            stats = statsByDate[day] ?: (0 to 0),
+                            modifier = Modifier.weight(1f),
+                            onClick = { onFocusedDateChange(day) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun calendarGridDates(month: YearMonth): List<LocalDate> {
+    val firstDay = month.atDay(1)
+    val gridStart = firstDay.minusDays((firstDay.dayOfWeek.value % 7).toLong())
+    return List(42) { gridStart.plusDays(it.toLong()) }
+}
+
+@Composable
+private fun CalendarCloseButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier.size(32.dp).clip(CircleShape).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "\u00D7",
+            style = TextStyle(color = TextSecondary, fontSize = 24.sp, lineHeight = 24.sp, fontWeight = FontWeight.Light)
+        )
+    }
+}
+
+@Composable
+private fun CalendarDayCell(
+    date: LocalDate,
+    inMonth: Boolean,
+    selected: Boolean,
+    today: Boolean,
+    stats: Pair<Int, Int>,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val background = when {
+        selected -> Accent
+        today -> Color(0xFF2A2A2A)
+        else -> Color.Transparent
+    }
+    val dayColor = when {
+        selected -> Color.White
+        inMonth -> TextMuted
+        else -> Color(0xFF4A5565)
+    }
+    val statColor = when {
+        selected -> Color.White.copy(alpha = 0.72f)
+        else -> Color(0xFF6A7282)
+    }
+    val alpha = if (inMonth) 1f else 0.35f
+    val clickModifier = if (inMonth) Modifier.clickable(onClick = onClick) else Modifier
+
+    Column(
+        modifier = modifier
+            .height(52.dp)
+            .graphicsLayer { this.alpha = alpha }
+            .clip(RoundedCornerShape(14.dp))
+            .background(background)
+            .then(clickModifier)
+            .padding(vertical = 7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = date.dayOfMonth.toString(),
+            style = TextStyle(color = dayColor, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+        )
+        Text(
+            text = "${stats.first}/${stats.second}",
+            style = TextStyle(color = statColor, fontSize = 10.sp, lineHeight = 10.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+        )
+    }
+}
+
+@Composable
+private fun CalendarStatsCard(date: LocalDate, stats: Pair<Int, Int>) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(92.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF1E1E1E))
+            .border(0.7.dp, Divider, RoundedCornerShape(16.dp))
+            .padding(horizontal = 21.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = "${date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"))} 통계",
+                style = TextStyle(color = TextSecondary, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
+            )
+            Text(
+                text = "완료된 할 일",
+                style = TextStyle(color = TextPrimary, fontSize = 18.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
+            )
+        }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = stats.first.toString(),
+                style = TextStyle(color = Accent, fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold)
+            )
+            Text(
+                text = " / ${stats.second}",
+                modifier = Modifier.padding(bottom = 5.dp),
+                style = TextStyle(color = Color(0xFF6A7282), fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
+            )
+        }
+    }
+}
+
+private enum class CalendarActionVariant { Outline, Primary, Neutral }
+
+@Composable
+private fun CalendarActionButton(text: String, variant: CalendarActionVariant, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
+    val background = when (variant) {
+        CalendarActionVariant.Outline -> Accent.copy(alpha = 0.10f)
+        CalendarActionVariant.Primary -> Accent
+        CalendarActionVariant.Neutral -> Color(0xFF2A2A2A)
+    }
+    val borderModifier = if (variant == CalendarActionVariant.Outline) {
+        Modifier.border(0.7.dp, Accent.copy(alpha = 0.3f), shape)
+    } else {
+        Modifier
+    }
+    val textColor = when (variant) {
+        CalendarActionVariant.Outline -> Accent
+        CalendarActionVariant.Primary -> Color.White
+        CalendarActionVariant.Neutral -> TextSecondary
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(if (variant == CalendarActionVariant.Neutral) 48.dp else 52.dp)
+            .clip(shape)
+            .background(background)
+            .then(borderModifier)
+            .clickable(onClick = onClick),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (variant == CalendarActionVariant.Outline) {
+            Text("+", style = TextStyle(color = Accent, fontSize = 19.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium))
+            Spacer(Modifier.width(14.dp))
+        }
+        Text(text, style = TextStyle(color = textColor, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold))
     }
 }
 
@@ -766,7 +1118,7 @@ private fun NowBadge() {
 private fun DurationChip(durationMinutes: Int, expanded: Boolean, readOnly: Boolean, options: List<Int>, onExpandedChange: (Boolean) -> Unit, onSelect: (Int) -> Unit, compact: Boolean = false) {
     Box {
         Box(modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(Color.Black.copy(alpha = 0.12f)).clickable(enabled = !readOnly) { onExpandedChange(true) }.padding(horizontal = if (compact) 6.dp else 14.dp, vertical = if (compact) 3.dp else 6.dp), contentAlignment = Alignment.Center) {
-            Text(text = durationLabel(durationMinutes, compact), style = TextStyle(color = TextPrimary.copy(alpha = 0.76f), fontSize = if (compact) 9.sp else 13.sp, lineHeight = if (compact) 12.sp else 19.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium))
+            Text(text = durationLabel(durationMinutes), style = TextStyle(color = TextPrimary.copy(alpha = 0.76f), fontSize = if (compact) 9.sp else 13.sp, lineHeight = if (compact) 12.sp else 19.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { onExpandedChange(false) }, modifier = Modifier.heightIn(max = 280.dp).clip(RoundedCornerShape(12.dp)).background(HeaderBackground)) {
             options.forEach { option ->
@@ -1001,7 +1353,7 @@ private fun buildLayouts(tasks: List<DailyTask>): List<PositionedBlock> {
 }
 
 private fun formatClock(totalMinutes: Int): String = String.format(Locale.ENGLISH, "%02d:%02d", totalMinutes / 60, totalMinutes % 60)
-private fun durationLabel(durationMinutes: Int, compact: Boolean = false): String = "${durationMinutes}m"
+private fun durationLabel(durationMinutes: Int): String = "${durationMinutes}m"
 private fun durationMinuteOptions(startMinute: Int): List<Int> {
     val maxDuration = (24 * 60 - startMinute).coerceAtLeast(MinimumBlockMinutes)
     return generateSequence(MinimumBlockMinutes) { current -> val next = current + SnapMinutes; if (next <= maxDuration) next else null }.toList()

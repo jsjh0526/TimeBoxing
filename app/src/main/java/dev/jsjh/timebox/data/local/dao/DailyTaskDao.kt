@@ -11,6 +11,9 @@ interface DailyTaskDao {
     @Query("SELECT * FROM daily_tasks WHERE dateIso = :dateIso ORDER BY CASE WHEN startMinute IS NULL THEN 1 ELSE 0 END, startMinute, title")
     fun getByDate(dateIso: String): List<DailyTaskEntity>
 
+    @Query("SELECT * FROM daily_tasks WHERE dateIso IN (:dateIsos) ORDER BY dateIso, CASE WHEN startMinute IS NULL THEN 1 ELSE 0 END, startMinute, title")
+    fun getByDates(dateIsos: List<String>): List<DailyTaskEntity>
+
     @Query("SELECT * FROM daily_tasks WHERE dateIso = :dateIso AND id = :taskId LIMIT 1")
     fun getById(dateIso: String, taskId: String): DailyTaskEntity?
 

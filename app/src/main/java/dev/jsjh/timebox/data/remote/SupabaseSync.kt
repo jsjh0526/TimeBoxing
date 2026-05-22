@@ -85,6 +85,10 @@ object SupabaseSync {
 
         val activeTasks = remoteTasks.filter { it.deletedAt == null }
         val deletedTaskIds = remoteTasks.filter { it.deletedAt != null }.map { it.id }
+        val templateStartDates = activeTasks
+            .mapNotNull { task -> task.templateId?.let { templateId -> templateId to task.dateIso } }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, dates) -> dates.minOrNull() }
 
         if (replaceLocal) {
             dailyTaskDao.clearAll()
@@ -96,7 +100,7 @@ object SupabaseSync {
             dailyTaskDao.deleteByTemplateIds(deletedTemplateIds)
         }
         if (activeTemplates.isNotEmpty()) {
-            templateDao.upsertAll(activeTemplates.map { it.toEntity() })
+            templateDao.upsertAll(activeTemplates.map { it.toEntity(templateStartDates[it.id]) })
         }
 
         if (deletedTaskIds.isNotEmpty()) dailyTaskDao.deleteByIds(deletedTaskIds)
@@ -304,13 +308,14 @@ object SupabaseSync {
         }
     }
 
-    private fun RemoteTemplate.toEntity() = TaskTemplateEntity(
+    private fun RemoteTemplate.toEntity(startDateIso: String?) = TaskTemplateEntity(
         id = id,
         title = title,
         note = note,
         tagsSerialized = tags.orEmpty(),
         recurrenceType = recurrenceType,
         repeatDaysSerialized = repeatDays.orEmpty(),
+        startDateIso = startDateIso,
         defaultStartMinute = defaultStartMinute,
         defaultEndMinute = defaultEndMinute,
         reminderEnabled = reminderEnabled ?: false

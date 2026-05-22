@@ -69,6 +69,7 @@ import dev.jsjh.timebox.domain.model.RecurrenceRule
 import dev.jsjh.timebox.domain.model.RecurrenceType
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val Overlay      = Color(0xCC000000)
@@ -130,7 +131,6 @@ private fun applyStartChange(newStart: String, draft: TaskEditorDraft): TaskEdit
     val startMin = parseTime(newStart)
     val endMin   = parseTime(draft.endText)
     return if (endMin <= startMin) {
-        // 醫낅즺 ?쒓컙???쒖옉 ?쒓컙蹂대떎 ?욎꽌硫?湲곗〈 吏?띿떆媛꾩쓣 ?좎??⑸땲??
         val duration  = (endMin - parseTime(draft.startText)).coerceAtLeast(15)
         val newEndMin = (startMin + duration).coerceAtMost(24 * 60)
         draft.copy(startText = newStart, endText = formatTime(newEndMin))
@@ -162,22 +162,29 @@ fun TaskEditorDialog(
                     modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(20.dp))
                         .background(Panel).border(0.7.dp, Border, RoundedCornerShape(20.dp))
                 ) {
-                    // ?ㅻ뜑
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = if (draft.taskId == null) "New Task" else "Edit Task",
-                            style = TextStyle(color = TextPrimary, fontSize = 18.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold)
-                        )
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = if (draft.taskId == null) "New Task" else "Edit Task",
+                                style = TextStyle(color = TextPrimary, fontSize = 18.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold)
+                            )
+                            if (draft.taskId == null) {
+                                EditorDatePill(date = draft.date)
+                            }
+                        }
                         Box(modifier = Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onDismiss), contentAlignment = Alignment.Center) {
                             Text("\u00D7", style = TextStyle(color = TextSecondary, fontSize = 28.sp, fontWeight = FontWeight.Light, lineHeight = 28.sp))
                         }
                     }
                     Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(BorderStrong))
 
-                    // 蹂몃Ц
                     Column(
                         modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(bodyScroll).padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -273,7 +280,6 @@ fun TaskEditorDialog(
                     }
                 }
 
-                // ?섎떒 踰꾪듉
                 Row(
                     modifier = Modifier.fillMaxWidth().background(Panel).padding(horizontal = 18.dp, vertical = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
@@ -291,7 +297,29 @@ fun TaskEditorDialog(
     }
 }
 
-// ?쒓컙 ?좏깮 ?쒕∼?ㅼ슫 ?꾨뱶
+@Composable
+private fun EditorDatePill(date: LocalDate) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Accent.copy(alpha = 0.18f))
+            .border(0.7.dp, Accent.copy(alpha = 0.32f), RoundedCornerShape(999.dp))
+            .padding(horizontal = 9.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")),
+            maxLines = 1,
+            style = TextStyle(
+                color = Accent,
+                fontSize = 11.sp,
+                lineHeight = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Monospace
+            )
+        )
+    }
+}
 
 @Composable
 private fun TimeDropdownField(
@@ -350,8 +378,6 @@ private fun TimeDropdownField(
         }
     }
 }
-
-// 怨듯넻 UI 而댄룷?뚰듃
 
 @Composable
 private fun EditorLabel(label: String, icon: (@Composable () -> Unit)? = null) {

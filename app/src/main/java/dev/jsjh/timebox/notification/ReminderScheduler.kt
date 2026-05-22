@@ -90,6 +90,15 @@ object ReminderScheduler {
         prefs.edit().remove(KEY_SCHEDULED).apply()
     }
 
+    fun removeScheduledKey(context: Context, date: LocalDate, taskId: String) {
+        val key = reminderKey(date, taskId)
+        val prefs = scheduledPrefs(context)
+        val updated = prefs.getStringSet(KEY_SCHEDULED, emptySet()).orEmpty().toMutableSet()
+        if (updated.remove(key)) {
+            prefs.edit().putStringSet(KEY_SCHEDULED, updated).apply()
+        }
+    }
+
     @SuppressLint("ScheduleExactAlarm")
     private fun schedule(context: Context, task: DailyTask) {
         val schedule = task.schedule ?: return

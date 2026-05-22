@@ -22,7 +22,6 @@ import dev.jsjh.timebox.feature.editor.parseTime
 import dev.jsjh.timebox.feature.editor.toEditorDraft
 import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.LocalTime
 import java.util.Locale
 
 private const val MaxConcurrentTimeBlocks = 5
@@ -58,8 +57,6 @@ class TimeBoxingAppState(
     var scheduleLimitMessage by mutableStateOf<String?>(null)
         private set
 
-    val currentTime: LocalTime get() = LocalTime.now()
-
     init {
         refreshTemplateCache(today)
         refreshYesterdayIncomplete()
@@ -67,7 +64,11 @@ class TimeBoxingAppState(
 
     fun updateTodayDate(nextToday: LocalDate) {
         if (todayDate == nextToday) return
+        val previousToday = todayDate
         todayDate = nextToday
+        if (selectedDate == previousToday) {
+            selectedDate = nextToday
+        }
         refreshAll()
     }
 
@@ -100,6 +101,14 @@ class TimeBoxingAppState(
     fun selectDate(date: LocalDate) {
         selectedDate = date
         refreshSelectedDate()
+    }
+
+    fun completionCounts(date: LocalDate): Pair<Int, Int> {
+        return repository.getTaskCompletionCounts(listOf(date))[date] ?: (0 to 0)
+    }
+
+    fun completionCounts(dates: Collection<LocalDate>): Map<LocalDate, Pair<Int, Int>> {
+        return repository.getTaskCompletionCounts(dates)
     }
 
     fun toggleCompleted(taskId: String, date: LocalDate = today) {

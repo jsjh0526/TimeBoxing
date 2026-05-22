@@ -138,7 +138,7 @@ fun TodoScreen(
     val recurring = tasks.filter { task ->
         task.source == DailyTaskSource.RECURRING && !task.isBig3 && run {
             val rule = task.templateId?.let { tid -> recurrenceByTemplateId[tid] }
-            rule?.occursOn(date.dayOfWeek) ?: false
+            rule?.occursOn(date.dayOfWeek) ?: true
         }
     }
 
@@ -355,15 +355,16 @@ private fun DraggableSection(
                         }
                     }
             ) {
+                val interactionsEnabled = draggingFrom < 0
                 TaskCard(
                     task = task,
                     bordered = bordered,
                     isDragging = isDragging,
                     recurrenceRule = task.templateId?.let { recurrenceByTemplateId[it] },
-                    onToggleBig3 = onToggleBig3,
-                    onToggleComplete = onToggleComplete,
+                    onToggleBig3 = if (interactionsEnabled) onToggleBig3 else ({ }),
+                    onToggleComplete = if (interactionsEnabled) onToggleComplete else ({ }),
                     // ?쒕옒洹?以묒뿉???ㅻⅨ 移대뱶瑜??댁? ?딆뒿?덈떎.
-                    onOpenTask = if (draggingFrom >= 0 && !isDragging) ({}) else onOpenTask,
+                    onOpenTask = if (interactionsEnabled) onOpenTask else ({ }),
                     onDragStart = {
                         draggingFrom = index
                         dragTotalY = 0f
@@ -386,16 +387,6 @@ private fun DraggableSection(
             // ?쎌엯 indicator???섏쨷???ㅼ젣 ?뚮뜑留곸뿉 ?곌껐???덉젙?낅땲??
         }
     }
-}
-
-@Composable
-private fun InsertionIndicator() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(2.dp)
-            .background(Accent.copy(alpha = 0.7f), RoundedCornerShape(1.dp))
-    )
 }
 
 // 鍮좊Ⅸ ?낅젰
@@ -801,7 +792,7 @@ private fun OtherHabitsHeader(count: Int, expanded: Boolean, onToggle: () -> Uni
         ) {
             if (expanded) ChevronUpIcon(TextMuted) else ChevronDownIcon(TextMuted)
             Spacer(Modifier.width(6.dp))
-            Text("OTHER HABITs", style = TextStyle(color = TextMuted, fontSize = 14.sp, lineHeight = 20.sp))
+            Text("OTHER HABITS", style = TextStyle(color = TextMuted, fontSize = 14.sp, lineHeight = 20.sp))
             Spacer(Modifier.width(8.dp))
             Box(modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(CardBackground).padding(horizontal = 7.dp, vertical = 2.dp)) {
                 Text(count.toString(), style = TextStyle(color = TextMuted, fontSize = 12.sp, lineHeight = 16.sp))
@@ -882,21 +873,31 @@ private fun formatClock(totalMinutes: Int): String =
     String.format(Locale.ENGLISH, "%d:%02d", totalMinutes / 60, totalMinutes % 60)
 
 private fun recurrenceLabel(rule: RecurrenceRule?): String {
-    if (rule == null) return "Every Day"
+    if (rule == null) return "Recurring"
     return when (rule.type) {
         RecurrenceType.DAILY    -> "Every Day"
-        RecurrenceType.WEEKDAYS -> "Weekdays"
-        RecurrenceType.CUSTOM   -> {
-            val ordered = listOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
-            val selected = ordered.filter { it in rule.repeatDays }
-            when {
-                selected.isEmpty()                                        -> "Custom"
-                selected.size == 7                                        -> "Every Day"
-                selected == ordered.take(5)                               -> "Weekdays"
-                selected == listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) -> "Weekend"
-                else -> selected.joinToString(" ") { dayShort(it) }
-            }
-        }
+        RecurrenceType.WEEKDAYS -> recurrenceDaysLabel(rule.repeatDays, emptyLabel = "Weekdays")
+        RecurrenceType.CUSTOM   -> recurrenceDaysLabel(rule.repeatDays, emptyLabel = "Custom")
+    }
+}
+
+private fun recurrenceDaysLabel(days: Set<DayOfWeek>, emptyLabel: String): String {
+    val ordered = listOf(
+        DayOfWeek.MONDAY,
+        DayOfWeek.TUESDAY,
+        DayOfWeek.WEDNESDAY,
+        DayOfWeek.THURSDAY,
+        DayOfWeek.FRIDAY,
+        DayOfWeek.SATURDAY,
+        DayOfWeek.SUNDAY
+    )
+    val selected = ordered.filter { it in days }
+    return when {
+        selected.isEmpty() -> emptyLabel
+        selected.size == 7 -> "Every Day"
+        selected == ordered.take(5) -> "Weekdays"
+        selected == listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) -> "Weekend"
+        else -> selected.joinToString(" ") { dayShort(it) }
     }
 }
 

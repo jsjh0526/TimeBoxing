@@ -8,6 +8,15 @@ import java.time.LocalDate
 
 interface TaskRepository {
     fun getTasks(date: LocalDate): List<DailyTask>
+    fun getTasks(dates: Collection<LocalDate>): Map<LocalDate, List<DailyTask>> {
+        return dates.distinct().associateWith { getTasks(it) }
+    }
+    fun getTaskCompletionCounts(dates: Collection<LocalDate>): Map<LocalDate, Pair<Int, Int>> {
+        return getTasks(dates).mapValues { (_, tasks) ->
+            val visibleTasks = tasks.filter { it.title.isNotBlank() }
+            visibleTasks.count { it.isCompleted } to visibleTasks.size
+        }
+    }
     fun getTask(date: LocalDate, taskId: String): DailyTask?
     fun getTemplate(templateId: String): TaskTemplate?
     fun toggleCompleted(date: LocalDate, taskId: String)

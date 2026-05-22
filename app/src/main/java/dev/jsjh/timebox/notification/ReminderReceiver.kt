@@ -102,6 +102,7 @@ class ReminderReceiver : BroadcastReceiver() {
                         dailyTaskDao = database.dailyTaskDao()
                     )
                     roomRepository.markCompleted(date, taskId)
+                    ReminderScheduler.removeScheduledKey(appContext, date, taskId)
                     if (userId != "guest") {
                         initSupabase(appContext)
                         val sessionReady = runCatching {
