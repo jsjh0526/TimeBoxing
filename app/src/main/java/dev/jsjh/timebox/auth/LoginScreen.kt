@@ -82,25 +82,25 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             // ?? ???꾩씠肄???????????????????????????????????????????????????
             AppMark(
                 modifier   = Modifier.align(Alignment.TopCenter),
-                markSize   = fdp(63.993f),
-                radius     = fdp(16f)
+                markSize   = fdp(86f),
+                radius     = fdp(22f)
             )
 
             // ?? ???대쫫 ????????????????????????????????????????????????????
             Text(
                 text     = "Timebox",
-                modifier = Modifier.offset(x = 0.dp, y = fdp(85.88f)).width(fdp(345.334f)),
+                modifier = Modifier.offset(x = 0.dp, y = fdp(106f)).width(fdp(345.334f)),
                 style    = TextStyle(color = TextPrimary, fontSize = 30.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.75).sp, lineHeight = 36.sp, textAlign = TextAlign.Center)
             )
 
             Text(
                 text     = "Focus on what matters most.",
-                modifier = Modifier.offset(x = 0.dp, y = fdp(131.27f)).width(fdp(345.334f)),
+                modifier = Modifier.offset(x = 0.dp, y = fdp(151f)).width(fdp(345.334f)),
                 style    = TextStyle(color = TextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 20.sp, textAlign = TextAlign.Center)
             )
 
             GoogleSignInButton(
-                modifier  = Modifier.offset(x = 0.dp, y = fdp(199.95f)),
+                modifier  = Modifier.offset(x = 0.dp, y = fdp(218f)),
                 width     = fdp(345.334f),
                 height    = fdp(51.986f),
                 isLoading = isLoading,
@@ -122,7 +122,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 
             // ?? 寃뚯뒪??踰꾪듉 ????????????????????????????????????????????????
             GuestButton(
-                modifier = Modifier.offset(x = 0.dp, y = fdp(266f)),
+                modifier = Modifier.offset(x = 0.dp, y = fdp(284f)),
                 width    = fdp(345.334f),
                 height   = fdp(51.986f),
                 scale    = scale,
@@ -136,7 +136,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             if (errorMessage != null) {
                 Text(
                     text     = errorMessage.orEmpty(),
-                    modifier = Modifier.offset(x = fdp(12f), y = fdp(382f)).width(fdp(321f)),
+                    modifier = Modifier.offset(x = fdp(12f), y = fdp(402f)).width(fdp(321f)),
                     style    = TextStyle(color = Color(0xFFFF6B6B), fontSize = 12.sp, lineHeight = 16.sp, textAlign = TextAlign.Center)
                 )
             }
@@ -144,7 +144,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             // ?? ?쎄? ???????????????????????????????????????????????????????
             Text(
                 text     = "By continuing, you agree to our Terms & Conditions.",
-                modifier = Modifier.offset(x = fdp(28.04f), y = fdp(338f)).width(fdp(289.258f)),
+                modifier = Modifier.offset(x = fdp(28.04f), y = fdp(356f)).width(fdp(289.258f)),
                 style    = TextStyle(color = TextTertiary, fontSize = 12.sp, fontWeight = FontWeight.Normal, lineHeight = 16.sp, textAlign = TextAlign.Center)
             )
         }
@@ -237,7 +237,7 @@ private fun AppMark(modifier: Modifier, markSize: Dp, radius: Dp) {
         Image(
             painter = painterResource(R.drawable.ic_timebox_logo),
             contentDescription = null,
-            modifier = Modifier.size(markSize * 0.92f),
+            modifier = Modifier.size(markSize),
             contentScale = ContentScale.Fit
         )
     }
