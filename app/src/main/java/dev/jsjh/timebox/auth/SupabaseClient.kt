@@ -2,6 +2,7 @@ package dev.jsjh.timebox.auth
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.SessionManager
@@ -9,8 +10,6 @@ import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.serializer.KotlinXSerializer
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 private const val SESSION_KEY = "session"
@@ -29,34 +28,40 @@ private class SharedPreferencesSessionManager(
     }
 
     override suspend fun saveSession(session: UserSession) {
-        prefs.edit()
-            .putString(SESSION_KEY, sessionJson.encodeToString(session))
-            .apply()
+        prefs.edit {
+            putString(SESSION_KEY, sessionJson.encodeToString(session))
+        }
     }
 
     override suspend fun deleteSession() {
-        prefs.edit().remove(SESSION_KEY).apply()
+        prefs.edit {
+            remove(SESSION_KEY)
+        }
     }
 }
 
+@Volatile
 lateinit var supabase: SupabaseClient
     private set
 
 fun initSupabase(context: Context) {
     if (::supabase.isInitialized) return
-    val prefs = context.applicationContext.getSharedPreferences("supabase_session", Context.MODE_PRIVATE)
-    supabase = createSupabaseClient(
-        supabaseUrl = "https://vimywtpiqsixlfiegpdd.supabase.co",
-        supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpbXl3dHBpcXNpeGxmaWVncGRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyODI3MDUsImV4cCI6MjA5Mjg1ODcwNX0.W4f-v9KlWd6LdRgCYnz7GvrJ9NvRzDz4QjJMOAwmRoM"
-    ) {
-        defaultSerializer = KotlinXSerializer(Json {
-            encodeDefaults = true
-            explicitNulls = true
-            ignoreUnknownKeys = true
-        })
-        install(Auth) {
-            sessionManager = SharedPreferencesSessionManager(prefs)
+    synchronized(SupabaseClient::class.java) {
+        if (::supabase.isInitialized) return
+        val prefs = context.applicationContext.getSharedPreferences("supabase_session", Context.MODE_PRIVATE)
+        supabase = createSupabaseClient(
+            supabaseUrl = "https://vimywtpiqsixlfiegpdd.supabase.co",
+            supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpbXl3dHBpcXNpeGxmaWVncGRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyODI3MDUsImV4cCI6MjA5Mjg1ODcwNX0.W4f-v9KlWd6LdRgCYnz7GvrJ9NvRzDz4QjJMOAwmRoM"
+        ) {
+            defaultSerializer = KotlinXSerializer(Json {
+                encodeDefaults = true
+                explicitNulls = true
+                ignoreUnknownKeys = true
+            })
+            install(Auth) {
+                sessionManager = SharedPreferencesSessionManager(prefs)
+            }
+            install(Postgrest)
         }
-        install(Postgrest)
     }
 }

@@ -10,10 +10,12 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
+import androidx.core.content.edit
 import dev.jsjh.timebox.domain.model.DailyTask
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
+import java.util.zip.CRC32
 
 object ReminderScheduler {
     const val ACTION_SHOW_REMINDER = "dev.jsjh.timebox.notification.SHOW_REMINDER"
@@ -80,14 +82,18 @@ object ReminderScheduler {
 
         val next = existing.filterNot { it.startsWith(datePrefix) }.toMutableSet()
         next.addAll(desired)
-        prefs.edit().putStringSet(KEY_SCHEDULED, next).apply()
+        prefs.edit {
+            putStringSet(KEY_SCHEDULED, next)
+        }
     }
 
     fun cancelAll(context: Context) {
         val prefs = scheduledPrefs(context)
         val existing = prefs.getStringSet(KEY_SCHEDULED, emptySet()).orEmpty()
         existing.forEach { cancelKey(context, it) }
-        prefs.edit().remove(KEY_SCHEDULED).apply()
+        prefs.edit {
+            remove(KEY_SCHEDULED)
+        }
     }
 
     fun removeScheduledKey(context: Context, date: LocalDate, taskId: String) {
@@ -95,7 +101,9 @@ object ReminderScheduler {
         val prefs = scheduledPrefs(context)
         val updated = prefs.getStringSet(KEY_SCHEDULED, emptySet()).orEmpty().toMutableSet()
         if (updated.remove(key)) {
-            prefs.edit().putStringSet(KEY_SCHEDULED, updated).apply()
+            prefs.edit {
+                putStringSet(KEY_SCHEDULED, updated)
+            }
         }
     }
 
@@ -105,6 +113,7 @@ object ReminderScheduler {
         val triggerAtMillis = triggerAtMillis(task) ?: return
 
         val key = reminderKey(task.date, task.id)
+        cancelKey(context, key)
         val intent = Intent(context, ReminderReceiver::class.java).apply {
             action = ACTION_SHOW_REMINDER
             putExtra(EXTRA_KEY, key)
@@ -113,10 +122,9 @@ object ReminderScheduler {
             putExtra(EXTRA_TIME_RANGE, "${formatMinute(schedule.startMinute)} - ${formatMinute(schedule.endMinute)}")
             putExtra(EXTRA_TASK_ID, task.id)
         }
-        val pendingIntent = reminderPendingIntent(context, key, intent, PendingIntent.FLAG_UPDATE_CURRENT) ?: return
+        val pendingIntent = reminderPendingIntent(context, key, intent) ?: return
         val alarmManager = context.getSystemService(AlarmManager::class.java)
 
-        alarmManager.cancel(pendingIntent)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
                 alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
@@ -149,22 +157,33 @@ object ReminderScheduler {
         val intent = Intent(context, ReminderReceiver::class.java).apply {
             action = ACTION_SHOW_REMINDER
         }
-        val pendingIntent = reminderPendingIntent(context, key, intent, PendingIntent.FLAG_NO_CREATE)
-        if (pendingIntent != null) {
-            context.getSystemService(AlarmManager::class.java).cancel(pendingIntent)
-            pendingIntent.cancel()
+        val alarmManager = context.getSystemService(AlarmManager::class.java)
+        listOf(reminderRequestCode(key), legacyReminderRequestCode(key)).distinct().forEach { requestCode ->
+            val pendingIntent = reminderPendingIntent(context, requestCode, intent, PendingIntent.FLAG_NO_CREATE)
+            if (pendingIntent != null) {
+                alarmManager.cancel(pendingIntent)
+                pendingIntent.cancel()
+            }
         }
     }
 
     private fun reminderPendingIntent(
         context: Context,
         key: String,
+        intent: Intent
+    ): PendingIntent? {
+        return reminderPendingIntent(context, reminderRequestCode(key), intent, PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
+    private fun reminderPendingIntent(
+        context: Context,
+        requestCode: Int,
         intent: Intent,
         mutableFlag: Int
     ): PendingIntent? {
         return PendingIntent.getBroadcast(
             context,
-            key.hashCode(),
+            requestCode,
             intent,
             mutableFlag or PendingIntent.FLAG_IMMUTABLE
         )
@@ -189,6 +208,14 @@ object ReminderScheduler {
         context.applicationContext.getSharedPreferences(SCHEDULED_PREFS, Context.MODE_PRIVATE)
 
     private fun reminderKey(date: LocalDate, taskId: String): String = "$date|$taskId"
+
+    private fun reminderRequestCode(key: String): Int {
+        val crc = CRC32()
+        crc.update(key.toByteArray(Charsets.UTF_8))
+        return (crc.value and 0x7fffffff).toInt()
+    }
+
+    private fun legacyReminderRequestCode(key: String): Int = key.hashCode()
 
     private fun formatMinute(totalMinutes: Int): String {
         val h = (totalMinutes / 60).coerceIn(0, 23)
