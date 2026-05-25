@@ -1,0 +1,6 @@
+로고 파일은 여기야:
+앱 아이콘: ic_launcher_foreground.xml + ic_launcher_background.xml
+앱 아이콘 연결 파일: ic_launcher.xml, ic_launcher_round.xml
+스플래시 아이콘: ic_timebox_splash_icon.xml
+구버전 스플래시 배경: splash_screen_background.xml
+로그인 로고: ic_timebox_logo.xml, 사용 위치는 LoginScreen.kt (line 238)

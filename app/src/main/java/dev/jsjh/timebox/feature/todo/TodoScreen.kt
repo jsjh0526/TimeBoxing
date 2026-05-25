@@ -51,9 +51,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -245,12 +245,14 @@ fun TodoScreen(
                         verticalArrangement = Arrangement.spacedBy(ITEM_GAP)
                     ) {
                         otherHabits.forEach { task ->
-                            CompactCard(
-                                task = task,
-                                recurrenceRule = task.templateId?.let { recurrenceByTemplateId[it] },
-                                onToggleComplete = onToggleComplete,
-                                onOpenTask = onOpenTask
-                            )
+                            key(task.id) {
+                                CompactCard(
+                                    task = task,
+                                    recurrenceRule = task.templateId?.let { recurrenceByTemplateId[it] },
+                                    onToggleComplete = onToggleComplete,
+                                    onOpenTask = onOpenTask
+                                )
+                            }
                         }
                     }
                 }
@@ -584,10 +586,14 @@ private fun TaskCard(
     onDragEnd: () -> Unit
 ) {
     val isRecurring = task.source == DailyTaskSource.RECURRING
-    val cardAlpha by animateFloatAsState(
-        targetValue = if (task.isCompleted) 0.52f else 1f,
+    val cardColor by animateColorAsState(
+        targetValue = when {
+            isDragging -> CardDragging
+            task.isCompleted -> Color(0xFF242424)
+            else -> CardBackground
+        },
         animationSpec = tween(durationMillis = 180),
-        label = "todoCardAlpha"
+        label = "todoCardBackground"
     )
     val titleColor by animateColorAsState(
         targetValue = if (task.isCompleted) TextMuted else TextPrimary,
@@ -611,9 +617,8 @@ private fun TaskCard(
                 ) else Modifier
             )
             .clip(RoundedCornerShape(CARD_RADIUS))
-            .background(if (isDragging) CardDragging else CardBackground)
+            .background(cardColor)
             .then(if (bordered) Modifier.border(1.dp, Accent, RoundedCornerShape(CARD_RADIUS)) else Modifier)
-            .alpha(cardAlpha)
             .clickable { onOpenTask(task.id) }
             .padding(horizontal = CARD_PAD_H, vertical = CARD_PAD_V)
     ) {
@@ -678,9 +683,8 @@ private fun CompactCard(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = CARD_COMPACT_MIN_H)
-            .alpha(cardAlpha)
             .clip(RoundedCornerShape(CARD_RADIUS))
-            .background(CardBackground)
+            .background(CardBackground.copy(alpha = cardAlpha))
             .clickable { onOpenTask(task.id) }
             .padding(horizontal = CARD_PAD_H, vertical = CARD_PAD_V)
     ) {
