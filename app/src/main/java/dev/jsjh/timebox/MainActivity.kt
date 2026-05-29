@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.appcompat.app.AppCompatActivity
 import dev.jsjh.timebox.auth.initSupabase
 import dev.jsjh.timebox.feature.root.TimeBoxingApp
 import dev.jsjh.timebox.feature.settings.AppSettingsStore
@@ -34,7 +35,7 @@ import com.google.android.play.core.appupdate.AppUpdateOptions
 import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.UpdateAvailability
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private var keepSystemBarsVisible = false
     private var loginScreenVisible = false
     private var showSystemNavigationBar = false

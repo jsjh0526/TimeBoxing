@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -69,6 +70,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.jsjh.timebox.R
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.DailyTaskSource
 import dev.jsjh.timebox.domain.model.ScheduleBlock
@@ -141,8 +143,8 @@ fun HomeScreen(
             if (unscheduled.isNotEmpty()) {
                 item { UnscheduledCard(unscheduled, unscheduledExpanded, { unscheduledExpanded = !unscheduledExpanded }, onOpenTask, onMarkTaskComplete) }
             }
-            item { PrimaryButton("시간표 열기", onOpenTimetable) }
-            item { SecondaryButton("새 할일 추가", onAddTask) }
+            item { PrimaryButton(stringResource(R.string.home_open_timetable), onOpenTimetable) }
+            item { SecondaryButton(stringResource(R.string.home_add_task), onAddTask) }
         }
 
         // ?뚮┝ ?⑤꼸 ?ㅻ쾭?덉씠
@@ -167,15 +169,15 @@ private fun HomeHeader(date: LocalDate, currentTime: LocalTime, completedCount: 
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(date.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)), style = TextStyle(color = Color.White, fontSize = 28.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.7).sp))
+                Text(date.format(DateTimeFormatter.ofPattern(stringResource(R.string.home_date_pattern), Locale.getDefault())), style = TextStyle(color = Color.White, fontSize = 28.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.7).sp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(date.format(DateTimeFormatter.ofPattern("EEEE", Locale.ENGLISH)), style = TextStyle(color = Secondary, fontSize = 13.sp, lineHeight = 19.5.sp, fontWeight = FontWeight.Medium))
+                Text(date.format(DateTimeFormatter.ofPattern(stringResource(R.string.home_weekday_pattern), Locale.getDefault())), style = TextStyle(color = Secondary, fontSize = 13.sp, lineHeight = 19.5.sp, fontWeight = FontWeight.Medium))
             }
             Text(currentTime.format(DateTimeFormatter.ofPattern("HH:mm")), style = TextStyle(color = Accent, fontSize = 20.sp, lineHeight = 20.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp))
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(horizontalAlignment = Alignment.End) {
-                Text("Today", style = TextStyle(color = Muted, fontSize = 13.sp, lineHeight = 13.sp))
+                Text(stringResource(R.string.home_today), style = TextStyle(color = Muted, fontSize = 13.sp, lineHeight = 13.sp))
                 Text("$completedCount/$totalCount", style = TextStyle(color = Color.White, fontSize = 17.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold))
             }
             Spacer(modifier = Modifier.width(12.dp))
@@ -191,9 +193,9 @@ private fun NowCard(task: DailyTask?, currentMinute: Int, onOpenTask: () -> Unit
     if (task == null) {
         Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardBackground).border(0.7.dp, CardBorder, RoundedCornerShape(16.dp)).padding(horizontal = 20.dp, vertical = 20.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                LabelWithDot("NOW", Tertiary, Muted)
-                Text("진행 중인 타임블록이 없어요", style = titleStyle(15.sp, FontWeight.Normal), color = Secondary)
-                Text("쉬거나 다음 블록을 준비해보세요", style = bodyStyle(13.sp, Tertiary))
+                LabelWithDot(stringResource(R.string.home_now), Tertiary, Muted)
+                Text(stringResource(R.string.home_no_current_title), style = titleStyle(15.sp, FontWeight.Normal), color = Secondary)
+                Text(stringResource(R.string.home_no_current_subtitle), style = bodyStyle(13.sp, Tertiary))
             }
         }
         return
@@ -206,7 +208,7 @@ private fun NowCard(task: DailyTask?, currentMinute: Int, onOpenTask: () -> Unit
         Box(modifier = Modifier.align(Alignment.TopEnd).offset(x = 52.dp, y = (-64).dp).size(128.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)))
         Column(modifier = Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                LabelWithDot("NOW", Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0.8f))
+                LabelWithDot(stringResource(R.string.home_now), Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0.8f))
                 Text(task.title, style = titleStyle(20.sp, FontWeight.SemiBold), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -215,12 +217,12 @@ private fun NowCard(task: DailyTask?, currentMinute: Int, onOpenTask: () -> Unit
                         Text(formatRange(schedule), style = bodyStyle(14.sp, Color.White.copy(alpha = 0.9f), FontWeight.Medium))
                     }
                     Box(modifier = Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.2f)).padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        Text("${remaining}min left", style = bodyStyle(13.sp, Color.White, FontWeight.SemiBold))
+                        Text(stringResource(R.string.home_minutes_left, remaining), style = bodyStyle(13.sp, Color.White, FontWeight.SemiBold))
                     }
                 }
             }
             Box(modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.2f)).clickable(onClick = onMarkComplete), contentAlignment = Alignment.Center) {
-                Text(if (task.isCompleted) "completed" else "complete", style = bodyStyle(16.sp, Color.White, FontWeight.SemiBold))
+                Text(if (task.isCompleted) stringResource(R.string.home_completed) else stringResource(R.string.home_complete), style = bodyStyle(16.sp, Color.White, FontWeight.SemiBold))
             }
         }
     }
@@ -231,7 +233,7 @@ private fun UpNextCard(task: DailyTask) {
     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CardBackground).border(0.7.dp, CardBorder, RoundedCornerShape(14.dp)).padding(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("NEXT", style = sectionTitle(Muted))
+                Text(stringResource(R.string.home_next), style = sectionTitle(Muted))
                 Text(task.schedule?.let { formatClock(it.startMinute) }.orEmpty(), style = bodyStyle(13.sp, Secondary, FontWeight.Medium))
             }
             Text(task.title, style = titleStyle(16.sp, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -248,7 +250,7 @@ private fun Big3Card(tasks: List<DailyTask>, expanded: Boolean, onToggle: () -> 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     StarIcon(color = Priority, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("TOP 3 PRIORITIES", style = sectionTitle(Priority))
+                    Text(stringResource(R.string.home_top_priorities), style = sectionTitle(Priority))
                 }
                 ChevronIcon(expanded = expanded, color = Priority)
             }
@@ -288,7 +290,7 @@ private fun UpcomingCard(tasks: List<DailyTask>, onOpenTask: (String) -> Unit) {
     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CardBackground).border(0.7.dp, CardBorder, RoundedCornerShape(14.dp)).padding(16.dp)) {
         val timelineHeight = ((tasks.size * 48) + ((tasks.size - 1).coerceAtLeast(0) * 10)).dp
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("UPCOMING BLOCKS", style = sectionTitle(Secondary))
+            Text(stringResource(R.string.home_upcoming_blocks), style = sectionTitle(Secondary))
             Box {
                 Box(modifier = Modifier.padding(start = 4.dp, top = 8.dp).width(2.dp).height(timelineHeight).background(Brush.verticalGradient(listOf(Accent, Accent.copy(alpha = 0.3f), Color.Transparent))))
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -318,7 +320,7 @@ private fun UpcomingRow(task: DailyTask, highlighted: Boolean, onOpenTask: (Stri
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     StarIcon(color = Priority, modifier = Modifier.size(10.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("PRIORITY", style = TextStyle(color = Priority, fontSize = 10.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.25.sp))
+                    Text(stringResource(R.string.home_priority), style = TextStyle(color = Priority, fontSize = 10.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.25.sp))
                 }
             }
         }
@@ -331,13 +333,13 @@ private fun UnscheduledCard(tasks: List<DailyTask>, expanded: Boolean, onToggle:
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("UNSCHEDULED", style = sectionTitle(Secondary))
-                    Text("계획이 필요한 작업", style = bodyStyle(12.sp, Tertiary))
+                    Text(stringResource(R.string.home_unscheduled), style = sectionTitle(Secondary))
+                    Text(stringResource(R.string.home_unscheduled_subtitle), style = bodyStyle(12.sp, Tertiary))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(horizontalAlignment = Alignment.End) {
                         Text(tasks.size.toString(), style = TextStyle(color = Accent, fontSize = 24.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold))
-                        Text("tasks", style = bodyStyle(11.sp, Tertiary))
+                        Text(stringResource(R.string.home_tasks), style = bodyStyle(11.sp, Tertiary))
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     ChevronIcon(expanded = expanded, color = Secondary)
@@ -482,10 +484,10 @@ private fun NotificationPanel(
         currentMinute in schedule.startMinute until schedule.endMinute
     }
     val summary = when {
-        alertTasks.isEmpty() -> "설정된 알림 없음"
-        activeAlert != null -> "지금 · ${activeAlert.title}"
-        nextAlert != null -> "다음 ${formatClock(nextAlert.schedule!!.startMinute)}"
-        else -> "오늘 알림 모두 지남"
+        alertTasks.isEmpty() -> stringResource(R.string.reminders_summary_empty)
+        activeAlert != null -> stringResource(R.string.reminders_summary_now, activeAlert.title)
+        nextAlert != null -> stringResource(R.string.reminders_summary_next, formatClock(nextAlert.schedule!!.startMinute))
+        else -> stringResource(R.string.reminders_summary_done)
     }
 
     Box(
@@ -512,10 +514,10 @@ private fun NotificationPanel(
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ReminderBellIcon(Accent, Modifier.size(18.dp))
-                        Text("Reminders", style = TextStyle(color = Color.White, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold))
+                        Text(stringResource(R.string.reminders_title), style = TextStyle(color = Color.White, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold))
                     }
                     Text(
-                        "오늘 알림 ${alertTasks.size}개 · $summary",
+                        stringResource(R.string.reminders_count, alertTasks.size, summary),
                         style = TextStyle(color = Secondary, fontSize = 12.sp, lineHeight = 18.sp)
                     )
                 }
@@ -535,9 +537,9 @@ private fun NotificationPanel(
                         ) {
                             ReminderBellIcon(Secondary, Modifier.size(24.dp))
                         }
-                        Text("No reminders yet", style = TextStyle(color = Color.White, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold))
+                        Text(stringResource(R.string.reminders_empty_title), style = TextStyle(color = Color.White, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold))
                         Text(
-                            "Turn on Alert in a time block to get notified.",
+                            stringResource(R.string.reminders_empty_subtitle),
                             style = TextStyle(color = Muted, fontSize = 12.sp, lineHeight = 18.sp),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
@@ -547,7 +549,7 @@ private fun NotificationPanel(
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (activeAndUpcomingAlerts.isEmpty()) {
                         Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF202020)).padding(horizontal = 14.dp, vertical = 16.dp)) {
-                Text("오늘 남은 알림이 없어요", style = TextStyle(color = Secondary, fontSize = 13.sp, lineHeight = 19.sp))
+                            Text(stringResource(R.string.reminders_none_left), style = TextStyle(color = Secondary, fontSize = 13.sp, lineHeight = 19.sp))
                         }
                     } else {
                         activeAndUpcomingAlerts.forEach { task ->
@@ -565,7 +567,7 @@ private fun NotificationPanel(
                         ) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    if (pastExpanded) "Hide past reminders" else "Show past reminders",
+                                    if (pastExpanded) stringResource(R.string.reminders_hide_past) else stringResource(R.string.reminders_show_past),
                                     style = TextStyle(color = Secondary, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium)
                                 )
                                 Text("${pastAlerts.size}", style = TextStyle(color = Muted, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium))
@@ -635,10 +637,10 @@ private fun ReminderTaskRow(
 
         when {
             isNow -> Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Accent.copy(alpha = 0.2f)).padding(horizontal = 8.dp, vertical = 4.dp)) {
-                Text("NOW", style = TextStyle(color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp))
+                Text(stringResource(R.string.home_now), style = TextStyle(color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp))
             }
-            isPast -> Text(if (task.isCompleted) "DONE" else "MISSED", style = TextStyle(color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium))
-            else -> Text("ON", style = TextStyle(color = Secondary, fontSize = 11.sp, fontWeight = FontWeight.Medium))
+            isPast -> Text(if (task.isCompleted) stringResource(R.string.reminders_done) else stringResource(R.string.reminders_missed), style = TextStyle(color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium))
+            else -> Text(stringResource(R.string.reminders_on), style = TextStyle(color = Secondary, fontSize = 11.sp, fontWeight = FontWeight.Medium))
         }
     }
 }

@@ -52,6 +52,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -63,6 +64,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import dev.jsjh.timebox.R
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.DailyTaskSource
 import dev.jsjh.timebox.domain.model.RecurrenceRule
@@ -172,7 +174,7 @@ fun TaskEditorDialog(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text(
-                                text = if (draft.taskId == null) "New Task" else "Edit Task",
+                                text = if (draft.taskId == null) stringResource(R.string.editor_new_task) else stringResource(R.string.editor_edit_task),
                                 style = TextStyle(color = TextPrimary, fontSize = 18.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold)
                             )
                             if (draft.taskId == null) {
@@ -189,29 +191,29 @@ fun TaskEditorDialog(
                         modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(bodyScroll).padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        EditorLabel("Title")
-                        EditorInput(value = draft.title, onValueChange = { onChange(draft.copy(title = it)) }, placeholder = "Task title", autoFocus = draft.taskId == null && draft.templateId == null)
+                        EditorLabel(stringResource(R.string.editor_title))
+                        EditorInput(value = draft.title, onValueChange = { onChange(draft.copy(title = it)) }, placeholder = stringResource(R.string.editor_title_placeholder), autoFocus = draft.taskId == null && draft.templateId == null)
 
-                        EditorLabel("Memo") { MemoIcon(TextSecondary, Modifier.size(14.dp)) }
-                        EditorInput(value = draft.note, onValueChange = { onChange(draft.copy(note = it)) }, placeholder = "Details...", minLines = 3)
+                        EditorLabel(stringResource(R.string.editor_memo)) { MemoIcon(TextSecondary, Modifier.size(14.dp)) }
+                        EditorInput(value = draft.note, onValueChange = { onChange(draft.copy(note = it)) }, placeholder = stringResource(R.string.editor_memo_placeholder), minLines = 3)
 
-                        EditorLabel("Tags") { TagLabelIcon(TextSecondary, Modifier.size(14.dp)) }
+                        EditorLabel(stringResource(R.string.editor_tags)) { TagLabelIcon(TextSecondary, Modifier.size(14.dp)) }
                         TagEditor(draft = draft, onChange = onChange)
 
                         // Recurring Habit
-                        SettingSection(title = "Recurring Habit", enabled = draft.recurringEnabled, onToggle = { onChange(draft.copy(recurringEnabled = it)) }, icon = { RecurringIcon(Accent, Modifier.size(18.dp)) }) {
+                        SettingSection(title = stringResource(R.string.editor_recurring_habit), enabled = draft.recurringEnabled, onToggle = { onChange(draft.copy(recurringEnabled = it)) }, icon = { RecurringIcon(Accent, Modifier.size(18.dp)) }) {
                             val isWeekdaysPreset = draft.recurrenceType == RecurrenceType.WEEKDAYS
                             val isWeekendPreset  = draft.recurrenceType == RecurrenceType.CUSTOM && draft.repeatDays == weekendDays()
                             val isCustomPreset   = draft.recurrenceType == RecurrenceType.CUSTOM && !isWeekendPreset
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                RecurrenceSegment("Daily",    draft.recurrenceType == RecurrenceType.DAILY, { onChange(draft.copy(recurrenceType = RecurrenceType.DAILY,    repeatDays = emptySet())) },                                                                                                                    Modifier.weight(1f))
-                                RecurrenceSegment("Weekdays", isWeekdaysPreset,                             { onChange(draft.copy(recurrenceType = RecurrenceType.WEEKDAYS, repeatDays = defaultWeeklyDays())) },                                                                                                            Modifier.weight(1f))
-                                RecurrenceSegment("Weekend",  isWeekendPreset,                              { onChange(draft.copy(recurrenceType = RecurrenceType.CUSTOM,   repeatDays = weekendDays())) },                                                                                                                   Modifier.weight(1f))
-                                RecurrenceSegment("Custom",   isCustomPreset,                               { onChange(draft.copy(recurrenceType = RecurrenceType.CUSTOM,   repeatDays = if (draft.repeatDays.isEmpty() || isWeekendPreset) setOf(draft.date.dayOfWeek) else draft.repeatDays)) },                         Modifier.weight(1f))
+                                RecurrenceSegment(stringResource(R.string.editor_daily), draft.recurrenceType == RecurrenceType.DAILY, { onChange(draft.copy(recurrenceType = RecurrenceType.DAILY, repeatDays = emptySet())) }, Modifier.weight(1f))
+                                RecurrenceSegment(stringResource(R.string.editor_weekdays), isWeekdaysPreset, { onChange(draft.copy(recurrenceType = RecurrenceType.WEEKDAYS, repeatDays = defaultWeeklyDays())) }, Modifier.weight(1f))
+                                RecurrenceSegment(stringResource(R.string.editor_weekend), isWeekendPreset, { onChange(draft.copy(recurrenceType = RecurrenceType.CUSTOM, repeatDays = weekendDays())) }, Modifier.weight(1f))
+                                RecurrenceSegment(stringResource(R.string.editor_custom), isCustomPreset, { onChange(draft.copy(recurrenceType = RecurrenceType.CUSTOM, repeatDays = if (draft.repeatDays.isEmpty() || isWeekendPreset) setOf(draft.date.dayOfWeek) else draft.repeatDays)) }, Modifier.weight(1f))
                             }
                             if (isCustomPreset) {
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text("SELECT DAYS", style = TextStyle(color = TextMuted, fontSize = 12.sp, lineHeight = 18.sp, letterSpacing = 0.6.sp, fontWeight = FontWeight.Medium))
+                                    Text(stringResource(R.string.editor_select_days), style = TextStyle(color = TextMuted, fontSize = 12.sp, lineHeight = 18.sp, letterSpacing = 0.6.sp, fontWeight = FontWeight.Medium))
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                                         listOf(DayOfWeek.SUNDAY, DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY).forEach { day ->
                                             DayCircle(dayLabel(day), day in draft.repeatDays, {
@@ -227,7 +229,7 @@ fun TaskEditorDialog(
 
                         // Time Block
                         SettingSection(
-                            title = "Time Block",
+                            title = stringResource(R.string.editor_time_block),
                             enabled = draft.timeBlockEnabled,
                             onToggle = { enabled ->
                                 onChange(
@@ -243,7 +245,7 @@ fun TaskEditorDialog(
 
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 TimeDropdownField(
-                                    label    = "START",
+                                    label    = stringResource(R.string.editor_start),
                                     value    = draft.startText,
                                     modifier = Modifier.weight(1f),
                                     options  = timeOptions(start = 0, end = 23 * 60 + 45),
@@ -251,7 +253,7 @@ fun TaskEditorDialog(
                                 )
                                 Text("\u2192", style = TextStyle(color = Accent, fontSize = 18.sp, lineHeight = 28.sp))
                                 TimeDropdownField(
-                                    label    = "END",
+                                    label    = stringResource(R.string.editor_end),
                                     value    = draft.endText,
                                     modifier = Modifier.weight(1f),
                                     options  = timeOptions(start = startMin + 15, end = 24 * 60),
@@ -266,12 +268,12 @@ fun TaskEditorDialog(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     ClockIcon(Accent, Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Duration:", style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 19.5.sp))
+                                    Text(stringResource(R.string.editor_duration), style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 19.5.sp))
                                     Spacer(Modifier.width(6.dp))
                                     Text(durationLabel(draft.startText, draft.endText), style = TextStyle(color = Accent, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold))
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("Alert", style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 19.5.sp))
+                                    Text(stringResource(R.string.editor_alert), style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 19.5.sp))
                                     Spacer(Modifier.width(8.dp))
                                     EditorSwitch(checked = draft.alertEnabled, onToggle = { onChange(draft.copy(alertEnabled = it)) })
                                 }
@@ -286,9 +288,9 @@ fun TaskEditorDialog(
                 ) {
                     TrashButton(enabled = onDelete != null, onClick = { onDelete?.invoke() })
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Cancel", modifier = Modifier.clickable(onClick = onDismiss), style = TextStyle(color = TextSecondary, fontSize = 16.sp, lineHeight = 24.sp))
+                        Text(stringResource(R.string.editor_cancel), modifier = Modifier.clickable(onClick = onDismiss), style = TextStyle(color = TextSecondary, fontSize = 16.sp, lineHeight = 24.sp))
                         Box(modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Accent).clickable(onClick = onSave).padding(horizontal = 26.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
-                            Text(if (draft.taskId == null) "Create" else "Save", style = TextStyle(color = TextPrimary, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium))
+                            Text(if (draft.taskId == null) stringResource(R.string.editor_create) else stringResource(R.string.editor_save), style = TextStyle(color = TextPrimary, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium))
                         }
                     }
                 }
@@ -438,7 +440,7 @@ private fun TagEditor(draft: TaskEditorDraft, onChange: (TaskEditorDraft) -> Uni
                 textStyle = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.5.sp),
                 modifier  = Modifier.width(180.dp).focusRequester(focusRequester),
                 decorationBox = { inner ->
-                    if (draft.tagInput.isEmpty()) Text("Add tag...", style = TextStyle(color = TextMuted, fontSize = 15.sp))
+                    if (draft.tagInput.isEmpty()) Text(stringResource(R.string.editor_add_tag), style = TextStyle(color = TextMuted, fontSize = 15.sp))
                     inner()
                 }
             )

@@ -58,6 +58,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -67,9 +68,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.jsjh.timebox.R
 import androidx.compose.ui.zIndex
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.ScheduleBlock
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
@@ -489,7 +492,7 @@ private fun TrayDropPreviewCard(task: DailyTask, schedule: ScheduleBlock) {
 @Composable
 private fun TopHeader(currentTime: LocalTime, onCalendarClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().height(69.dp).background(HeaderBackground).padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text("Time Table", style = TextStyle(color = TextPrimary, fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp))
+        Text(stringResource(R.string.timetable_title), style = TextStyle(color = TextPrimary, fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             CalendarHeaderButton(onClick = onCalendarClick)
             Text(currentTime.format(DateTimeFormatter.ofPattern("HH:mm")), style = TextStyle(color = Accent, fontSize = 16.sp, lineHeight = 24.sp))
@@ -571,18 +574,18 @@ private fun CalendarPanel(
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (!focusedDate.isBefore(today)) {
                 CalendarActionButton(
-                    text = "해당 날짜에 할 일 추가",
+                    text = stringResource(R.string.calendar_add_for_date),
                     variant = CalendarActionVariant.Outline,
                     onClick = { onAddTaskForDate(focusedDate) }
                 )
             }
             CalendarActionButton(
-                text = "해당 날짜 타임라인 보기",
+                text = stringResource(R.string.calendar_open_date),
                 variant = CalendarActionVariant.Primary,
                 onClick = { onOpenTimeline(focusedDate) }
             )
             CalendarActionButton(
-                text = "오늘로 돌아가기",
+                text = stringResource(R.string.calendar_return_today),
                 variant = CalendarActionVariant.Neutral,
                 onClick = onReturnToday
             )
@@ -613,7 +616,7 @@ private fun CalendarMonthCard(
         Box(modifier = Modifier.fillMaxWidth().height(56.dp)) {
             CircleArrow(direction = -1, onClick = { onFocusedDateChange(focusedDate.minusMonths(1)) })
             Text(
-                text = month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)),
+                text = month.format(DateTimeFormatter.ofPattern(stringResource(R.string.calendar_month_pattern), Locale.getDefault())),
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp),
                 style = TextStyle(color = TextPrimary, fontSize = 18.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
             )
@@ -622,7 +625,10 @@ private fun CalendarMonthCard(
             }
         }
         Row(modifier = Modifier.fillMaxWidth().height(36.dp)) {
-            listOf("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa").forEach { label ->
+            (0..6).map { offset ->
+                DayOfWeek.SUNDAY.plus(offset.toLong())
+                    .getDisplayName(java.time.format.TextStyle.NARROW, Locale.getDefault())
+            }.forEach { label ->
                 Text(
                     text = label,
                     modifier = Modifier.weight(1f),
@@ -733,11 +739,11 @@ private fun CalendarStatsCard(date: LocalDate, stats: Pair<Int, Int>) {
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = "${date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"))} 통계",
+                text = stringResource(R.string.calendar_stats_title, date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"))),
                 style = TextStyle(color = TextSecondary, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
             )
             Text(
-                text = "완료된 할 일",
+                text = stringResource(R.string.calendar_completed_count),
                 style = TextStyle(color = TextPrimary, fontSize = 18.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
             )
         }
@@ -803,7 +809,7 @@ private fun DateHeader(date: LocalDate, showTodayButton: Boolean, onPreviousDay:
             CircleArrow(direction = -1, onClick = onPreviousDay)
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")), style = TextStyle(color = TextPrimary, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold))
-                Text(date.format(DateTimeFormatter.ofPattern("EEEE", Locale.ENGLISH)), style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.3.sp))
+                Text(date.format(DateTimeFormatter.ofPattern("EEEE", Locale.getDefault())), style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.3.sp))
                 if (showTodayButton) TodayPill(onClick = onToday)
             }
             CircleArrow(direction = 1, onClick = onNextDay)
@@ -818,7 +824,7 @@ private fun TodayPill(onClick: () -> Unit) {
         modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(Accent.copy(alpha = 0.18f)).border(0.7.dp, Accent.copy(alpha = 0.45f), RoundedCornerShape(999.dp)).clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text("Today", style = TextStyle(color = Accent, fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp))
+        Text(stringResource(R.string.calendar_today), style = TextStyle(color = Accent, fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp))
     }
 }
 
@@ -827,7 +833,7 @@ private fun ReadOnlyNotice() {
     Row(modifier = Modifier.fillMaxWidth().height(ReadOnlyNoticeHeight).background(Color(0xFF191919)).padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(TextSecondary))
         Spacer(modifier = Modifier.width(8.dp))
-        Text("Past and future days are view only.", style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp))
+        Text(stringResource(R.string.calendar_readonly), style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp))
     }
 }
 
@@ -1045,7 +1051,7 @@ private fun ScheduledCard(
                                     val nextLineCount = result.lineCount
                                     if (titleLineCount != nextLineCount) titleLineCount = nextLineCount
                                 })
-                                if (task.isBig3) Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Big3Badge).padding(horizontal = 6.dp, vertical = 2.dp)) { Text("Big 3", style = TextStyle(color = Big3Text, fontSize = 9.sp, lineHeight = 13.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.45.sp)) }
+                                if (task.isBig3) Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Big3Badge).padding(horizontal = 6.dp, vertical = 2.dp)) { Text(stringResource(R.string.timetable_big3_badge), style = TextStyle(color = Big3Text, fontSize = 9.sp, lineHeight = 13.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.45.sp)) }
                             }
                             Spacer(Modifier.width(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1110,7 +1116,7 @@ private fun TimetableTagChip(label: String, color: Color) {
 @Composable
 private fun NowBadge() {
     Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Accent.copy(alpha = 0.3f)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-        Text("Now", style = TextStyle(color = Accent, fontSize = 9.sp, lineHeight = 13.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.45.sp))
+        Text(stringResource(R.string.timetable_now), style = TextStyle(color = Accent, fontSize = 9.sp, lineHeight = 13.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.45.sp))
     }
 }
 
@@ -1176,7 +1182,7 @@ private fun BottomTray(
         Row(modifier = Modifier.fillMaxWidth().height(44.dp).clickable(onClick = onToggle).padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ClockMiniIcon(TextSecondary); Spacer(modifier = Modifier.width(8.dp))
-                Text("Unscheduled", style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)); Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.timetable_unscheduled), style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)); Spacer(modifier = Modifier.width(8.dp))
                 Box(modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(Color(0xFF2A2A2A)).padding(horizontal = 7.dp, vertical = 2.dp)) { Text(tasks.size.toString(), style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp)) }
             }
             ChevronUpIcon(TextSecondary, expanded = expanded)
@@ -1184,7 +1190,7 @@ private fun BottomTray(
         if (expanded) {
             Column(modifier = Modifier.fillMaxWidth().weight(1f, fill = false).verticalScroll(trayScroll).padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (tasks.isEmpty()) {
-                    Text("All tasks are scheduled.", style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 18.sp))
+                    Text(stringResource(R.string.timetable_all_scheduled), style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 18.sp))
                 } else {
                     tasks.forEach { task ->
                         var itemTopInRootPx by remember(task.id) { mutableStateOf(0f) }
@@ -1249,7 +1255,7 @@ private fun BottomTray(
                 }
                 if (!readOnly) {
                     Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Accent).clickable(onClick = onAddTask).padding(vertical = 14.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Add Task", style = TextStyle(color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold))
+                        Text(stringResource(R.string.timetable_add_task), style = TextStyle(color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold))
                     }
                 }
             }

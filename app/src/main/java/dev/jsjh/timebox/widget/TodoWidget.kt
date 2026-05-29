@@ -182,7 +182,7 @@ private fun TodoWidgetContent(
         ) {
             Column(modifier = GlanceModifier.defaultWeight()) {
                 Text(
-                    text = "Today",
+                    text = context.getString(R.string.widget_today),
                     style = TextStyle(
                         color = ColorProvider(WidgetText),
                         fontSize = 18.sp,
@@ -190,7 +190,7 @@ private fun TodoWidgetContent(
                     )
                 )
                 Text(
-                    text = "${state.incompleteCount}/${state.totalCount} left",
+                    text = context.getString(R.string.widget_left, state.incompleteCount, state.totalCount),
                     style = TextStyle(color = ColorProvider(WidgetMuted), fontSize = 12.sp)
                 )
             }
@@ -218,7 +218,7 @@ private fun TodoWidgetContent(
         Spacer(GlanceModifier.height(if (compact) 8.dp else 10.dp))
 
         if (state.tasks.isEmpty()) {
-            EmptyWidgetState()
+            EmptyWidgetState(context)
             return@Column
         }
 
@@ -232,7 +232,8 @@ private fun TodoWidgetContent(
                 Column {
                     TodoWidgetCard(
                         task = task,
-                        compact = compact
+                        compact = compact,
+                        context = context
                     )
                     Spacer(GlanceModifier.height(if (compact) 8.dp else 10.dp))
                 }
@@ -242,7 +243,7 @@ private fun TodoWidgetContent(
 }
 
 @Composable
-private fun EmptyWidgetState() {
+private fun EmptyWidgetState(context: Context) {
     Box(
         modifier = GlanceModifier
             .fillMaxWidth()
@@ -253,16 +254,16 @@ private fun EmptyWidgetState() {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "No tasks today",
+            text = context.getString(R.string.widget_no_tasks),
             style = TextStyle(color = ColorProvider(WidgetMuted), fontSize = 13.sp)
         )
     }
 }
 
 @Composable
-private fun TodoWidgetCard(task: DailyTask, compact: Boolean) {
+private fun TodoWidgetCard(task: DailyTask, compact: Boolean, context: Context) {
     val timeText = task.schedule?.let { "${formatClock(it.startMinute)} - ${formatClock(it.endMinute)}" }
-        ?: "Unscheduled"
+        ?: context.getString(R.string.widget_unscheduled)
     val cardHeight = if (compact) 58.dp else 78.dp
     val actionParameters = actionParametersOf(
         TaskIdKey to task.id,

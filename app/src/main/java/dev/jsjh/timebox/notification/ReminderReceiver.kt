@@ -65,14 +65,14 @@ class ReminderReceiver : BroadcastReceiver() {
 
         val notification = NotificationCompat.Builder(context, ReminderScheduler.channelId(settings))
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title.ifBlank { "TimeBoxing" })
+            .setContentTitle(title.ifBlank { context.getString(R.string.app_name) })
             .setContentText(timeRange)
             .setStyle(NotificationCompat.BigTextStyle().bigText(timeRange))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
-            .addAction(R.drawable.ic_notification, "완료", completePendingIntent)
+            .addAction(R.drawable.ic_notification, context.getString(R.string.notification_complete_action), completePendingIntent)
             .setSilent(!settings.soundEnabled && !settings.vibrationEnabled)
             .build()
 
@@ -137,4 +137,3 @@ class ReminderReceiver : BroadcastReceiver() {
         NotificationManagerCompat.from(context).notify(id, notification)
     }
 }
-

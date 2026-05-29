@@ -43,10 +43,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.jsjh.timebox.R
 import dev.jsjh.timebox.auth.AuthRepository
 import dev.jsjh.timebox.auth.AuthState
 import dev.jsjh.timebox.auth.LoginScreen
@@ -157,7 +159,7 @@ fun TimeBoxingApp(
                             if (success) {
                                 migrationReloadKey++
                             } else {
-                                Toast.makeText(context, "데이터 이동 실패. 네트워크를 확인하고 다시 시도해 주세요.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, context.getString(R.string.migration_failed), Toast.LENGTH_LONG).show()
                             }
                         }
                     },
@@ -303,7 +305,12 @@ private fun MainApp(
     }
     LaunchedEffect(appState.scheduleLimitMessage) {
         val message = appState.scheduleLimitMessage ?: return@LaunchedEffect
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        val toastMessage = if (message == ScheduleLimitMessageToken) {
+            context.getString(R.string.schedule_limit_message, MaxConcurrentTimeBlocks)
+        } else {
+            message
+        }
+        Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
         appState.clearScheduleLimitMessage()
     }
     LaunchedEffect(userId, appState.todayTasks, appSettings.dayStartHour) {
@@ -456,13 +463,13 @@ private fun MigrationDialog(onMigrate: () -> Unit, onStartFresh: () -> Unit) {
         containerColor = cardBg,
         title = {
             Text(
-                "이전 데이터 이동",
+                stringResource(R.string.migration_title),
                 style = TextStyle(color = textPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
             )
         },
         text = {
             Text(
-                "게스트로 작성한 로컬 데이터를\nGoogle 계정으로 옮길까요?\n\n새로 시작하면 계정에 저장된\n클라우드 데이터를 불러옵니다.",
+                stringResource(R.string.migration_message),
                 style = TextStyle(color = textMuted, fontSize = 14.sp, lineHeight = 21.sp)
             )
         },
@@ -475,7 +482,7 @@ private fun MigrationDialog(onMigrate: () -> Unit, onStartFresh: () -> Unit) {
                     .padding(horizontal = 20.dp, vertical = 10.dp)
             ) {
                 Text(
-                    "옮기기",
+                    stringResource(R.string.migration_confirm),
                     style = TextStyle(color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 )
             }
@@ -488,7 +495,7 @@ private fun MigrationDialog(onMigrate: () -> Unit, onStartFresh: () -> Unit) {
                     .clickable(onClick = onStartFresh)
                     .padding(horizontal = 20.dp, vertical = 10.dp)
             ) {
-                Text("새로 시작", style = TextStyle(color = textMuted, fontSize = 14.sp))
+                Text(stringResource(R.string.migration_start_fresh), style = TextStyle(color = textMuted, fontSize = 14.sp))
             }
         }
     )
@@ -529,7 +536,7 @@ private fun BottomBarItem(tab: AppTab, selected: Boolean, modifier: Modifier = M
     ) {
         TabIcon(tab = tab, color = color)
         Text(
-            text = tab.label,
+            text = stringResource(tab.labelRes),
             style = TextStyle(color = color, fontSize = 11.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium)
         )
     }
@@ -550,7 +557,7 @@ private fun TabIcon(tab: AppTab, color: Color) {
     }
     Icon(
         imageVector = icon,
-        contentDescription = tab.label,
+        contentDescription = stringResource(tab.labelRes),
         tint = color,
         modifier = Modifier.size(24.dp)
     )

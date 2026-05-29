@@ -11,6 +11,7 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.content.edit
+import dev.jsjh.timebox.R
 import dev.jsjh.timebox.domain.model.DailyTask
 import java.time.LocalDate
 import java.time.ZoneId
@@ -43,10 +44,10 @@ object ReminderScheduler {
             .build()
 
         val channels = listOf(
-            channel(CHANNEL_SOUND_VIBRATION, "Task reminders", soundUri, audioAttributes, vibration = true),
-            channel(CHANNEL_SOUND, "Task reminders sound", soundUri, audioAttributes, vibration = false),
-            channel(CHANNEL_VIBRATION, "Task reminders vibration", sound = null, audioAttributes = null, vibration = true),
-            channel(CHANNEL_SILENT, "Task reminders silent", sound = null, audioAttributes = null, vibration = false)
+            channel(context, CHANNEL_SOUND_VIBRATION, context.getString(R.string.notification_channel_reminders), soundUri, audioAttributes, vibration = true),
+            channel(context, CHANNEL_SOUND, context.getString(R.string.notification_channel_reminders_sound), soundUri, audioAttributes, vibration = false),
+            channel(context, CHANNEL_VIBRATION, context.getString(R.string.notification_channel_reminders_vibration), sound = null, audioAttributes = null, vibration = true),
+            channel(context, CHANNEL_SILENT, context.getString(R.string.notification_channel_reminders_silent), sound = null, audioAttributes = null, vibration = false)
         )
         manager.createNotificationChannels(channels)
     }
@@ -190,6 +191,7 @@ object ReminderScheduler {
     }
 
     private fun channel(
+        context: Context,
         id: String,
         name: String,
         sound: android.net.Uri?,
@@ -197,7 +199,7 @@ object ReminderScheduler {
         vibration: Boolean
     ): NotificationChannel {
         return NotificationChannel(id, name, NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "TimeBoxing task start reminders"
+            description = context.getString(R.string.notification_channel_description)
             setSound(sound, audioAttributes)
             enableVibration(vibration)
             if (vibration) vibrationPattern = longArrayOf(0, 180, 80, 180)

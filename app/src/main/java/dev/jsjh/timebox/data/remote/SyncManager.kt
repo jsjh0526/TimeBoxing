@@ -18,7 +18,16 @@ sealed class SyncState {
     data object Idle : SyncState()
     data object Syncing : SyncState()
     data class Success(val time: String) : SyncState()
-    data class Error(val message: String) : SyncState()
+    data class Error(val type: SyncErrorType) : SyncState()
+}
+
+enum class SyncErrorType {
+    AccountMismatch,
+    VerificationFailed,
+    RowLevelSecurity,
+    Conflict,
+    Network,
+    Unknown
 }
 
 object SyncManager {
@@ -46,7 +55,7 @@ object SyncManager {
             )
             _state.value = SyncState.Success(time)
         } catch (e: Exception) {
-            _state.value = SyncState.Error(userFriendlySyncError(e))
+            _state.value = SyncState.Error(syncErrorType(e))
         }
     }
 
@@ -66,22 +75,16 @@ object SyncManager {
         _state.value = SyncState.Idle
     }
 
-    private fun userFriendlySyncError(error: Exception): String {
+    private fun syncErrorType(error: Exception): SyncErrorType {
         val raw = error.message.orEmpty()
         val lower = raw.lowercase()
         return when {
-            "account mismatch" in lower ->
-                "현재 로그인 계정과 동기화 계정이 달라요. 로그아웃 후 다시 로그인해주세요."
-            "verification failed" in lower ->
-                "업로드한 서버 데이터 수가 맞지 않아요. 다시 동기화해주세요."
-            "row-level security" in lower ->
-                "동기화 권한 오류가 발생했어요. Supabase의 계정별 데이터 정책을 확인해주세요."
-            "on_conflict" in lower || "unique" in lower ->
-                "동기화 기준 설정이 맞지 않아요. Supabase 테이블 설정을 확인해주세요."
-            "network" in lower || "timeout" in lower ->
-                "네트워크 연결이 불안정해서 동기화하지 못했어요."
-            else ->
-                "동기화 중 오류가 발생했어요."
+            "account mismatch" in lower -> SyncErrorType.AccountMismatch
+            "verification failed" in lower -> SyncErrorType.VerificationFailed
+            "row-level security" in lower -> SyncErrorType.RowLevelSecurity
+            "on_conflict" in lower || "unique" in lower -> SyncErrorType.Conflict
+            "network" in lower || "timeout" in lower -> SyncErrorType.Network
+            else -> SyncErrorType.Unknown
         }
     }
 }

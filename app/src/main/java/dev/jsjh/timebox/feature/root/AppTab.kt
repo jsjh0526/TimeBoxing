@@ -1,11 +1,14 @@
 package dev.jsjh.timebox.feature.root
 
+import androidx.annotation.StringRes
+import dev.jsjh.timebox.R
+
 enum class AppTab(
-    val label: String,
+    @StringRes val labelRes: Int,
     val glyph: String
 ) {
-    HOME("홈", "H"),
-    TODO("TODO", "T"),
-    TIMETABLE("시간표", "B"),
-    SETTINGS("설정", "S")
+    HOME(R.string.tab_home, "H"),
+    TODO(R.string.tab_todo, "T"),
+    TIMETABLE(R.string.tab_timetable, "B"),
+    SETTINGS(R.string.tab_settings, "S")
 }

@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -88,13 +89,13 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 
             // ?? ???대쫫 ????????????????????????????????????????????????????
             Text(
-                text     = "Timebox",
+                text     = stringResource(R.string.brand_name),
                 modifier = Modifier.offset(x = 0.dp, y = fdp(106f)).width(fdp(345.334f)),
                 style    = TextStyle(color = TextPrimary, fontSize = 30.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.75).sp, lineHeight = 36.sp, textAlign = TextAlign.Center)
             )
 
             Text(
-                text     = "Focus on what matters most.",
+                text     = stringResource(R.string.login_tagline),
                 modifier = Modifier.offset(x = 0.dp, y = fdp(151f)).width(fdp(345.334f)),
                 style    = TextStyle(color = TextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 20.sp, textAlign = TextAlign.Center)
             )
@@ -143,7 +144,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 
             // ?? ?쎄? ???????????????????????????????????????????????????????
             Text(
-                text     = "By continuing, you agree to our Terms & Conditions.",
+                text     = stringResource(R.string.login_terms),
                 modifier = Modifier.offset(x = fdp(28.04f), y = fdp(356f)).width(fdp(289.258f)),
                 style    = TextStyle(color = TextTertiary, fontSize = 12.sp, fontWeight = FontWeight.Normal, lineHeight = 16.sp, textAlign = TextAlign.Center)
             )
@@ -171,7 +172,7 @@ private fun GuestButton(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text  = "Continue without account",
+            text  = stringResource(R.string.continue_without_account),
             style = TextStyle(
                 color      = TextSecondary,
                 fontSize   = 15.sp,
@@ -264,11 +265,11 @@ private fun GoogleSignInButton(modifier: Modifier, width: Dp, height: Dp, isLoad
             ) {
                 Image(
                     painter = painterResource(R.drawable.ic_google_g),
-                    contentDescription = "Google",
+                    contentDescription = stringResource(R.string.google),
                     modifier = Modifier.size(fdp(20f))
                 )
                 Text(
-                    text = "Continue with Google",
+                    text = stringResource(R.string.continue_with_google),
                     style = TextStyle(
                         color = Color.Black,
                         fontSize = 16.sp,

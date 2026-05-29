@@ -18,8 +18,8 @@ android {
         applicationId = "dev.jsjh.timebox"
         minSdk = 28
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.1.3"
+        versionCode = 15
+        versionName = "1.1.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -41,6 +41,9 @@ android {
         compose = true
         buildConfig = true
     }
+    androidResources {
+        generateLocaleConfig = true
+    }
     dependenciesInfo {
         includeInApk = true
         includeInBundle = true
@@ -49,6 +52,7 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))

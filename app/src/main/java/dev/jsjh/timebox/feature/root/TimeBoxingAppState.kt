@@ -24,7 +24,8 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
 
-private const val MaxConcurrentTimeBlocks = 5
+internal const val MaxConcurrentTimeBlocks = 5
+internal const val ScheduleLimitMessageToken = "schedule_limit"
 
 @Stable
 class TimeBoxingAppState(
@@ -294,7 +295,7 @@ class TimeBoxingAppState(
     }
 
     private fun notifyScheduleLimit() {
-        scheduleLimitMessage = "같은 시간에는 최대 ${MaxConcurrentTimeBlocks}개까지만 배치할 수 있어요."
+        scheduleLimitMessage = ScheduleLimitMessageToken
     }
 
     private fun syncSectionOrders(date: LocalDate, tasks: List<DailyTask>) {

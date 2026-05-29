@@ -1,6 +1,7 @@
 package dev.jsjh.timebox.feature.settings
 
 import android.content.Intent
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -32,11 +33,13 @@ import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -44,29 +47,37 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
+import androidx.core.os.LocaleListCompat
+import com.google.android.gms.oss.licenses.v2.OssLicensesMenuActivity
 import dev.jsjh.timebox.BuildConfig
+import dev.jsjh.timebox.R
 import dev.jsjh.timebox.auth.AuthRepository
 import dev.jsjh.timebox.auth.AuthState
+import dev.jsjh.timebox.data.remote.SyncErrorType
 import dev.jsjh.timebox.data.remote.SyncManager
 import dev.jsjh.timebox.data.remote.SyncState
 import dev.jsjh.timebox.notification.ReminderSettings
-import com.google.android.gms.oss.licenses.v2.OssLicensesMenuActivity
 
 private val ScreenBackground = Color(0xFF121212)
 private val CardBackground   = Color(0xFF1E1E1E)
@@ -100,6 +111,7 @@ fun SettingsScreen(
     val loggedInUserId = (authState as? AuthState.LoggedIn)?.userId
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
+    var languageDialogVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(loggedInUserId) {
         val userId = loggedInUserId ?: return@LaunchedEffect
@@ -113,30 +125,30 @@ fun SettingsScreen(
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("설정", style = TextStyle(color = TextPrimary, fontSize = 28.sp, lineHeight = 42.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.7).sp))
-                Text("Manage your preferences", style = TextStyle(color = TextSecondary, fontSize = 14.sp, lineHeight = 21.sp))
+                Text(stringResource(R.string.settings_title), style = TextStyle(color = TextPrimary, fontSize = 28.sp, lineHeight = 42.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.7).sp))
+                Text(stringResource(R.string.settings_subtitle), style = TextStyle(color = TextSecondary, fontSize = 14.sp, lineHeight = 21.sp))
             }
         }
 
         item {
-            SectionCard(title = "동기화", icon = { MaterialSettingsIcon(SettingsIcon.Sync, Green) }) {
+            SectionCard(title = stringResource(R.string.settings_sync), icon = { MaterialSettingsIcon(SettingsIcon.Sync, Green) }) {
                 val (statusText, statusColor) = when (syncState) {
-                    is SyncState.Idle    -> "수동 동기화 준비 완료" to TextSecondary
-                    is SyncState.Syncing -> "최근 변경사항 동기화 중..." to Accent
-                    is SyncState.Success -> "마지막 동기화 ${(syncState as SyncState.Success).time}" to Green
-                    is SyncState.Error   -> "오류: ${(syncState as SyncState.Error).message}" to Color(0xFFFF5F57)
+                    is SyncState.Idle -> stringResource(R.string.settings_sync_idle) to TextSecondary
+                    is SyncState.Syncing -> stringResource(R.string.settings_syncing) to Accent
+                    is SyncState.Success -> stringResource(R.string.settings_sync_success, (syncState as SyncState.Success).time) to Green
+                    is SyncState.Error -> stringResource(R.string.settings_sync_error, syncErrorMessage((syncState as SyncState.Error).type)) to Color(0xFFFF5F57)
                 }
                 Text(statusText, style = TextStyle(color = statusColor, fontSize = 13.sp, lineHeight = 19.sp))
                 remoteStatus?.let { status ->
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "서버: 할일 ${status.taskCount}개 / 습관 ${status.templateCount}개 · 확인 ${status.checkedAt}",
+                        stringResource(R.string.settings_server_status, status.taskCount, status.templateCount, status.checkedAt),
                         style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp)
                     )
                 }
                 Spacer(modifier = Modifier.height(14.dp))
 
-                val isSyncing  = syncState is SyncState.Syncing
+                val isSyncing = syncState is SyncState.Syncing
                 val isLoggedIn = authState is AuthState.LoggedIn
                 val buttonEnabled = isLoggedIn && !isSyncing
                 val buttonBg by animateColorAsState(
@@ -154,12 +166,7 @@ fun SettingsScreen(
                     label = "syncButtonContent"
                 )
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(buttonBg)
-                        .clickable(enabled = buttonEnabled, onClick = onSyncNow),
+                    modifier = Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(10.dp)).background(buttonBg).clickable(enabled = buttonEnabled, onClick = onSyncNow),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -174,9 +181,9 @@ fun SettingsScreen(
                         }
                         Text(
                             text = when {
-                                isSyncing -> "동기화 중..."
-                                isLoggedIn -> "지금 동기화"
-                                else -> "로그인 후 동기화"
+                                isSyncing -> stringResource(R.string.settings_syncing)
+                                isLoggedIn -> stringResource(R.string.settings_sync_now)
+                                else -> stringResource(R.string.settings_sync_login_required)
                             },
                             style = TextStyle(color = buttonContentColor, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
                         )
@@ -186,10 +193,17 @@ fun SettingsScreen(
         }
 
         item {
-            SectionCard(title = "앱 설정", icon = { MaterialSettingsIcon(SettingsIcon.Display, Accent) }) {
+            SectionCard(title = stringResource(R.string.settings_app), icon = { MaterialSettingsIcon(SettingsIcon.Display, Accent) }) {
+                SettingsMenuRow(
+                    title = stringResource(R.string.settings_language),
+                    subtitle = currentLanguageLabel(),
+                    icon = SettingsIcon.Language,
+                    showChevron = true,
+                    onClick = { languageDialogVisible = true }
+                )
                 ToggleRow(
-                    "시스템 네비게이션바",
-                    "Android 하단 네비게이션바를 항상 표시해요",
+                    stringResource(R.string.settings_system_nav),
+                    stringResource(R.string.settings_system_nav_subtitle),
                     appSettings.showSystemNavigationBar,
                     { onAppSettingsChange(appSettings.copy(showSystemNavigationBar = it)) }
                 )
@@ -201,78 +215,112 @@ fun SettingsScreen(
         }
 
         item {
-            SectionCard(title = "알림", icon = { MaterialSettingsIcon(SettingsIcon.Notifications, Accent) }) {
-                ToggleRow("알림", "타임블록 시작 알림을 받아요", reminderSettings.notificationsEnabled, { onReminderSettingsChange(reminderSettings.copy(notificationsEnabled = it)) })
-                ToggleRow("소리", "알림이 올 때 소리를 재생해요", reminderSettings.soundEnabled, { onReminderSettingsChange(reminderSettings.copy(soundEnabled = it)) }, enabled = reminderSettings.notificationsEnabled)
-                ToggleRow("진동", "알림이 올 때 진동으로 알려줘요", reminderSettings.vibrationEnabled, { onReminderSettingsChange(reminderSettings.copy(vibrationEnabled = it)) }, enabled = reminderSettings.notificationsEnabled, showDivider = false)
+            SectionCard(title = stringResource(R.string.settings_notifications), icon = { MaterialSettingsIcon(SettingsIcon.Notifications, Accent) }) {
+                ToggleRow(stringResource(R.string.settings_notifications), stringResource(R.string.settings_notifications_subtitle), reminderSettings.notificationsEnabled, { onReminderSettingsChange(reminderSettings.copy(notificationsEnabled = it)) })
+                ToggleRow(stringResource(R.string.settings_sound), stringResource(R.string.settings_sound_subtitle), reminderSettings.soundEnabled, { onReminderSettingsChange(reminderSettings.copy(soundEnabled = it)) }, enabled = reminderSettings.notificationsEnabled)
+                ToggleRow(stringResource(R.string.settings_vibration), stringResource(R.string.settings_vibration_subtitle), reminderSettings.vibrationEnabled, { onReminderSettingsChange(reminderSettings.copy(vibrationEnabled = it)) }, enabled = reminderSettings.notificationsEnabled, showDivider = false)
             }
         }
 
         item {
-            SectionCard(title = "계정", icon = { MaterialSettingsIcon(SettingsIcon.Account, Accent) }) {
+            SectionCard(title = stringResource(R.string.settings_account), icon = { MaterialSettingsIcon(SettingsIcon.Account, Accent) }) {
                 when (val state = authState) {
                     is AuthState.LoggedIn -> {
                         AccountSummary(
-                            name  = state.displayName?.takeIf { it.isNotBlank() },
-                            email = state.email.takeIf { it.isNotBlank() } ?: "로그인됨"
+                            name = state.displayName?.takeIf { it.isNotBlank() },
+                            email = state.email.takeIf { it.isNotBlank() } ?: stringResource(R.string.settings_logged_in)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        ActionButton(label = "로그아웃", filled = false, icon = { MaterialSettingsIcon(SettingsIcon.Logout, ButtonText, 18) }, onClick = onSignOut)
+                        ActionButton(label = stringResource(R.string.settings_sign_out), filled = false, icon = { MaterialSettingsIcon(SettingsIcon.Logout, ButtonText, 18) }, onClick = onSignOut)
                     }
-                    is AuthState.Loading -> AccountSummary(null, "로그인 상태 확인 중...")
-                    is AuthState.Error   -> AccountSummary(null, state.message)
-                    AuthState.Guest      -> {
-                        AccountSummary("게스트 모드", "이 기기에만 저장돼요")
+                    is AuthState.Loading -> AccountSummary(null, stringResource(R.string.settings_checking_login))
+                    is AuthState.Error -> AccountSummary(null, state.message)
+                    AuthState.Guest -> {
+                        AccountSummary(stringResource(R.string.settings_guest_mode), stringResource(R.string.settings_guest_subtitle))
                         Spacer(modifier = Modifier.height(16.dp))
-                        ActionButton(label = "Google로 로그인", filled = true, icon = { MaterialSettingsIcon(SettingsIcon.Account, Color.White, 18) }, onClick = onSignIn)
+                        ActionButton(label = stringResource(R.string.settings_sign_in_google), filled = true, icon = { MaterialSettingsIcon(SettingsIcon.Account, Color.White, 18) }, onClick = onSignIn)
                     }
-                    AuthState.SignedOut  -> AccountSummary(null, "로그인되지 않음")
+                    AuthState.SignedOut -> AccountSummary(null, stringResource(R.string.settings_signed_out))
                 }
             }
         }
 
         item {
-            SectionCard(title = "Support", icon = { MaterialSettingsIcon(SettingsIcon.Support, Accent) }) {
-                SettingsMenuRow(
-                    title = "공지사항",
-                    subtitle = "업데이트 소식과 변경사항",
-                    icon = SettingsIcon.Notice,
-                    showChevron = true,
-                    onClick = { uriHandler.openUri(NOTICE_URL) }
-                )
-                SettingsMenuRow(
-                    title = "문의하기",
-                    subtitle = "앱 사용 중 궁금한 점을 보내주세요",
-                    icon = SettingsIcon.Contact,
-                    showChevron = true,
-                    onClick = { uriHandler.openUri("mailto:$CONTACT_EMAIL?subject=TimeBoxing%20%EB%AC%B8%EC%9D%98") }
-                )
-                SettingsMenuRow(
-                    title = "피드백 보내기",
-                    subtitle = "버그나 개선 아이디어를 알려주세요",
-                    icon = SettingsIcon.Feedback,
-                    showChevron = true,
-                    showDivider = false,
-                    onClick = { uriHandler.openUri("mailto:$CONTACT_EMAIL?subject=TimeBoxing%20%ED%94%BC%EB%93%9C%EB%B0%B1") }
-                )
+            SectionCard(title = stringResource(R.string.settings_support), icon = { MaterialSettingsIcon(SettingsIcon.Support, Accent) }) {
+                SettingsMenuRow(stringResource(R.string.settings_notice), stringResource(R.string.settings_notice_subtitle), SettingsIcon.Notice, showChevron = true, onClick = { uriHandler.openUri(NOTICE_URL) })
+                SettingsMenuRow(stringResource(R.string.settings_contact), stringResource(R.string.settings_contact_subtitle), SettingsIcon.Contact, showChevron = true, onClick = { context.startEmailIntent(CONTACT_EMAIL, context.getString(R.string.settings_mail_subject_contact)) })
+                SettingsMenuRow(stringResource(R.string.settings_feedback), stringResource(R.string.settings_feedback_subtitle), SettingsIcon.Feedback, showChevron = true, showDivider = false, onClick = { context.startEmailIntent(CONTACT_EMAIL, context.getString(R.string.settings_mail_subject_feedback)) })
             }
         }
 
         item {
-            SectionCard(title = "About", icon = { MaterialSettingsIcon(SettingsIcon.Info, Accent) }) {
-                SettingsMenuRow("이용약관", "서비스 이용 기준", SettingsIcon.Terms, showChevron = true, onClick = { uriHandler.openUri(TERMS_URL) })
-                SettingsMenuRow("개인정보처리방침", "계정 및 동기화 데이터 안내", SettingsIcon.Privacy, showChevron = true, onClick = { uriHandler.openUri(PRIVACY_URL) })
-                SettingsMenuRow("오픈소스 라이선스", "사용된 라이브러리 정보", SettingsIcon.License, showChevron = true, onClick = {
-                    OssLicensesMenuActivity.setActivityTitle("오픈소스 라이선스")
+            SectionCard(title = stringResource(R.string.settings_about), icon = { MaterialSettingsIcon(SettingsIcon.Info, Accent) }) {
+                SettingsMenuRow(stringResource(R.string.settings_terms), stringResource(R.string.settings_terms_subtitle), SettingsIcon.Terms, showChevron = true, onClick = { uriHandler.openUri(TERMS_URL) })
+                SettingsMenuRow(stringResource(R.string.settings_privacy), stringResource(R.string.settings_privacy_subtitle), SettingsIcon.Privacy, showChevron = true, onClick = { uriHandler.openUri(PRIVACY_URL) })
+                SettingsMenuRow(stringResource(R.string.settings_open_source), stringResource(R.string.settings_open_source_subtitle), SettingsIcon.License, showChevron = true, onClick = {
+                    OssLicensesMenuActivity.setActivityTitle(context.getString(R.string.settings_open_source))
                     context.startActivity(Intent(context, OssLicensesMenuActivity::class.java))
                 })
-                SettingsMenuRow("앱 버전", "TimeBox v${BuildConfig.VERSION_NAME}", SettingsIcon.Info, showChevron = false, showDivider = false)
+                SettingsMenuRow(stringResource(R.string.settings_version), "TimeBox v${BuildConfig.VERSION_NAME}", SettingsIcon.Info, showChevron = false, showDivider = false)
             }
         }
+    }
 
+    if (languageDialogVisible) {
+        LanguageDialog(onDismiss = { languageDialogVisible = false })
     }
 }
 
+@Composable
+private fun syncErrorMessage(type: SyncErrorType): String = when (type) {
+    SyncErrorType.AccountMismatch -> stringResource(R.string.settings_sync_error_account_mismatch)
+    SyncErrorType.VerificationFailed -> stringResource(R.string.settings_sync_error_verification_failed)
+    SyncErrorType.RowLevelSecurity -> stringResource(R.string.settings_sync_error_rls)
+    SyncErrorType.Conflict -> stringResource(R.string.settings_sync_error_conflict)
+    SyncErrorType.Network -> stringResource(R.string.settings_sync_error_network)
+    SyncErrorType.Unknown -> stringResource(R.string.settings_sync_error_unknown)
+}
+
+@Composable
+private fun LanguageDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardBackground,
+        title = { Text(stringResource(R.string.settings_language), style = TextStyle(color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                LanguageOptionRow(stringResource(R.string.settings_language_system), "") { onDismiss() }
+                LanguageOptionRow(stringResource(R.string.settings_language_english), "en") { onDismiss() }
+                LanguageOptionRow(stringResource(R.string.settings_language_korean), "ko") { onDismiss() }
+            }
+        },
+        confirmButton = {}
+    )
+}
+
+@Composable
+private fun LanguageOptionRow(label: String, languageTag: String, onSelected: () -> Unit) {
+    val selected = AppCompatDelegate.getApplicationLocales().toLanguageTags() == languageTag
+    Box(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (selected) Accent.copy(alpha = 0.22f) else Color(0xFF2A2A2A)).clickable {
+            AppCompatDelegate.setApplicationLocales(
+                if (languageTag.isBlank()) LocaleListCompat.getEmptyLocaleList() else LocaleListCompat.forLanguageTags(languageTag)
+            )
+            onSelected()
+        }.padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        Text(label, style = TextStyle(color = if (selected) Accent else TextPrimary, fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium))
+    }
+}
+
+@Composable
+private fun currentLanguageLabel(): String {
+    return when (AppCompatDelegate.getApplicationLocales().toLanguageTags()) {
+        "en" -> stringResource(R.string.settings_language_english)
+        "ko" -> stringResource(R.string.settings_language_korean)
+        else -> stringResource(R.string.settings_language_system)
+    }
+}
 
 @Composable
 private fun SectionCard(title: String, icon: @Composable () -> Unit, content: @Composable () -> Unit) {
@@ -315,23 +363,16 @@ private fun TogglePill(checked: Boolean, enabled: Boolean, onToggle: (Boolean) -
 
 @Composable
 private fun DayStartSelector(selectedHour: Int, onSelect: (Int) -> Unit) {
-    Column(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("하루 시작 시간", style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium))
-            Text("선택한 시간 전까지는 전날로 계산해요", style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp))
+            Text(stringResource(R.string.settings_day_start), style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium))
+            Text(stringResource(R.string.settings_day_start_subtitle), style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp))
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(0..3, 4..6).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     row.forEach { hour ->
-                        DayStartChip(
-                            label = "%02d:00".format(hour),
-                            selected = selectedHour == hour,
-                            onClick = { onSelect(hour) }
-                        )
+                        DayStartChip(label = "%02d:00".format(hour), selected = selectedHour == hour, onClick = { onSelect(hour) })
                     }
                 }
             }
@@ -342,24 +383,10 @@ private fun DayStartSelector(selectedHour: Int, onSelect: (Int) -> Unit) {
 @Composable
 private fun DayStartChip(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
-        modifier = Modifier
-            .height(34.dp)
-            .clip(RoundedCornerShape(999.dp))
-            .background(if (selected) Accent.copy(alpha = 0.28f) else Color(0xFF2A2A2A))
-            .border(0.7.dp, if (selected) Accent else CardBorder, RoundedCornerShape(999.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp),
+        modifier = Modifier.height(34.dp).clip(RoundedCornerShape(999.dp)).background(if (selected) Accent.copy(alpha = 0.28f) else Color(0xFF2A2A2A)).border(0.7.dp, if (selected) Accent else CardBorder, RoundedCornerShape(999.dp)).clickable(onClick = onClick).padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            label,
-            style = TextStyle(
-                color = if (selected) Accent else ButtonText,
-                fontSize = 12.sp,
-                lineHeight = 18.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        )
+        Text(label, style = TextStyle(color = if (selected) Accent else ButtonText, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold))
     }
 }
 
@@ -382,7 +409,7 @@ private fun AccountSummary(name: String?, email: String) {
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(name ?: "Google 계정", style = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold), maxLines = 1)
+            Text(name ?: stringResource(R.string.settings_google_account), style = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold), maxLines = 1)
             Text(email, style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp), maxLines = 1)
         }
     }
@@ -398,10 +425,7 @@ private fun SettingsMenuRow(
     onClick: (() -> Unit)? = null
 ) {
     Column {
-        val rowModifier = Modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 4.dp, vertical = 2.dp)
+        val rowModifier = Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 4.dp, vertical = 2.dp)
 
         Row(modifier = rowModifier, verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF2A2A2A)), contentAlignment = Alignment.Center) {
@@ -424,20 +448,17 @@ private fun SettingsMenuRow(
     }
 }
 
+private fun android.content.Context.startEmailIntent(address: String, subject: String) {
+    val intent = Intent(Intent.ACTION_SENDTO).apply {
+        data = "mailto:".toUri()
+        putExtra(Intent.EXTRA_EMAIL, arrayOf(address))
+        putExtra(Intent.EXTRA_SUBJECT, subject)
+    }
+    startActivity(intent)
+}
+
 private enum class SettingsIcon {
-    Notifications,
-    Account,
-    Sync,
-    Logout,
-    Support,
-    Contact,
-    Feedback,
-    Notice,
-    Info,
-    Terms,
-    Privacy,
-    License,
-    Display
+    Notifications, Account, Sync, Logout, Support, Contact, Feedback, Notice, Info, Terms, Privacy, License, Display, Language
 }
 
 @Composable
@@ -454,9 +475,7 @@ private fun MaterialSettingsIcon(icon: SettingsIcon, color: Color, size: Int = 1
                 cubicTo(w * 0.83f, h * 0.30f, w * 0.78f, h * 0.09f, w * 0.5f, h * 0.09f)
             }
             drawPath(path, color, style = Stroke(width = stroke, join = StrokeJoin.Round, cap = StrokeCap.Round))
-            drawArc(color = color, startAngle = 0f, sweepAngle = 180f, useCenter = false,
-                topLeft = Offset(w * 0.37f, h * 0.70f), size = Size(w * 0.26f, h * 0.16f),
-                style = Stroke(width = stroke, cap = StrokeCap.Round))
+            drawArc(color = color, startAngle = 0f, sweepAngle = 180f, useCenter = false, topLeft = Offset(w * 0.37f, h * 0.70f), size = Size(w * 0.26f, h * 0.16f), style = Stroke(width = stroke, cap = StrokeCap.Round))
         }
         return
     }
@@ -474,6 +493,7 @@ private fun MaterialSettingsIcon(icon: SettingsIcon, color: Color, size: Int = 1
         SettingsIcon.Privacy -> Icons.Filled.Policy
         SettingsIcon.License -> Icons.Filled.Description
         SettingsIcon.Display -> Icons.Filled.Settings
+        SettingsIcon.Language -> Icons.Filled.Language
     }
     Icon(imageVector = imageVector, contentDescription = null, tint = color, modifier = Modifier.size(size.dp))
 }

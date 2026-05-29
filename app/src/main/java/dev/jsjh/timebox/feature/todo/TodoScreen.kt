@@ -63,6 +63,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -71,6 +72,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import dev.jsjh.timebox.R
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.DailyTaskSource
 import dev.jsjh.timebox.domain.model.RecurrenceRule
@@ -149,7 +151,7 @@ fun TodoScreen(
     ) {
         item {
             Text(
-                "Tasks & Habits",
+                stringResource(R.string.todo_title),
                 style = TextStyle(color = TextPrimary, fontSize = 24.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.6).sp)
             )
         }
@@ -176,7 +178,7 @@ fun TodoScreen(
         item { Big3Header() }
         item { Spacer(Modifier.height(HEADER_GAP)) }
         item {
-            if (big3.isEmpty()) EmptySectionHint("Star tasks below to prioritize")
+            if (big3.isEmpty()) EmptySectionHint(stringResource(R.string.todo_hint_big3_empty))
             else DraggableSection(
                 tasks = big3,
                 bordered = true,
@@ -191,10 +193,10 @@ fun TodoScreen(
 
         // BRAIN DUMP
         item { Spacer(Modifier.height(SECTION_GAP)) }
-        item { SectionHeader("BRAIN DUMP", TextSecondary, brainDump.size) }
+        item { SectionHeader(stringResource(R.string.todo_brain_dump), TextSecondary, brainDump.size) }
         item { Spacer(Modifier.height(HEADER_GAP)) }
         item {
-            if (brainDump.isEmpty()) EmptySectionHint("No tasks yet. Add one above!")
+            if (brainDump.isEmpty()) EmptySectionHint(stringResource(R.string.todo_hint_braindump_empty))
             else DraggableSection(
                 tasks = brainDump,
                 bordered = false,
@@ -209,10 +211,10 @@ fun TodoScreen(
 
         // RECURRING HABITS
         item { Spacer(Modifier.height(SECTION_GAP)) }
-        item { SectionHeader("TODAY'S HABITS", RecurringSection, recurring.size) }
+        item { SectionHeader(stringResource(R.string.todo_today_habits), RecurringSection, recurring.size) }
         item { Spacer(Modifier.height(HEADER_GAP)) }
         item {
-            if (recurring.isEmpty()) EmptySectionHint("No recurring habits for today.")
+            if (recurring.isEmpty()) EmptySectionHint(stringResource(R.string.todo_hint_habits_empty))
             else DraggableSection(
                 tasks = recurring,
                 bordered = false,
@@ -413,7 +415,7 @@ private fun InputRow(onQuickAddTask: (String) -> Unit, onOpenAddTaskEditor: (Str
                 keyboardActions = KeyboardActions(onDone = { consume(onQuickAddTask) }),
                 singleLine = true,
                 decorationBox = { inner ->
-                    if (input.isEmpty()) Text("Add a new task...", style = TextStyle(color = TextMuted, fontSize = 16.sp))
+                    if (input.isEmpty()) Text(stringResource(R.string.todo_input_placeholder), style = TextStyle(color = TextMuted, fontSize = 16.sp))
                     inner()
                 }
             )
@@ -456,7 +458,7 @@ private fun YesterdayIncompleteSection(
                 Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(Accent))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "YESTERDAY LEFTOVER",
+                    stringResource(R.string.todo_yesterday_leftover),
                     style = TextStyle(color = Accent, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.4.sp)
                 )
                 Spacer(Modifier.width(8.dp))
@@ -485,7 +487,7 @@ private fun YesterdayIncompleteSection(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "Move all to today",
+                            stringResource(R.string.todo_move_all_today),
                             style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
                         )
                     }
@@ -550,7 +552,7 @@ private fun Big3Header() {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Big3Label))
         Spacer(Modifier.width(8.dp))
-        Text("TODAY'S BIG 3", style = TextStyle(color = Big3Label, fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp))
+        Text(stringResource(R.string.todo_big3), style = TextStyle(color = Big3Label, fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp))
     }
 }
 
@@ -796,7 +798,7 @@ private fun OtherHabitsHeader(count: Int, expanded: Boolean, onToggle: () -> Uni
         ) {
             if (expanded) ChevronUpIcon(TextMuted) else ChevronDownIcon(TextMuted)
             Spacer(Modifier.width(6.dp))
-            Text("OTHER HABITS", style = TextStyle(color = TextMuted, fontSize = 14.sp, lineHeight = 20.sp))
+            Text(stringResource(R.string.todo_other_habits), style = TextStyle(color = TextMuted, fontSize = 14.sp, lineHeight = 20.sp))
             Spacer(Modifier.width(8.dp))
             Box(modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(CardBackground).padding(horizontal = 7.dp, vertical = 2.dp)) {
                 Text(count.toString(), style = TextStyle(color = TextMuted, fontSize = 12.sp, lineHeight = 16.sp))
@@ -876,16 +878,35 @@ private fun ChevronDownIcon(color: Color) {
 private fun formatClock(totalMinutes: Int): String =
     String.format(Locale.ENGLISH, "%d:%02d", totalMinutes / 60, totalMinutes % 60)
 
+@Composable
 private fun recurrenceLabel(rule: RecurrenceRule?): String {
-    if (rule == null) return "Recurring"
+    if (rule == null) return stringResource(R.string.recurrence_recurring)
     return when (rule.type) {
-        RecurrenceType.DAILY    -> "Every Day"
-        RecurrenceType.WEEKDAYS -> recurrenceDaysLabel(rule.repeatDays, emptyLabel = "Weekdays")
-        RecurrenceType.CUSTOM   -> recurrenceDaysLabel(rule.repeatDays, emptyLabel = "Custom")
+        RecurrenceType.DAILY -> stringResource(R.string.recurrence_daily)
+        RecurrenceType.WEEKDAYS -> recurrenceDaysLabel(
+            rule.repeatDays,
+            emptyLabel = stringResource(R.string.recurrence_weekdays),
+            dailyLabel = stringResource(R.string.recurrence_daily),
+            weekdaysLabel = stringResource(R.string.recurrence_weekdays),
+            weekendLabel = stringResource(R.string.recurrence_weekend)
+        )
+        RecurrenceType.CUSTOM -> recurrenceDaysLabel(
+            rule.repeatDays,
+            emptyLabel = stringResource(R.string.recurrence_custom),
+            dailyLabel = stringResource(R.string.recurrence_daily),
+            weekdaysLabel = stringResource(R.string.recurrence_weekdays),
+            weekendLabel = stringResource(R.string.recurrence_weekend)
+        )
     }
 }
 
-private fun recurrenceDaysLabel(days: Set<DayOfWeek>, emptyLabel: String): String {
+private fun recurrenceDaysLabel(
+    days: Set<DayOfWeek>,
+    emptyLabel: String,
+    dailyLabel: String,
+    weekdaysLabel: String,
+    weekendLabel: String
+): String {
     val ordered = listOf(
         DayOfWeek.MONDAY,
         DayOfWeek.TUESDAY,
@@ -898,15 +919,12 @@ private fun recurrenceDaysLabel(days: Set<DayOfWeek>, emptyLabel: String): Strin
     val selected = ordered.filter { it in days }
     return when {
         selected.isEmpty() -> emptyLabel
-        selected.size == 7 -> "Every Day"
-        selected == ordered.take(5) -> "Weekdays"
-        selected == listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) -> "Weekend"
+        selected.size == 7 -> dailyLabel
+        selected == ordered.take(5) -> weekdaysLabel
+        selected == listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) -> weekendLabel
         else -> selected.joinToString(" ") { dayShort(it) }
     }
 }
 
-private fun dayShort(day: DayOfWeek): String = when (day) {
-    DayOfWeek.MONDAY    -> "Mon"; DayOfWeek.TUESDAY   -> "Tue"; DayOfWeek.WEDNESDAY -> "Wed"
-    DayOfWeek.THURSDAY  -> "Thu"; DayOfWeek.FRIDAY    -> "Fri"
-    DayOfWeek.SATURDAY  -> "Sat"; DayOfWeek.SUNDAY    -> "Sun"
-}
+private fun dayShort(day: DayOfWeek): String =
+    day.getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())
