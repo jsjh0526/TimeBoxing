@@ -57,6 +57,8 @@ class TimeBoxingAppState(
         private set
     var scheduleLimitMessage by mutableStateOf<String?>(null)
         private set
+    var big3LimitNoticeCount by mutableStateOf(0)
+        private set
 
     init {
         refreshTemplateCache(today)
@@ -118,6 +120,12 @@ class TimeBoxingAppState(
     }
 
     fun toggleBig3(taskId: String) {
+        val current = repository.getTask(today, taskId) ?: return
+        val enable = !current.isBig3
+        if (enable && repository.getTasks(today).count { it.isBig3 } >= 3) {
+            big3LimitNoticeCount++
+            return
+        }
         repository.toggleBig3(today, taskId)
         refreshToday()
     }

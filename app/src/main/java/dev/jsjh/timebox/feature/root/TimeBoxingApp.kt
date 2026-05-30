@@ -1,6 +1,11 @@
 package dev.jsjh.timebox.feature.root
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -48,6 +53,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.os.ConfigurationCompat
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.auth.AuthRepository
 import dev.jsjh.timebox.auth.AuthState
@@ -236,6 +242,7 @@ private fun MainApp(
                             RoomTaskRepository(
                                 templateDao = templateDao,
                                 dailyTaskDao = dailyTaskDao,
+                                seedLanguage = currentAppLanguage(context),
                                 seedInitialData = true
                             )
                             SupabaseSync.syncAll(
@@ -261,12 +268,14 @@ private fun MainApp(
         onRequestBatteryOptimizationExemption()
     }
 
-    val repository: TaskRepository = remember(userId, isGuest, reloadKey) {
+    val seedLanguage = currentAppLanguage(context)
+    val repository: TaskRepository = remember(userId, isGuest, reloadKey, seedLanguage) {
         val shouldSeedGuest = isGuest && !TaskDatabase.exists(context, userId)
         val database = TaskDatabase.get(context, userId)
         val room = RoomTaskRepository(
             templateDao = database.taskTemplateDao(),
             dailyTaskDao = database.dailyTaskDao(),
+            seedLanguage = seedLanguage,
             seedInitialData = shouldSeedGuest
         )
         if (isGuest) {
@@ -312,6 +321,13 @@ private fun MainApp(
         }
         Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
         appState.clearScheduleLimitMessage()
+    }
+    var showBig3LimitNotice by remember { mutableStateOf(false) }
+    LaunchedEffect(appState.big3LimitNoticeCount) {
+        if (appState.big3LimitNoticeCount == 0) return@LaunchedEffect
+        showBig3LimitNotice = true
+        delay(2_400)
+        showBig3LimitNotice = false
     }
     LaunchedEffect(userId, appState.todayTasks, appSettings.dayStartHour) {
         TodoWidgetUpdater.requestUpdate(context)
@@ -443,14 +459,67 @@ private fun MainApp(
         appState.editorDraft?.let { draft ->
             TaskEditorDialog(
                 draft = draft,
+                today = appState.today,
                 onDismiss = appState::dismissEditor,
                 onDelete = if (draft.taskId != null || draft.templateId != null) appState::deleteEditingTask else null,
                 onSave = appState::saveEditor,
                 onChange = { updated -> appState.updateEditor { updated } }
             )
         }
+
+        AnimatedVisibility(
+            visible = showBig3LimitNotice,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(start = 20.dp, end = 20.dp, bottom = 92.dp),
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 })
+        ) {
+            Big3LimitNotice()
+        }
     }
 }
+
+@Composable
+private fun Big3LimitNotice() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF242424))
+            .border(0.7.dp, NavActive.copy(alpha = 0.42f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0x33FF9680)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("3", style = TextStyle(color = Color(0xFFFF9680), fontSize = 16.sp, fontWeight = FontWeight.Bold))
+        }
+        Column(
+            modifier = Modifier.weight(1f).padding(start = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                stringResource(R.string.todo_big3_limit_title),
+                style = TextStyle(color = Color.White, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
+            )
+            Text(
+                stringResource(R.string.todo_big3_limit_message),
+                style = TextStyle(color = NavInactive, fontSize = 12.sp, lineHeight = 17.sp)
+            )
+        }
+    }
+}
+
+private fun currentAppLanguage(context: android.content.Context): String =
+    ConfigurationCompat.getLocales(context.resources.configuration).get(0)?.language
+        ?: java.util.Locale.getDefault().language
 
 @Composable
 private fun MigrationDialog(onMigrate: () -> Unit, onStartFresh: () -> Unit) {

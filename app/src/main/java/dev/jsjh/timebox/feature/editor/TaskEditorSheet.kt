@@ -144,6 +144,7 @@ private fun applyStartChange(newStart: String, draft: TaskEditorDraft): TaskEdit
 @Composable
 fun TaskEditorDialog(
     draft: TaskEditorDraft,
+    today: LocalDate,
     onDismiss: () -> Unit,
     onDelete: (() -> Unit)?,
     onSave: () -> Unit,
@@ -177,7 +178,7 @@ fun TaskEditorDialog(
                                 text = if (draft.taskId == null) stringResource(R.string.editor_new_task) else stringResource(R.string.editor_edit_task),
                                 style = TextStyle(color = TextPrimary, fontSize = 18.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold)
                             )
-                            if (draft.taskId == null) {
+                            if (draft.taskId == null || draft.date != today) {
                                 EditorDatePill(date = draft.date)
                             }
                         }

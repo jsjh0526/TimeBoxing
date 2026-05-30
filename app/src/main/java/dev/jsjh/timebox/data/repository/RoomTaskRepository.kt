@@ -15,12 +15,14 @@ import dev.jsjh.timebox.domain.model.occursOn
 import dev.jsjh.timebox.domain.repository.TaskRepository
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.util.Locale
 import java.util.UUID
 
 class RoomTaskRepository(
     private val templateDao: TaskTemplateDao,
     private val dailyTaskDao: DailyTaskDao,
     private val anchorDate: LocalDate = LocalDate.now(),
+    private val seedLanguage: String = Locale.getDefault().language,
     private val seedInitialData: Boolean = false
 ) : TaskRepository, TemplateProvider {
 
@@ -371,8 +373,14 @@ class RoomTaskRepository(
     private fun tutorialSeedTemplatesV2(): List<TaskTemplate> = listOf(
         TaskTemplate(
             id = "tpl-standup",
-            title = "습관 계획하기",
-            note = "반복 습관은 매일 자동으로 생성돼요.",
+            title = tutorialText(
+                ko = "습관 계획하기",
+                en = "Plan a habit"
+            ),
+            note = tutorialText(
+                ko = "반복 습관은 매일 자동으로 생성돼요.",
+                en = "Recurring habits are created automatically every day."
+            ),
             tags = listOf("Habit", "Plan"),
             recurrenceRule = RecurrenceRule(RecurrenceType.DAILY),
             defaultSchedule = null
@@ -386,8 +394,14 @@ class RoomTaskRepository(
         DailyTask(
             id = "seed-yesterday-leftover",
             date = anchorDate.minusDays(1),
-            title = "어제 못 끝낸 할 일 넘겨보기",
-            note = "Move all to today를 누르면 오늘 할 일로 이월돼요.",
+            title = tutorialText(
+                ko = "어제 못 끝낸 할 일 넘겨보기",
+                en = "Try carrying over unfinished tasks"
+            ),
+            note = tutorialText(
+                ko = "Move all to today를 누르면 오늘 할 일로 이월돼요.",
+                en = "Tap Move all to today to carry this into today's tasks."
+            ),
             tags = listOf("Leftover"),
             source = DailyTaskSource.ONE_OFF
         )
@@ -401,50 +415,74 @@ class RoomTaskRepository(
             DailyTask(
                 id = "seed-deep-work",
                 date = anchorDate,
-                title = "유튜브에 타임박싱 기법을 검색",
+                title = tutorialText(
+                    ko = "유튜브에 타임박싱 기법을 검색",
+                    en = "Search YouTube for timeboxing techniques"
+                ),
                 tags = listOf("Timebox", "Timeboxing"),
                 isBig3 = true
             ),
             DailyTask(
                 id = "seed-ui-review",
                 date = anchorDate,
-                title = "오늘의 중요할일 3가지 정하기",
+                title = tutorialText(
+                    ko = "오늘의 중요할일 3가지 정하기",
+                    en = "Choose today's 3 most important tasks"
+                ),
                 tags = listOf("Big3", "Focus"),
                 isBig3 = true
             ),
             DailyTask(
                 id = "seed-email",
                 date = anchorDate,
-                title = "할 일은 여기에 쏟아두기",
+                title = tutorialText(
+                    ko = "할 일은 여기에 쏟아두기",
+                    en = "Dump tasks here"
+                ),
                 tags = listOf("BrainDump")
             ),
             DailyTask(
                 id = "seed-plan",
                 date = anchorDate,
-                title = "<< 완료 체크하기",
+                title = tutorialText(
+                    ko = "<< 완료 체크하기",
+                    en = "<< Tap to complete"
+                ),
                 tags = listOf("Done")
             ),
             DailyTask(
                 id = "seed-docs",
                 date = anchorDate,
-                title = "BIG3를 지정하기 >>",
+                title = tutorialText(
+                    ko = "BIG3를 지정하기 >>",
+                    en = "Mark this as BIG3 >>"
+                ),
                 tags = listOf("Big3")
             ),
             DailyTask(
                 id = "seed-reminder",
                 date = anchorDate,
-                title = "클릭해서 알림 켜고 시간설정",
+                title = tutorialText(
+                    ko = "클릭해서 알림 켜고 시간설정",
+                    en = "Tap to turn on alerts and set a time"
+                ),
                 tags = listOf("Reminder")
             ),
             DailyTask(
                 id = "seed-timetable",
                 date = anchorDate,
-                title = "시간표에서 드래그로 할일을 배치",
+                title = tutorialText(
+                    ko = "시간표에서 드래그로 할일을 배치",
+                    en = "Drag tasks into the timetable"
+                ),
                 tags = listOf("TimeTable")
             )
         )
         return recurring + oneOffs
     }
+
+    private fun tutorialText(ko: String, en: String): String =
+        if (seedLanguage.equals("ko", ignoreCase = true)) ko else en
 
 }
 

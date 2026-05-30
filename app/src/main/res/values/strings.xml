@@ -112,6 +112,8 @@
     <string name="reminders_on">ON</string>
 
     <string name="todo_title">Tasks &amp; Habits</string>
+    <string name="todo_big3_limit_title">Big 3 is full</string>
+    <string name="todo_big3_limit_message">Unstar one task before adding another priority.</string>
     <string name="todo_hint_big3_empty">Star tasks below to prioritize</string>
     <string name="todo_hint_braindump_empty">No tasks yet. Add one above!</string>
     <string name="todo_hint_habits_empty">No recurring habits for today.</string>

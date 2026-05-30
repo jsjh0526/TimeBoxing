@@ -324,76 +324,97 @@ private fun DraggableSection(
     // 理쒖떊 ?쒕옒洹?肄쒕갚 李몄“瑜??좎??⑸땲??
     val latestOnSetDragging by rememberUpdatedState(onSetDragging)
     val latestOnReorder by rememberUpdatedState(onReorder)
-    Column {
-        tasks.forEachIndexed { index, task ->
-            val isDragging = draggingFrom == index
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Column {
+            tasks.forEachIndexed { index, task ->
+                val isDragging = draggingFrom == index
 
-            // ?쒕옒洹?以?二쇰? 移대뱶 ?대룞??怨꾩궛
-            val displacedY = when {
-                draggingFrom < 0 || isDragging -> 0f
-                draggingFrom < targetIndex && index in (draggingFrom + 1)..targetIndex -> -draggedSlotPx
-                draggingFrom > targetIndex && index in targetIndex until draggingFrom -> draggedSlotPx
-                else -> 0f
-            }
-            if (index > 0) {
-                Spacer(Modifier.height(ITEM_GAP))
-            }
+                val displacedY = when {
+                    draggingFrom < 0 || isDragging -> 0f
+                    draggingFrom < targetIndex && index in (draggingFrom + 1)..targetIndex -> -draggedSlotPx
+                    draggingFrom > targetIndex && index in targetIndex until draggingFrom -> draggedSlotPx
+                    else -> 0f
+                }
+                if (index > 0) {
+                    Spacer(Modifier.height(ITEM_GAP))
+                }
 
-            Box(
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned { coordinates ->
+                            measuredHeights[task.id] = coordinates.size.height
+                        }
+                        .zIndex(if (isDragging) 10f else if (displacedY != 0f) 1f else 0f)
+                        .graphicsLayer {
+                            if (isDragging) {
+                                translationY = clampedDragY
+                                scaleX = 1.03f
+                                scaleY = 1.03f
+                                shadowElevation = dragShadowPx
+                                shape = RoundedCornerShape(CARD_RADIUS)
+                                clip = true
+                            } else if (displacedY != 0f) {
+                                translationY = displacedY
+                            }
+                        }
+                ) {
+                    val interactionsEnabled = draggingFrom < 0
+                    TaskCard(
+                        task = task,
+                        bordered = bordered,
+                        isDragging = isDragging,
+                        recurrenceRule = task.templateId?.let { recurrenceByTemplateId[it] },
+                        onToggleBig3 = if (interactionsEnabled) onToggleBig3 else ({ }),
+                        onToggleComplete = if (interactionsEnabled) onToggleComplete else ({ }),
+                        onOpenTask = if (interactionsEnabled) onOpenTask else ({ }),
+                        onDragStart = {
+                            draggingFrom = index
+                            dragTotalY = 0f
+                            latestOnSetDragging(true)
+                        },
+                        onDrag = { delta -> dragTotalY += delta },
+                        onDragEnd = {
+                            val from = draggingFrom
+                            if (from >= 0) {
+                                val to = targetIndex
+                                if (from != to) latestOnReorder(tasks[from].id, to)
+                            }
+                            draggingFrom = -1
+                            dragTotalY = 0f
+                            latestOnSetDragging(false)
+                        }
+                    )
+                }
+            }
+        }
+
+        if (draggingFrom >= 0 && targetIndex >= 0 && targetIndex != draggingFrom) {
+            val indicatorY = when {
+                targetIndex < draggingFrom -> cardTops[targetIndex] - itemGapPx / 2f
+                else -> cardTops[targetIndex] + cardHeights[targetIndex] + itemGapPx / 2f
+            }.coerceIn(0f, totalHeightPx)
+            InsertionIndicator(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .onGloballyPositioned { coordinates ->
-                        measuredHeights[task.id] = coordinates.size.height
-                    }
-                    .zIndex(if (isDragging) 10f else if (displacedY != 0f) 1f else 0f)
-                    .graphicsLayer {
-                        if (isDragging) {
-                            translationY = clampedDragY
-                            scaleX = 1.03f
-                            scaleY = 1.03f
-                            shadowElevation = dragShadowPx
-                            shape = RoundedCornerShape(CARD_RADIUS)
-                            clip = true
-                        } else if (displacedY != 0f) {
-                            translationY = displacedY
-                        }
-                    }
-            ) {
-                val interactionsEnabled = draggingFrom < 0
-                TaskCard(
-                    task = task,
-                    bordered = bordered,
-                    isDragging = isDragging,
-                    recurrenceRule = task.templateId?.let { recurrenceByTemplateId[it] },
-                    onToggleBig3 = if (interactionsEnabled) onToggleBig3 else ({ }),
-                    onToggleComplete = if (interactionsEnabled) onToggleComplete else ({ }),
-                    // ?쒕옒洹?以묒뿉???ㅻⅨ 移대뱶瑜??댁? ?딆뒿?덈떎.
-                    onOpenTask = if (interactionsEnabled) onOpenTask else ({ }),
-                    onDragStart = {
-                        draggingFrom = index
-                        dragTotalY = 0f
-                        latestOnSetDragging(true)
-                    },
-                    onDrag = { delta -> dragTotalY += delta },
-                    onDragEnd = {
-                        val from = draggingFrom
-                        if (from >= 0) {
-                            val to = targetIndex
-                            if (from != to) latestOnReorder(tasks[from].id, to)
-                        }
-                        draggingFrom = -1
-                        dragTotalY = 0f
-                        latestOnSetDragging(false)
-                    }
-                )
-            }
-
-            // ?쎌엯 indicator???섏쨷???ㅼ젣 ?뚮뜑留곸뿉 ?곌껐???덉젙?낅땲??
+                    .graphicsLayer { translationY = indicatorY }
+                    .zIndex(20f)
+            )
         }
     }
 }
 
-// 鍮좊Ⅸ ?낅젰
+@Composable
+private fun InsertionIndicator(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.height(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Accent))
+        Box(modifier = Modifier.weight(1f).height(2.dp).clip(RoundedCornerShape(999.dp)).background(Accent.copy(alpha = 0.82f)))
+        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Accent))
+    }
+}
 
 @Composable
 private fun InputRow(onQuickAddTask: (String) -> Unit, onOpenAddTaskEditor: (String) -> Unit) {
