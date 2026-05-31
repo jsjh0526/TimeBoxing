@@ -101,6 +101,7 @@ fun TimeBoxingApp(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val migrationFailedMessage = stringResource(R.string.migration_failed)
     LaunchedEffect(Unit) { AuthRepository.restoreSession(context) }
 
     val authState by AuthRepository.authState.collectAsState()
@@ -165,7 +166,7 @@ fun TimeBoxingApp(
                             if (success) {
                                 migrationReloadKey++
                             } else {
-                                Toast.makeText(context, context.getString(R.string.migration_failed), Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, migrationFailedMessage, Toast.LENGTH_LONG).show()
                             }
                         }
                     },
@@ -358,11 +359,11 @@ private fun MainApp(
     }
 
     LaunchedEffect(appState.today, appState.todayTasks, reminderSettings) {
-        ReminderScheduler.syncTasks(context, appState.today, appState.todayTasks, reminderSettings)
+        ReminderScheduler.syncTasks(context, appState.today, appState.todayTasks, reminderSettings, appSettings.dayStartHour)
     }
     LaunchedEffect(appState.selectedDate, appState.selectedDateTasks, reminderSettings) {
         if (appState.selectedDate != appState.today) {
-            ReminderScheduler.syncTasks(context, appState.selectedDate, appState.selectedDateTasks, reminderSettings)
+            ReminderScheduler.syncTasks(context, appState.selectedDate, appState.selectedDateTasks, reminderSettings, appSettings.dayStartHour)
         }
     }
 
@@ -385,6 +386,7 @@ private fun MainApp(
                     tasks = appState.todayTasks,
                     date = appState.today,
                     currentTime = currentTime,
+                    dayStartHour = appSettings.dayStartHour,
                     onOpenTimetable = { appState.openTimetable(appToday) },
                     onMarkTaskComplete = { appState.toggleCompleted(it, appState.today) },
                     onOpenTask = { appState.openTaskEditor(it, appState.today) },

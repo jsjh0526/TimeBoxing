@@ -57,6 +57,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -70,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.jsjh.timebox.R
 import androidx.compose.ui.zIndex
+import androidx.core.os.ConfigurationCompat
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.ScheduleBlock
 import java.time.DayOfWeek
@@ -160,6 +162,18 @@ fun TimetableScreen(
     var trayHeightPx by remember { mutableStateOf(0f) }
     var calendarVisible by rememberSaveable { mutableStateOf(false) }
     var calendarFocusedDate by rememberSaveable { mutableStateOf(date) }
+    var calendarPreferredDay by rememberSaveable { mutableStateOf(date.dayOfMonth) }
+    var scrollInitializedFor by rememberSaveable { mutableStateOf("") }
+
+    fun focusCalendarDate(pickedDate: LocalDate) {
+        calendarFocusedDate = pickedDate
+        calendarPreferredDay = pickedDate.dayOfMonth
+    }
+
+    fun moveCalendarMonth(monthDelta: Long) {
+        val targetMonth = YearMonth.from(calendarFocusedDate).plusMonths(monthDelta)
+        calendarFocusedDate = targetMonth.atDay(calendarPreferredDay.coerceAtMost(targetMonth.lengthOfMonth()))
+    }
 
     BackHandler(enabled = calendarVisible) {
         calendarVisible = false
@@ -172,7 +186,7 @@ fun TimetableScreen(
                 if (calendarVisible) {
                     calendarVisible = false
                 } else {
-                    calendarFocusedDate = date
+                    focusCalendarDate(date)
                     calendarVisible = true
                 }
             }
@@ -183,20 +197,21 @@ fun TimetableScreen(
                 today = today,
                 statsRefreshKey = tasks,
                 calendarStatsForDates = calendarStatsForDates,
-                onFocusedDateChange = { calendarFocusedDate = it },
+                onFocusedDateChange = { focusCalendarDate(it) },
+                onFocusedMonthChange = { moveCalendarMonth(it) },
                 onAddTaskForDate = { pickedDate ->
-                    calendarFocusedDate = pickedDate
+                    focusCalendarDate(pickedDate)
                     onSelectDate(pickedDate)
                     calendarVisible = false
                     onAddTaskForDate(pickedDate)
                 },
                 onOpenTimeline = { pickedDate ->
-                    calendarFocusedDate = pickedDate
+                    focusCalendarDate(pickedDate)
                     onSelectDate(pickedDate)
                     calendarVisible = false
                 },
                 onReturnToday = {
-                    calendarFocusedDate = today
+                    focusCalendarDate(today)
                     onSelectDate(today)
                     calendarVisible = false
                 },
@@ -250,8 +265,12 @@ fun TimetableScreen(
             }
 
             LaunchedEffect(date, showCurrentTime, hourHeight) {
-                val initialScrollPx = with(density) { (hourHeight * initialScrollHour.toFloat()).roundToPx() }
-                scrollState.scrollTo(initialScrollPx)
+                val scrollKey = "$date-$showCurrentTime"
+                if (scrollInitializedFor != scrollKey) {
+                    val initialScrollPx = with(density) { (hourHeight * initialScrollHour.toFloat()).roundToPx() }
+                    scrollState.scrollTo(initialScrollPx)
+                    scrollInitializedFor = scrollKey
+                }
             }
 
             LaunchedEffect(trayDragSession?.task?.id, viewportHeightPx) {
@@ -530,6 +549,7 @@ private fun CalendarPanel(
     statsRefreshKey: Any?,
     calendarStatsForDates: suspend (List<LocalDate>) -> Map<LocalDate, Pair<Int, Int>>,
     onFocusedDateChange: (LocalDate) -> Unit,
+    onFocusedMonthChange: (Long) -> Unit,
     onAddTaskForDate: (LocalDate) -> Unit,
     onOpenTimeline: (LocalDate) -> Unit,
     onReturnToday: () -> Unit,
@@ -568,7 +588,8 @@ private fun CalendarPanel(
             today = today,
             visibleDates = visibleDates,
             statsByDate = statsByDate,
-            onFocusedDateChange = onFocusedDateChange
+            onFocusedDateChange = onFocusedDateChange,
+            onFocusedMonthChange = onFocusedMonthChange
         )
         CalendarStatsCard(date = focusedDate, stats = statsByDate[focusedDate] ?: (0 to 0))
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -600,9 +621,13 @@ private fun CalendarMonthCard(
     today: LocalDate,
     visibleDates: List<LocalDate>,
     statsByDate: Map<LocalDate, Pair<Int, Int>>,
-    onFocusedDateChange: (LocalDate) -> Unit
+    onFocusedDateChange: (LocalDate) -> Unit,
+    onFocusedMonthChange: (Long) -> Unit
 ) {
     val month = YearMonth.from(focusedDate)
+    val configuration = LocalConfiguration.current
+    val locale = ConfigurationCompat.getLocales(configuration).get(0) ?: Locale.ENGLISH
+    val monthPattern = stringResource(R.string.calendar_month_pattern)
 
     Column(
         modifier = Modifier
@@ -614,20 +639,20 @@ private fun CalendarMonthCard(
             .padding(start = 17.dp, end = 17.dp, top = 17.dp, bottom = 16.dp)
     ) {
         Box(modifier = Modifier.fillMaxWidth().height(56.dp)) {
-            CircleArrow(direction = -1, onClick = { onFocusedDateChange(focusedDate.minusMonths(1)) })
+            CircleArrow(direction = -1, onClick = { onFocusedMonthChange(-1) })
             Text(
-                text = month.format(DateTimeFormatter.ofPattern(stringResource(R.string.calendar_month_pattern), Locale.getDefault())),
+                text = month.format(DateTimeFormatter.ofPattern(monthPattern, locale)),
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp),
                 style = TextStyle(color = TextPrimary, fontSize = 18.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
             )
             Box(modifier = Modifier.align(Alignment.TopEnd)) {
-                CircleArrow(direction = 1, onClick = { onFocusedDateChange(focusedDate.plusMonths(1)) })
+                CircleArrow(direction = 1, onClick = { onFocusedMonthChange(1) })
             }
         }
         Row(modifier = Modifier.fillMaxWidth().height(36.dp)) {
             (0..6).map { offset ->
                 DayOfWeek.SUNDAY.plus(offset.toLong())
-                    .getDisplayName(java.time.format.TextStyle.NARROW, Locale.getDefault())
+                    .getDisplayName(java.time.format.TextStyle.NARROW, locale)
             }.forEach { label ->
                 Text(
                     text = label,
@@ -803,13 +828,16 @@ private fun CalendarActionButton(text: String, variant: CalendarActionVariant, o
 
 @Composable
 private fun DateHeader(date: LocalDate, showTodayButton: Boolean, onPreviousDay: () -> Unit, onNextDay: () -> Unit, onToday: () -> Unit) {
+    val configuration = LocalConfiguration.current
+    val locale = ConfigurationCompat.getLocales(configuration).get(0) ?: Locale.ENGLISH
+
     Column(modifier = Modifier.fillMaxWidth().background(HeaderBackground)) {
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(GridLineHalf))
         Row(modifier = Modifier.fillMaxWidth().height(77.dp).padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             CircleArrow(direction = -1, onClick = onPreviousDay)
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")), style = TextStyle(color = TextPrimary, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold))
-                Text(date.format(DateTimeFormatter.ofPattern("EEEE", Locale.getDefault())), style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.3.sp))
+                Text(date.format(DateTimeFormatter.ofPattern("EEEE", locale)), style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.3.sp))
                 if (showTodayButton) TodayPill(onClick = onToday)
             }
             CircleArrow(direction = 1, onClick = onNextDay)

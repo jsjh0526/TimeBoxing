@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -70,6 +71,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.os.ConfigurationCompat
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.DailyTaskSource
@@ -99,6 +101,7 @@ fun HomeScreen(
     tasks: List<DailyTask>,
     date: LocalDate,
     currentTime: LocalTime,
+    dayStartHour: Int = 0,
     onOpenTimetable: () -> Unit,
     onMarkTaskComplete: (String) -> Unit,
     onOpenTask: (String) -> Unit,
@@ -114,13 +117,27 @@ fun HomeScreen(
     }
 
     val currentMinute = liveTime.hour * 60 + liveTime.minute
+    val dayStartMinute = dayStartHour.coerceIn(0, 6) * 60
+    val currentComparableMinute = appDayMinute(
+        minute = currentMinute,
+        dayStartMinute = dayStartMinute
+    )
     val scheduled   = tasks.filter { it.schedule != null }.sortedBy { it.schedule!!.startMinute }
     val unscheduled = tasks.filter { it.schedule == null && it.source != DailyTaskSource.RECURRING }
-    val currentTask = scheduled.firstOrNull { currentMinute in it.schedule!!.startMinute until it.schedule!!.endMinute }
-    val nextTask    = scheduled.firstOrNull { it.schedule!!.startMinute > currentMinute }
+    val currentTask = scheduled.firstOrNull { task ->
+        val schedule = task.schedule ?: return@firstOrNull false
+        val start = appDayMinute(schedule.startMinute, dayStartMinute)
+        val end = appDayMinute(schedule.endMinute, dayStartMinute)
+        currentComparableMinute in start until end
+    }
+    val nextTask = scheduled.firstOrNull { task ->
+        val schedule = task.schedule ?: return@firstOrNull false
+        appDayMinute(schedule.startMinute, dayStartMinute) > currentComparableMinute
+    }
     val big3        = tasks.filter { it.isBig3 }.take(3)
     val upcoming    = scheduled.filter { task ->
-        task.schedule!!.startMinute > currentMinute && task.schedule!!.startMinute < currentMinute + (6 * 60)
+        val start = appDayMinute(task.schedule!!.startMinute, dayStartMinute)
+        start > currentComparableMinute && start < currentComparableMinute + (6 * 60)
     }.take(5)
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -157,6 +174,7 @@ fun HomeScreen(
                 tasks         = tasks,
                 date          = date,
                 currentMinute = currentMinute,
+                dayStartHour  = dayStartHour,
                 onDismiss     = { showNotificationPanel = false },
                 onOpenTask    = { id -> showNotificationPanel = false; onOpenTask(id) }
             )
@@ -166,12 +184,17 @@ fun HomeScreen(
 
 @Composable
 private fun HomeHeader(date: LocalDate, currentTime: LocalTime, completedCount: Int, totalCount: Int, onNotificationsClick: () -> Unit) {
+    val configuration = LocalConfiguration.current
+    val locale = ConfigurationCompat.getLocales(configuration).get(0) ?: Locale.ENGLISH
+    val datePattern = stringResource(R.string.home_date_pattern)
+    val weekdayPattern = stringResource(R.string.home_weekday_pattern)
+
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(date.format(DateTimeFormatter.ofPattern(stringResource(R.string.home_date_pattern), Locale.getDefault())), style = TextStyle(color = Color.White, fontSize = 28.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.7).sp))
+                Text(date.format(DateTimeFormatter.ofPattern(datePattern, locale)), style = TextStyle(color = Color.White, fontSize = 28.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.7).sp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(date.format(DateTimeFormatter.ofPattern(stringResource(R.string.home_weekday_pattern), Locale.getDefault())), style = TextStyle(color = Secondary, fontSize = 13.sp, lineHeight = 19.5.sp, fontWeight = FontWeight.Medium))
+                Text(date.format(DateTimeFormatter.ofPattern(weekdayPattern, locale)), style = TextStyle(color = Secondary, fontSize = 13.sp, lineHeight = 19.5.sp, fontWeight = FontWeight.Medium))
             }
             Text(currentTime.format(DateTimeFormatter.ofPattern("HH:mm")), style = TextStyle(color = Accent, fontSize = 20.sp, lineHeight = 20.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp))
         }
@@ -463,6 +486,7 @@ private fun NotificationPanel(
     tasks: List<DailyTask>,
     date: LocalDate,
     currentMinute: Int,
+    dayStartHour: Int,
     onDismiss: () -> Unit,
     onOpenTask: (String) -> Unit
 ) {
@@ -470,18 +494,21 @@ private fun NotificationPanel(
         .filter { it.schedule?.reminderEnabled == true }
         .sortedBy { it.schedule!!.startMinute }
     var pastExpanded by rememberSaveable { mutableStateOf(false) }
-    val dateIsInPast = date < LocalDate.now()
+    val dayStartMinute = dayStartHour.coerceIn(0, 6) * 60
+    val currentComparableMinute = appDayMinute(currentMinute, dayStartMinute)
     val (pastAlerts, activeAndUpcomingAlerts) = alertTasks.partition { task ->
         val schedule = task.schedule ?: return@partition false
-        dateIsInPast || schedule.endMinute <= currentMinute
+        appDayMinute(schedule.endMinute, dayStartMinute) <= currentComparableMinute
     }
     val nextAlert = alertTasks.firstOrNull { task ->
         val schedule = task.schedule ?: return@firstOrNull false
-        !task.isCompleted && schedule.startMinute >= currentMinute
+        !task.isCompleted && appDayMinute(schedule.startMinute, dayStartMinute) >= currentComparableMinute
     }
     val activeAlert = alertTasks.firstOrNull { task ->
         val schedule = task.schedule ?: return@firstOrNull false
-        currentMinute in schedule.startMinute until schedule.endMinute
+        val start = appDayMinute(schedule.startMinute, dayStartMinute)
+        val end = appDayMinute(schedule.endMinute, dayStartMinute)
+        currentComparableMinute in start until end
     }
     val summary = when {
         alertTasks.isEmpty() -> stringResource(R.string.reminders_summary_empty)
@@ -831,3 +858,8 @@ private fun formatClock(totalMinutes: Int): String =
 
 private fun formatRange(schedule: ScheduleBlock): String =
     "${formatClock(schedule.startMinute)} - ${formatClock(schedule.endMinute)}"
+
+private fun appDayMinute(minute: Int, dayStartMinute: Int): Int {
+    if (dayStartMinute <= 0) return minute
+    return if (minute < dayStartMinute) minute + (24 * 60) else minute
+}

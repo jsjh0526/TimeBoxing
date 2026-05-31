@@ -59,13 +59,19 @@ object ReminderScheduler {
         else -> CHANNEL_SILENT
     }
 
-    fun syncTasks(context: Context, date: LocalDate, tasks: List<DailyTask>, settings: ReminderSettings) {
+    fun syncTasks(
+        context: Context,
+        date: LocalDate,
+        tasks: List<DailyTask>,
+        settings: ReminderSettings,
+        dayStartHour: Int = 0
+    ) {
         createChannels(context)
         val prefs = scheduledPrefs(context)
         val existing = prefs.getStringSet(KEY_SCHEDULED, emptySet()).orEmpty()
         val datePrefix = "$date|"
         val desired = tasks
-            .filter { shouldSchedule(it, settings) }
+            .filter { shouldSchedule(it, settings, dayStartHour) }
             .map { reminderKey(it.date, it.id) }
             .toSet()
 
@@ -74,8 +80,8 @@ object ReminderScheduler {
             .forEach { cancelKey(context, it) }
 
         tasks.forEach { task ->
-            if (shouldSchedule(task, settings)) {
-                schedule(context, task)
+            if (shouldSchedule(task, settings, dayStartHour)) {
+                schedule(context, task, dayStartHour)
             } else {
                 cancelKey(context, reminderKey(task.date, task.id))
             }
@@ -109,9 +115,9 @@ object ReminderScheduler {
     }
 
     @SuppressLint("ScheduleExactAlarm")
-    private fun schedule(context: Context, task: DailyTask) {
+    private fun schedule(context: Context, task: DailyTask, dayStartHour: Int) {
         val schedule = task.schedule ?: return
-        val triggerAtMillis = triggerAtMillis(task) ?: return
+        val triggerAtMillis = triggerAtMillis(task, dayStartHour) ?: return
 
         val key = reminderKey(task.date, task.id)
         cancelKey(context, key)
@@ -137,21 +143,21 @@ object ReminderScheduler {
         }
     }
 
-    private fun shouldSchedule(task: DailyTask, settings: ReminderSettings): Boolean {
+    private fun shouldSchedule(task: DailyTask, settings: ReminderSettings, dayStartHour: Int): Boolean {
         val schedule = task.schedule ?: return false
         return settings.notificationsEnabled &&
             schedule.reminderEnabled &&
             !task.isCompleted &&
-            (triggerAtMillis(task) ?: 0L) > System.currentTimeMillis()
+            (triggerAtMillis(task, dayStartHour) ?: 0L) > System.currentTimeMillis()
     }
 
-    private fun triggerAtMillis(task: DailyTask): Long? {
+    private fun triggerAtMillis(task: DailyTask, dayStartHour: Int): Long? {
         val schedule = task.schedule ?: return null
-        return task.date
-            .atStartOfDay(ZoneId.systemDefault())
-            .plusMinutes(schedule.startMinute.toLong())
-            .toInstant()
-            .toEpochMilli()
+        return reminderTriggerAtMillis(
+            date = task.date,
+            startMinute = schedule.startMinute,
+            dayStartHour = dayStartHour
+        )
     }
 
     private fun cancelKey(context: Context, key: String) {
@@ -224,4 +230,23 @@ object ReminderScheduler {
         val m = (totalMinutes % 60).coerceIn(0, 59)
         return String.format(Locale.ENGLISH, "%02d:%02d", h, m)
     }
+}
+
+internal fun reminderTriggerAtMillis(
+    date: LocalDate,
+    startMinute: Int,
+    dayStartHour: Int,
+    zoneId: ZoneId = ZoneId.systemDefault()
+): Long {
+    val safeDayStartMinute = dayStartHour.coerceIn(0, 6) * 60
+    val triggerDate = if (safeDayStartMinute > 0 && startMinute < safeDayStartMinute) {
+        date.plusDays(1)
+    } else {
+        date
+    }
+    return triggerDate
+        .atStartOfDay(zoneId)
+        .plusMinutes(startMinute.toLong())
+        .toInstant()
+        .toEpochMilli()
 }

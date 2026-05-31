@@ -44,7 +44,7 @@ class BootReceiver : BroadcastReceiver() {
 
                 listOf(today, tomorrow).forEach { date ->
                     val tasks = repository.getTasks(date)
-                    ReminderScheduler.syncTasks(context, date, tasks, settings)
+                    ReminderScheduler.syncTasks(context, date, tasks, settings, appSettings.dayStartHour)
                 }
             } catch (_: Exception) {
                 // Ignore boot-time database load failures quietly.

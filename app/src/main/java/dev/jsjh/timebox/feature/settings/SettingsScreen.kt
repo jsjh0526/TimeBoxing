@@ -111,6 +111,9 @@ fun SettingsScreen(
     val loggedInUserId = (authState as? AuthState.LoggedIn)?.userId
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
+    val contactMailSubject = stringResource(R.string.settings_mail_subject_contact)
+    val feedbackMailSubject = stringResource(R.string.settings_mail_subject_feedback)
+    val openSourceTitle = stringResource(R.string.settings_open_source)
     var languageDialogVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(loggedInUserId) {
@@ -248,8 +251,8 @@ fun SettingsScreen(
         item {
             SectionCard(title = stringResource(R.string.settings_support), icon = { MaterialSettingsIcon(SettingsIcon.Support, Accent) }) {
                 SettingsMenuRow(stringResource(R.string.settings_notice), stringResource(R.string.settings_notice_subtitle), SettingsIcon.Notice, showChevron = true, onClick = { uriHandler.openUri(NOTICE_URL) })
-                SettingsMenuRow(stringResource(R.string.settings_contact), stringResource(R.string.settings_contact_subtitle), SettingsIcon.Contact, showChevron = true, onClick = { context.startEmailIntent(CONTACT_EMAIL, context.getString(R.string.settings_mail_subject_contact)) })
-                SettingsMenuRow(stringResource(R.string.settings_feedback), stringResource(R.string.settings_feedback_subtitle), SettingsIcon.Feedback, showChevron = true, showDivider = false, onClick = { context.startEmailIntent(CONTACT_EMAIL, context.getString(R.string.settings_mail_subject_feedback)) })
+                SettingsMenuRow(stringResource(R.string.settings_contact), stringResource(R.string.settings_contact_subtitle), SettingsIcon.Contact, showChevron = true, onClick = { context.startEmailIntent(CONTACT_EMAIL, contactMailSubject) })
+                SettingsMenuRow(stringResource(R.string.settings_feedback), stringResource(R.string.settings_feedback_subtitle), SettingsIcon.Feedback, showChevron = true, showDivider = false, onClick = { context.startEmailIntent(CONTACT_EMAIL, feedbackMailSubject) })
             }
         }
 
@@ -258,7 +261,7 @@ fun SettingsScreen(
                 SettingsMenuRow(stringResource(R.string.settings_terms), stringResource(R.string.settings_terms_subtitle), SettingsIcon.Terms, showChevron = true, onClick = { uriHandler.openUri(TERMS_URL) })
                 SettingsMenuRow(stringResource(R.string.settings_privacy), stringResource(R.string.settings_privacy_subtitle), SettingsIcon.Privacy, showChevron = true, onClick = { uriHandler.openUri(PRIVACY_URL) })
                 SettingsMenuRow(stringResource(R.string.settings_open_source), stringResource(R.string.settings_open_source_subtitle), SettingsIcon.License, showChevron = true, onClick = {
-                    OssLicensesMenuActivity.setActivityTitle(context.getString(R.string.settings_open_source))
+                    OssLicensesMenuActivity.setActivityTitle(openSourceTitle)
                     context.startActivity(Intent(context, OssLicensesMenuActivity::class.java))
                 })
                 SettingsMenuRow(stringResource(R.string.settings_version), "TimeBox v${BuildConfig.VERSION_NAME}", SettingsIcon.Info, showChevron = false, showDivider = false)

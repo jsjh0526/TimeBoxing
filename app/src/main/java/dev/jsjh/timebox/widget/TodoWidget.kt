@@ -437,7 +437,8 @@ private suspend fun refreshAfterWidgetMutation(
             context = appContext,
             date = date,
             tasks = repository.getTasks(date),
-            settings = ReminderSettingsStore(appContext).read()
+            settings = ReminderSettingsStore(appContext).read(),
+            dayStartHour = AppSettingsStore(appContext).read().dayStartHour
         )
         runCatching { TodoWidget().updateAll(appContext) }
     }
