@@ -3,7 +3,11 @@
     "allow": [
       "Bash(Get-ChildItem -Path \"C:\\\\AndroidStudio\\\\TimeBoxing\" -Recurse -Directory)",
       "Bash(Select-Object FullName)",
-      "Bash(Editor\")"
+      "Bash(Editor\")",
+      "mcp__plugin_supabase_supabase__list_projects",
+      "mcp__plugin_supabase_supabase__get_advisors",
+      "mcp__plugin_supabase_supabase__list_tables",
+      "mcp__plugin_supabase_supabase__execute_sql"
     ]
   }
 }

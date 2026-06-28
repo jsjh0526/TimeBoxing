@@ -1,6 +1,10 @@
 package dev.jsjh.timebox.feature.settings
 
 import android.content.Intent
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -69,9 +73,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.core.os.LocaleListCompat
+import com.google.android.gms.ads.AdError
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.FullScreenContentCallback
+import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.oss.licenses.v2.OssLicensesMenuActivity
+import com.google.android.gms.ads.rewarded.RewardedAd
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import dev.jsjh.timebox.BuildConfig
 import dev.jsjh.timebox.R
+import dev.jsjh.timebox.ads.AdsConsentManager
 import dev.jsjh.timebox.auth.AuthRepository
 import dev.jsjh.timebox.auth.AuthState
 import dev.jsjh.timebox.data.remote.SyncErrorType
@@ -196,6 +207,10 @@ fun SettingsScreen(
         }
 
         item {
+            SupportAdCard()
+        }
+
+        item {
             SectionCard(title = stringResource(R.string.settings_app), icon = { MaterialSettingsIcon(SettingsIcon.Display, Accent) }) {
                 SettingsMenuRow(
                     title = stringResource(R.string.settings_language),
@@ -265,12 +280,108 @@ fun SettingsScreen(
                     context.startActivity(Intent(context, OssLicensesMenuActivity::class.java))
                 })
                 SettingsMenuRow(stringResource(R.string.settings_version), "TimeBox v${BuildConfig.VERSION_NAME}", SettingsIcon.Info, showChevron = false, showDivider = false)
+                if (AdsConsentManager.privacyOptionsRequired) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(CardBorder))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SettingsMenuRow(
+                        stringResource(R.string.settings_privacy_choices),
+                        stringResource(R.string.settings_privacy_choices_subtitle),
+                        SettingsIcon.Privacy,
+                        showChevron = true,
+                        showDivider = false,
+                        onClick = { context.findActivity()?.let(AdsConsentManager::showPrivacyOptions) }
+                    )
+                }
             }
         }
     }
 
     if (languageDialogVisible) {
         LanguageDialog(onDismiss = { languageDialogVisible = false })
+    }
+}
+
+@Composable
+private fun SupportAdCard() {
+    val context = LocalContext.current
+    val activity = context.findActivity()
+    val adUnitId = BuildConfig.ADMOB_SUPPORT_REWARDED_AD_UNIT_ID
+    val loadingMessage = stringResource(R.string.settings_support_ad_loading)
+    val notReadyMessage = stringResource(R.string.settings_support_ad_not_ready)
+    val unavailableMessage = stringResource(R.string.settings_support_ad_unavailable)
+    val thanksMessage = stringResource(R.string.settings_support_ad_thanks)
+
+    var rewardedAd by remember { mutableStateOf<RewardedAd?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    fun loadAd() {
+        if (!AdsConsentManager.canRequestAds || adUnitId.isBlank() || isLoading || rewardedAd != null) return
+        isLoading = true
+        RewardedAd.load(
+            context,
+            adUnitId,
+            AdRequest.Builder().build(),
+            object : RewardedAdLoadCallback() {
+                override fun onAdLoaded(ad: RewardedAd) {
+                    rewardedAd = ad
+                    isLoading = false
+                }
+
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    rewardedAd = null
+                    isLoading = false
+                }
+            }
+        )
+    }
+
+    LaunchedEffect(AdsConsentManager.canRequestAds, adUnitId) {
+        loadAd()
+    }
+
+    val buttonEnabled = adUnitId.isNotBlank() && AdsConsentManager.canRequestAds && !isLoading
+    val buttonLabel = if (buttonEnabled) stringResource(R.string.settings_support_ad_button) else loadingMessage
+    val buttonIconColor = if (buttonEnabled) Color.White else TextSecondary
+
+    SectionCard(title = stringResource(R.string.settings_support_ad_title), icon = { MaterialSettingsIcon(SettingsIcon.Support, Accent) }) {
+        Text(
+            stringResource(R.string.settings_support_ad_subtitle),
+            style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 19.sp)
+        )
+        Spacer(modifier = Modifier.height(14.dp))
+        ActionButton(
+            label = buttonLabel,
+            filled = true,
+            enabled = buttonEnabled,
+            icon = { MaterialSettingsIcon(SettingsIcon.Support, buttonIconColor, 18) },
+            onClick = {
+                val ad = rewardedAd
+                if (activity == null) {
+                    Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
+                    return@ActionButton
+                }
+                if (ad == null) {
+                    loadAd()
+                    Toast.makeText(context, if (isLoading) loadingMessage else notReadyMessage, Toast.LENGTH_SHORT).show()
+                    return@ActionButton
+                }
+                rewardedAd = null
+                ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
+                        loadAd()
+                    }
+
+                    override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                        Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
+                        loadAd()
+                    }
+                }
+                ad.show(activity) {
+                    Toast.makeText(context, thanksMessage, Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
     }
 }
 
@@ -394,12 +505,22 @@ private fun DayStartChip(label: String, selected: Boolean, onClick: () -> Unit) 
 }
 
 @Composable
-private fun ActionButton(label: String, filled: Boolean, icon: @Composable () -> Unit, onClick: () -> Unit = {}) {
-    Box(modifier = Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(10.dp)).background(if (filled) Accent else ScreenBackground).border(if (filled) 0.dp else 0.7.dp, CardBorder, RoundedCornerShape(10.dp)).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+private fun ActionButton(label: String, filled: Boolean, icon: @Composable () -> Unit, enabled: Boolean = true, onClick: () -> Unit = {}) {
+    val backgroundColor = when {
+        !enabled -> Color(0xFF2A2A2A)
+        filled -> Accent
+        else -> ScreenBackground
+    }
+    val contentColor = when {
+        !enabled -> TextSecondary
+        filled -> Color.White
+        else -> ButtonText
+    }
+    Box(modifier = Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(10.dp)).background(backgroundColor).border(if (filled) 0.dp else 0.7.dp, CardBorder, RoundedCornerShape(10.dp)).clickable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             icon()
             Spacer(modifier = Modifier.width(8.dp))
-            Text(label, style = TextStyle(color = if (filled) Color.White else ButtonText, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold))
+            Text(label, style = TextStyle(color = contentColor, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold))
         }
     }
 }
@@ -458,6 +579,12 @@ private fun android.content.Context.startEmailIntent(address: String, subject: S
         putExtra(Intent.EXTRA_SUBJECT, subject)
     }
     startActivity(intent)
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 private enum class SettingsIcon {

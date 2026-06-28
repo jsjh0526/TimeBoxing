@@ -34,6 +34,13 @@
     <string name="settings_server_status">Server: %1$d tasks / %2$d habits · checked %3$s</string>
     <string name="settings_sync_now">Sync now</string>
     <string name="settings_sync_login_required">Log in to sync</string>
+    <string name="settings_support_ad_title">Support TimeBox</string>
+    <string name="settings_support_ad_subtitle">Watching an ad helps keep TimeBox moving.</string>
+    <string name="settings_support_ad_button">Watch ad</string>
+    <string name="settings_support_ad_loading">Loading ad...</string>
+    <string name="settings_support_ad_not_ready">Ad is not ready yet.</string>
+    <string name="settings_support_ad_unavailable">Ad is unavailable right now.</string>
+    <string name="settings_support_ad_thanks">Thanks for the support.</string>
     <string name="settings_app">App Settings</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_subtitle">Choose the app display language</string>
@@ -73,6 +80,8 @@
     <string name="settings_privacy_subtitle">Account and sync data guide</string>
     <string name="settings_open_source">Open source licenses</string>
     <string name="settings_open_source_subtitle">Library license information</string>
+    <string name="settings_privacy_choices">Privacy choices</string>
+    <string name="settings_privacy_choices_subtitle">Manage ad privacy preferences</string>
     <string name="settings_version">App version</string>
     <string name="settings_mail_subject_contact">TimeBoxing inquiry</string>
     <string name="settings_mail_subject_feedback">TimeBoxing feedback</string>

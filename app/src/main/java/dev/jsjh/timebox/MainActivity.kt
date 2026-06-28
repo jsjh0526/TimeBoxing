@@ -23,6 +23,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.appcompat.app.AppCompatActivity
+import dev.jsjh.timebox.ads.AdsConsentManager
 import dev.jsjh.timebox.auth.initSupabase
 import dev.jsjh.timebox.feature.root.TimeBoxingApp
 import dev.jsjh.timebox.feature.settings.AppSettingsStore
@@ -34,12 +35,14 @@ import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.google.android.play.core.appupdate.AppUpdateOptions
 import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.UpdateAvailability
+import com.google.android.gms.ads.MobileAds
 
 class MainActivity : AppCompatActivity() {
     private var keepSystemBarsVisible = false
     private var loginScreenVisible = false
     private var showSystemNavigationBar = false
     private lateinit var appUpdateManager: AppUpdateManager
+    private var mobileAdsInitialized = false
     private var widgetLaunchRequest by mutableStateOf<WidgetLaunchRequest?>(null)
 
     private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -56,6 +59,9 @@ class MainActivity : AppCompatActivity() {
         appUpdateManager = AppUpdateManagerFactory.create(this)
         checkForAppUpdate()
         initSupabase(this)
+        AdsConsentManager.gatherConsent(this) {
+            initializeMobileAdsIfNeeded()
+        }
         ReminderScheduler.createChannels(this)
         widgetLaunchRequest = WidgetLaunchRequest.from(intent)
         showSystemNavigationBar = AppSettingsStore(this).read().showSystemNavigationBar
@@ -125,6 +131,12 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+    }
+
+    private fun initializeMobileAdsIfNeeded() {
+        if (mobileAdsInitialized) return
+        mobileAdsInitialized = true
+        MobileAds.initialize(this) {}
     }
 
     private fun requestNotificationPermissionIfNeeded() {

@@ -34,6 +34,13 @@
     <string name="settings_server_status">서버: 할일 %1$d개 / 습관 %2$d개 · 확인 %3$s</string>
     <string name="settings_sync_now">지금 동기화</string>
     <string name="settings_sync_login_required">로그인해야 동기화 가능</string>
+    <string name="settings_support_ad_title">광고 보고 응원하기</string>
+    <string name="settings_support_ad_subtitle">광고 시청은 TimeBox 개발에 도움이 됩니다.</string>
+    <string name="settings_support_ad_button">광고 보기</string>
+    <string name="settings_support_ad_loading">광고 불러오는 중...</string>
+    <string name="settings_support_ad_not_ready">광고가 아직 준비되지 않았어요.</string>
+    <string name="settings_support_ad_unavailable">지금은 광고를 볼 수 없어요.</string>
+    <string name="settings_support_ad_thanks">응원 고마워요.</string>
     <string name="settings_app">앱 설정</string>
     <string name="settings_language">언어</string>
     <string name="settings_language_subtitle">앱에 표시할 언어를 선택해요</string>
@@ -73,6 +80,8 @@
     <string name="settings_privacy_subtitle">계정 및 동기화 데이터 안내</string>
     <string name="settings_open_source">오픈소스 라이선스</string>
     <string name="settings_open_source_subtitle">사용한 라이브러리 정보</string>
+    <string name="settings_privacy_choices">개인정보 선택</string>
+    <string name="settings_privacy_choices_subtitle">광고 개인정보 설정을 관리해요</string>
     <string name="settings_version">앱 버전</string>
     <string name="settings_mail_subject_contact">TimeBoxing 문의</string>
     <string name="settings_mail_subject_feedback">TimeBoxing 피드백</string>
