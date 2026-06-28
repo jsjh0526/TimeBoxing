@@ -1,6 +1,7 @@
 package dev.jsjh.timebox.feature.root
 
 import android.widget.Toast
+import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -32,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -53,8 +55,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.os.ConfigurationCompat
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
+import dev.jsjh.timebox.BuildConfig
 import dev.jsjh.timebox.R
+import dev.jsjh.timebox.ads.AdsConsentManager
 import dev.jsjh.timebox.auth.AuthRepository
 import dev.jsjh.timebox.auth.AuthState
 import dev.jsjh.timebox.auth.LoginScreen
@@ -371,12 +379,17 @@ private fun MainApp(
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             bottomBar = {
-                AppBottomBar(
-                    currentTab = appState.currentTab,
-                    onTabSelected = { tab ->
-                        if (tab == AppTab.TIMETABLE) appState.openTimetable(appToday) else appState.selectTab(tab)
+                Column(modifier = Modifier.fillMaxWidth().background(NavBackground)) {
+                    if (appState.currentTab == AppTab.SETTINGS && AdsConsentManager.canRequestAds) {
+                        SettingsBannerAdBar()
                     }
-                )
+                    AppBottomBar(
+                        currentTab = appState.currentTab,
+                        onTabSelected = { tab ->
+                            if (tab == AppTab.TIMETABLE) appState.openTimetable(appToday) else appState.selectTab(tab)
+                        }
+                    )
+                }
             }
         ) { innerPadding ->
             val contentModifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)
@@ -514,6 +527,50 @@ private fun Big3LimitNotice() {
             Text(
                 stringResource(R.string.todo_big3_limit_message),
                 style = TextStyle(color = NavInactive, fontSize = 12.sp, lineHeight = 17.sp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsBannerAdBar() {
+    val context = LocalContext.current
+    val adUnitId = BuildConfig.ADMOB_SETTINGS_BANNER_AD_UNIT_ID
+    if (adUnitId.isBlank()) return
+
+    val adView = remember(adUnitId) {
+        AdView(context).apply {
+            setAdSize(AdSize.BANNER)
+            this.adUnitId = adUnitId
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            loadAd(AdRequest.Builder().build())
+        }
+    }
+
+    DisposableEffect(adView) {
+        onDispose { adView.destroy() }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(NavBackground)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(NavDivider))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            AndroidView(
+                factory = { adView },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
             )
         }
     }

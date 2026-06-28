@@ -340,11 +340,16 @@ private fun SupportAdCard() {
         loadAd()
     }
 
-    val buttonEnabled = adUnitId.isNotBlank() && AdsConsentManager.canRequestAds && !isLoading
-    val buttonLabel = if (buttonEnabled) stringResource(R.string.settings_support_ad_button) else loadingMessage
+    val buttonEnabled = adUnitId.isNotBlank() && AdsConsentManager.canRequestAds
+    val buttonLabel = stringResource(R.string.settings_support_ad_button)
     val buttonIconColor = if (buttonEnabled) Color.White else TextSecondary
 
     SectionCard(title = stringResource(R.string.settings_support_ad_title), icon = { MaterialSettingsIcon(SettingsIcon.Support, Accent) }) {
+        Text(
+            stringResource(R.string.settings_support_ad_watch_title),
+            style = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             stringResource(R.string.settings_support_ad_subtitle),
             style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 19.sp)
@@ -362,8 +367,12 @@ private fun SupportAdCard() {
                     return@ActionButton
                 }
                 if (ad == null) {
+                    if (isLoading) {
+                        Toast.makeText(context, loadingMessage, Toast.LENGTH_SHORT).show()
+                        return@ActionButton
+                    }
                     loadAd()
-                    Toast.makeText(context, if (isLoading) loadingMessage else notReadyMessage, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, notReadyMessage, Toast.LENGTH_SHORT).show()
                     return@ActionButton
                 }
                 rewardedAd = null

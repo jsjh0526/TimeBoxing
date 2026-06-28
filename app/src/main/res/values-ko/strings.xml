@@ -11,6 +11,7 @@
     <string name="tab_todo">TODO</string>
     <string name="tab_timetable">시간표</string>
     <string name="tab_settings">설정</string>
+    <string name="advertisement_label">광고</string>
 
     <string name="migration_title">이전 데이터 이동</string>
     <string name="migration_message">게스트 모드에서 작성한 로컬 데이터를\nGoogle 계정으로 옮길까요?\n\n새로 시작하면 계정에 저장된\n클라우드 데이터를 불러옵니다.</string>
@@ -34,7 +35,8 @@
     <string name="settings_server_status">서버: 할일 %1$d개 / 습관 %2$d개 · 확인 %3$s</string>
     <string name="settings_sync_now">지금 동기화</string>
     <string name="settings_sync_login_required">로그인해야 동기화 가능</string>
-    <string name="settings_support_ad_title">광고 보고 응원하기</string>
+    <string name="settings_support_ad_title">후원</string>
+    <string name="settings_support_ad_watch_title">광고 보고 응원하기</string>
     <string name="settings_support_ad_subtitle">광고 시청은 TimeBox 개발에 도움이 됩니다.</string>
     <string name="settings_support_ad_button">광고 보기</string>
     <string name="settings_support_ad_loading">광고 불러오는 중...</string>

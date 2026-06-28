@@ -18,8 +18,8 @@ android {
         applicationId = "dev.jsjh.timebox"
         minSdk = 28
         targetSdk = 36
-        versionCode = 16
-        versionName = "1.1.5"
+        versionCode = 17
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
@@ -37,7 +37,7 @@ android {
             isMinifyEnabled = true
             manifestPlaceholders["admobAppId"] = "ca-app-pub-8399175755552427~4280120387"
             buildConfigField("String", "ADMOB_SETTINGS_BANNER_AD_UNIT_ID", "\"ca-app-pub-8399175755552427/7520562638\"")
-            buildConfigField("String", "ADMOB_SUPPORT_REWARDED_AD_UNIT_ID", "\"\"")
+            buildConfigField("String", "ADMOB_SUPPORT_REWARDED_AD_UNIT_ID", "\"ca-app-pub-8399175755552427/9139665010\"")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

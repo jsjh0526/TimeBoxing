@@ -11,6 +11,7 @@
     <string name="tab_todo">TODO</string>
     <string name="tab_timetable">Time</string>
     <string name="tab_settings">Settings</string>
+    <string name="advertisement_label">Advertisement</string>
 
     <string name="migration_title">Move previous data</string>
     <string name="migration_message">Move local data created in guest mode to your Google account?\n\nStarting fresh loads the cloud data already saved to your account.</string>
@@ -34,7 +35,8 @@
     <string name="settings_server_status">Server: %1$d tasks / %2$d habits · checked %3$s</string>
     <string name="settings_sync_now">Sync now</string>
     <string name="settings_sync_login_required">Log in to sync</string>
-    <string name="settings_support_ad_title">Support TimeBox</string>
+    <string name="settings_support_ad_title">Support</string>
+    <string name="settings_support_ad_watch_title">Support by watching an ad</string>
     <string name="settings_support_ad_subtitle">Watching an ad helps keep TimeBox moving.</string>
     <string name="settings_support_ad_button">Watch ad</string>
     <string name="settings_support_ad_loading">Loading ad...</string>
