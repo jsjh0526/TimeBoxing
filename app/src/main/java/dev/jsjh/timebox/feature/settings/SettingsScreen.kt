@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -89,6 +90,10 @@ import dev.jsjh.timebox.data.remote.SyncErrorType
 import dev.jsjh.timebox.data.remote.SyncManager
 import dev.jsjh.timebox.data.remote.SyncState
 import dev.jsjh.timebox.notification.ReminderSettings
+import dev.jsjh.timebox.widget.TodoWidgetUpdater
+import dev.jsjh.timebox.widget.WidgetAccessStore
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.delay
 
 private val ScreenBackground = Color(0xFF121212)
 private val CardBackground   = Color(0xFF1E1E1E)
@@ -204,6 +209,10 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
+
+        item {
+            WidgetAccessCard()
         }
 
         item {
@@ -391,6 +400,151 @@ private fun SupportAdCard() {
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun WidgetAccessCard() {
+    val context = LocalContext.current
+    val activity = context.findActivity()
+    val adUnitId = BuildConfig.ADMOB_WIDGET_REWARDED_AD_UNIT_ID
+    val loadingMessage = stringResource(R.string.settings_support_ad_loading)
+    val notReadyMessage = stringResource(R.string.settings_support_ad_not_ready)
+    val unavailableMessage = stringResource(R.string.settings_support_ad_unavailable)
+    val unlockedMessage = stringResource(R.string.settings_widget_unlocked_toast)
+
+    var rewardedAd by remember { mutableStateOf<RewardedAd?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    var refreshKey by remember { mutableStateOf(0) }
+    val remainingMillis by androidx.compose.runtime.produceState(
+        initialValue = WidgetAccessStore.remainingMillis(context),
+        key1 = refreshKey
+    ) {
+        while (true) {
+            value = WidgetAccessStore.remainingMillis(context)
+            delay(60_000)
+        }
+    }
+    val canExtend = WidgetAccessStore.canExtend(context)
+    val isUnlocked = remainingMillis > 0L
+
+    fun loadAd() {
+        if (!AdsConsentManager.canRequestAds || adUnitId.isBlank() || isLoading || rewardedAd != null || !WidgetAccessStore.canExtend(context)) return
+        isLoading = true
+        RewardedAd.load(
+            context,
+            adUnitId,
+            AdRequest.Builder().build(),
+            object : RewardedAdLoadCallback() {
+                override fun onAdLoaded(ad: RewardedAd) {
+                    rewardedAd = ad
+                    isLoading = false
+                }
+
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    rewardedAd = null
+                    isLoading = false
+                }
+            }
+        )
+    }
+
+    LaunchedEffect(AdsConsentManager.canRequestAds, adUnitId, canExtend) {
+        loadAd()
+    }
+
+    val buttonEnabled = adUnitId.isNotBlank() && AdsConsentManager.canRequestAds && canExtend
+    val buttonLabel = when {
+        !canExtend -> stringResource(R.string.settings_widget_unlock_maxed)
+        isUnlocked -> stringResource(R.string.settings_widget_unlock_extend)
+        else -> stringResource(R.string.settings_widget_unlock_open)
+    }
+    val statusText = if (isUnlocked) {
+        formatWidgetAccessRemaining(remainingMillis)
+    } else {
+        stringResource(R.string.settings_widget_expired)
+    }
+    val buttonIconColor = if (buttonEnabled) Color.White else TextSecondary
+
+    SectionCard(title = stringResource(R.string.settings_widget_title), icon = { MaterialSettingsIcon(SettingsIcon.Widget, Accent) }) {
+        Text(
+            stringResource(R.string.settings_widget_subtitle),
+            style = TextStyle(color = TextSecondary, fontSize = 13.sp, lineHeight = 19.sp)
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF2A2A2A))
+                .padding(horizontal = 12.dp, vertical = 12.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    statusText,
+                    style = TextStyle(color = if (isUnlocked) Green else TextSecondary, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
+                )
+                Text(
+                    stringResource(R.string.settings_widget_unlock_limit),
+                    style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+        ActionButton(
+            label = buttonLabel,
+            filled = true,
+            enabled = buttonEnabled,
+            icon = { MaterialSettingsIcon(SettingsIcon.Widget, buttonIconColor, 18) },
+            onClick = {
+                val ad = rewardedAd
+                if (activity == null) {
+                    Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
+                    return@ActionButton
+                }
+                if (ad == null) {
+                    if (isLoading) {
+                        Toast.makeText(context, loadingMessage, Toast.LENGTH_SHORT).show()
+                        return@ActionButton
+                    }
+                    loadAd()
+                    Toast.makeText(context, notReadyMessage, Toast.LENGTH_SHORT).show()
+                    return@ActionButton
+                }
+                rewardedAd = null
+                ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
+                        loadAd()
+                    }
+
+                    override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                        Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
+                        loadAd()
+                    }
+                }
+                ad.show(activity) {
+                    WidgetAccessStore.extendByReward(context)
+                    refreshKey++
+                    TodoWidgetUpdater.requestUpdate(context)
+                    Toast.makeText(context, unlockedMessage, Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun formatWidgetAccessRemaining(remainingMillis: Long): String {
+    val safeRemaining = remainingMillis.coerceAtLeast(TimeUnit.MINUTES.toMillis(1))
+    val days = TimeUnit.MILLISECONDS.toDays(safeRemaining)
+    val hours = TimeUnit.MILLISECONDS.toHours(safeRemaining) % 24
+    if (days > 0) return stringResource(R.string.settings_widget_remaining_days, days, hours)
+
+    val minutes = TimeUnit.MILLISECONDS.toMinutes(safeRemaining) % 60
+    return if (hours > 0) {
+        stringResource(R.string.settings_widget_remaining_hours, hours, minutes)
+    } else {
+        stringResource(R.string.settings_widget_remaining_minutes, minutes.coerceAtLeast(1))
     }
 }
 
@@ -597,7 +751,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 }
 
 private enum class SettingsIcon {
-    Notifications, Account, Sync, Logout, Support, Contact, Feedback, Notice, Info, Terms, Privacy, License, Display, Language
+    Notifications, Account, Sync, Logout, Support, Contact, Feedback, Notice, Info, Terms, Privacy, License, Display, Language, Widget
 }
 
 @Composable
@@ -633,6 +787,7 @@ private fun MaterialSettingsIcon(icon: SettingsIcon, color: Color, size: Int = 1
         SettingsIcon.License -> Icons.Filled.Description
         SettingsIcon.Display -> Icons.Filled.Settings
         SettingsIcon.Language -> Icons.Filled.Language
+        SettingsIcon.Widget -> Icons.Filled.Widgets
     }
     Icon(imageVector = imageVector, contentDescription = null, tint = color, modifier = Modifier.size(size.dp))
 }

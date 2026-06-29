@@ -24,6 +24,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.appcompat.app.AppCompatActivity
 import dev.jsjh.timebox.ads.AdsConsentManager
+import dev.jsjh.timebox.ads.OpeningNativeAdGate
 import dev.jsjh.timebox.auth.initSupabase
 import dev.jsjh.timebox.feature.root.TimeBoxingApp
 import dev.jsjh.timebox.feature.settings.AppSettingsStore
@@ -59,11 +60,14 @@ class MainActivity : AppCompatActivity() {
         appUpdateManager = AppUpdateManagerFactory.create(this)
         checkForAppUpdate()
         initSupabase(this)
+        widgetLaunchRequest = WidgetLaunchRequest.from(intent)
+        if (savedInstanceState == null) {
+            OpeningNativeAdGate.recordLaunch(this, fromWidget = widgetLaunchRequest != null)
+        }
         AdsConsentManager.gatherConsent(this) {
             initializeMobileAdsIfNeeded()
         }
         ReminderScheduler.createChannels(this)
-        widgetLaunchRequest = WidgetLaunchRequest.from(intent)
         showSystemNavigationBar = AppSettingsStore(this).read().showSystemNavigationBar
         enableEdgeToEdge(
             statusBarStyle     = SystemBarStyle.dark(Color(0xFF121212).toArgb()),
@@ -76,6 +80,7 @@ class MainActivity : AppCompatActivity() {
                     onRequestBatteryOptimizationExemption = ::requestIgnoreBatteryOptimizationsIfNeeded,
                     onLoginScreenVisible = { visible ->
                         loginScreenVisible = visible
+                        if (visible) OpeningNativeAdGate.disableForCurrentLaunch()
                         updateSystemBarsVisibility()
                     },
                     initialShowSystemNavigationBar = showSystemNavigationBar,

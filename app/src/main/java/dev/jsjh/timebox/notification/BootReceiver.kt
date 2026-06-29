@@ -8,6 +8,8 @@ import dev.jsjh.timebox.auth.ActiveUserStore
 import dev.jsjh.timebox.data.repository.RoomTaskRepository
 import dev.jsjh.timebox.feature.settings.AppSettingsStore
 import dev.jsjh.timebox.feature.settings.effectiveToday
+import dev.jsjh.timebox.widget.TodoWidgetUpdater
+import dev.jsjh.timebox.widget.WidgetAccessStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,6 +24,9 @@ class BootReceiver : BroadcastReceiver() {
                 "com.htc.intent.action.QUICKBOOT_POWERON"
             )
         ) return
+
+        WidgetAccessStore.scheduleExpiryRefresh(context)
+        TodoWidgetUpdater.requestUpdate(context)
 
         val settings = ReminderSettingsStore(context).read()
         if (!settings.notificationsEnabled) return

@@ -25,6 +25,8 @@ android {
         manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
         buildConfigField("String", "ADMOB_SETTINGS_BANNER_AD_UNIT_ID", "\"ca-app-pub-3940256099942544/9214589741\"")
         buildConfigField("String", "ADMOB_SUPPORT_REWARDED_AD_UNIT_ID", "\"ca-app-pub-3940256099942544/5224354917\"")
+        buildConfigField("String", "ADMOB_WIDGET_REWARDED_AD_UNIT_ID", "\"ca-app-pub-3940256099942544/5224354917\"")
+        buildConfigField("String", "ADMOB_OPENING_NATIVE_AD_UNIT_ID", "\"ca-app-pub-3940256099942544/2247696110\"")
     }
 
     buildTypes {
@@ -32,12 +34,16 @@ android {
             manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
             buildConfigField("String", "ADMOB_SETTINGS_BANNER_AD_UNIT_ID", "\"ca-app-pub-3940256099942544/9214589741\"")
             buildConfigField("String", "ADMOB_SUPPORT_REWARDED_AD_UNIT_ID", "\"ca-app-pub-3940256099942544/5224354917\"")
+            buildConfigField("String", "ADMOB_WIDGET_REWARDED_AD_UNIT_ID", "\"ca-app-pub-3940256099942544/5224354917\"")
+            buildConfigField("String", "ADMOB_OPENING_NATIVE_AD_UNIT_ID", "\"ca-app-pub-3940256099942544/2247696110\"")
         }
         release {
             isMinifyEnabled = true
             manifestPlaceholders["admobAppId"] = "ca-app-pub-8399175755552427~4280120387"
             buildConfigField("String", "ADMOB_SETTINGS_BANNER_AD_UNIT_ID", "\"ca-app-pub-8399175755552427/7520562638\"")
             buildConfigField("String", "ADMOB_SUPPORT_REWARDED_AD_UNIT_ID", "\"ca-app-pub-8399175755552427/9139665010\"")
+            buildConfigField("String", "ADMOB_WIDGET_REWARDED_AD_UNIT_ID", "\"ca-app-pub-8399175755552427/9139665010\"")
+            buildConfigField("String", "ADMOB_OPENING_NATIVE_AD_UNIT_ID", "\"ca-app-pub-8399175755552427/9478078921\"")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

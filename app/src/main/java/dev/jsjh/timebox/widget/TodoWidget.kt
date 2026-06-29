@@ -131,7 +131,8 @@ private data class TodoWidgetState(
     val date: LocalDate,
     val tasks: List<DailyTask>,
     val incompleteCount: Int,
-    val totalCount: Int
+    val totalCount: Int,
+    val isUnlocked: Boolean
 )
 
 private fun loadTodoWidgetState(context: Context): TodoWidgetState {
@@ -149,7 +150,8 @@ private fun loadTodoWidgetState(context: Context): TodoWidgetState {
         date = today,
         tasks = tasks,
         incompleteCount = tasks.count { !it.isCompleted },
-        totalCount = tasks.size
+        totalCount = tasks.size,
+        isUnlocked = WidgetAccessStore.isUnlocked(appContext)
     )
 }
 
@@ -168,6 +170,19 @@ private fun TodoWidgetContent(
         )
     )
     val addButtonSize = 42.dp
+
+    if (!state.isUnlocked) {
+        LockedWidgetState(
+            context = context,
+            action = actionStartActivity(
+                mainActivity,
+                actionParametersOf(
+                    ActionParameters.Key<String>(WidgetLaunchRequest.EXTRA_OPEN_TAB) to WidgetLaunchRequest.TAB_SETTINGS
+                )
+            )
+        )
+        return
+    }
 
     Column(
         modifier = GlanceModifier
@@ -238,6 +253,59 @@ private fun TodoWidgetContent(
                     Spacer(GlanceModifier.height(if (compact) 8.dp else 10.dp))
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LockedWidgetState(context: Context, action: Action) {
+    Column(
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .background(WidgetBg)
+            .cornerRadius(24.dp)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = context.getString(R.string.widget_locked_title),
+            style = TextStyle(
+                color = ColorProvider(WidgetText),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+        )
+        Spacer(GlanceModifier.height(8.dp))
+        Text(
+            text = context.getString(R.string.widget_locked_message),
+            maxLines = 3,
+            style = TextStyle(
+                color = ColorProvider(WidgetMuted),
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center
+            )
+        )
+        Spacer(GlanceModifier.height(14.dp))
+        Box(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .height(42.dp)
+                .cornerRadius(14.dp)
+                .background(WidgetAccent)
+                .clickable(action, rippleOverride = R.drawable.bg_widget_no_ripple),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = context.getString(R.string.widget_locked_action),
+                style = TextStyle(
+                    color = ColorProvider(WidgetText),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            )
         }
     }
 }

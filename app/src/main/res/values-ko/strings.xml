@@ -12,6 +12,7 @@
     <string name="tab_timetable">시간표</string>
     <string name="tab_settings">설정</string>
     <string name="advertisement_label">광고</string>
+    <string name="opening_ad_close">닫기</string>
 
     <string name="migration_title">이전 데이터 이동</string>
     <string name="migration_message">게스트 모드에서 작성한 로컬 데이터를\nGoogle 계정으로 옮길까요?\n\n새로 시작하면 계정에 저장된\n클라우드 데이터를 불러옵니다.</string>
@@ -35,6 +36,17 @@
     <string name="settings_server_status">서버: 할일 %1$d개 / 습관 %2$d개 · 확인 %3$s</string>
     <string name="settings_sync_now">지금 동기화</string>
     <string name="settings_sync_login_required">로그인해야 동기화 가능</string>
+    <string name="settings_widget_title">위젯</string>
+    <string name="settings_widget_subtitle">광고를 보고 TimeBox 위젯을 7일 동안 사용할 수 있어요.</string>
+    <string name="settings_widget_expired">위젯 이용 기간이 끝났어요.</string>
+    <string name="settings_widget_remaining_days">남은 기간: %1$d일 %2$d시간</string>
+    <string name="settings_widget_remaining_hours">남은 기간: %1$d시간 %2$d분</string>
+    <string name="settings_widget_remaining_minutes">남은 기간: %1$d분</string>
+    <string name="settings_widget_unlock_limit">최대 28일까지 충전할 수 있어요.</string>
+    <string name="settings_widget_unlock_open">광고 보고 7일 열기</string>
+    <string name="settings_widget_unlock_extend">광고 보고 7일 추가</string>
+    <string name="settings_widget_unlock_maxed">최대 충전 완료</string>
+    <string name="settings_widget_unlocked_toast">위젯 이용 기간이 7일 늘어났어요.</string>
     <string name="settings_support_ad_title">후원</string>
     <string name="settings_support_ad_watch_title">광고 보고 응원하기</string>
     <string name="settings_support_ad_subtitle">광고 시청은 TimeBox 개발에 도움이 됩니다.</string>
@@ -183,6 +195,9 @@
     <string name="widget_left">%1$d/%2$d left</string>
     <string name="widget_no_tasks">오늘 할일이 없어요</string>
     <string name="widget_unscheduled">Unscheduled</string>
+    <string name="widget_locked_title">위젯 이용 기간이 끝났어요</string>
+    <string name="widget_locked_message">TimeBox에서 광고를 보고 위젯을 7일 동안 다시 열 수 있어요.</string>
+    <string name="widget_locked_action">설정 열기</string>
     <string name="notification_complete_action">완료</string>
     <string name="notification_channel_reminders">할일 알림</string>
     <string name="notification_channel_reminders_sound">할일 알림 소리</string>

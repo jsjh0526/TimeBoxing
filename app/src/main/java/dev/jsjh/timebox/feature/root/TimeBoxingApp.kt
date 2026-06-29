@@ -318,6 +318,7 @@ private fun MainApp(
     LaunchedEffect(widgetLaunchRequest?.nonce, appState) {
         val request = widgetLaunchRequest ?: return@LaunchedEffect
         if (request.openTodo) appState.selectTab(AppTab.TODO)
+        if (request.openSettings) appState.selectTab(AppTab.SETTINGS)
         if (request.openAddTask) appState.openNewTaskEditor(date = appState.today)
         onWidgetLaunchRequestConsumed()
     }
@@ -375,13 +376,15 @@ private fun MainApp(
         }
     }
 
+    val settingsBannerAdView = rememberSettingsBannerAdView()
+
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             bottomBar = {
                 Column(modifier = Modifier.fillMaxWidth().background(NavBackground)) {
-                    if (appState.currentTab == AppTab.SETTINGS && AdsConsentManager.canRequestAds) {
-                        SettingsBannerAdBar()
+                    if (appState.currentTab == AppTab.SETTINGS && settingsBannerAdView != null) {
+                        SettingsBannerAdBar(settingsBannerAdView)
                     }
                     AppBottomBar(
                         currentTab = appState.currentTab,
@@ -493,6 +496,8 @@ private fun MainApp(
         ) {
             Big3LimitNotice()
         }
+
+        OpeningNativeAdOverlay()
     }
 }
 
@@ -533,10 +538,11 @@ private fun Big3LimitNotice() {
 }
 
 @Composable
-private fun SettingsBannerAdBar() {
+private fun rememberSettingsBannerAdView(): AdView? {
     val context = LocalContext.current
     val adUnitId = BuildConfig.ADMOB_SETTINGS_BANNER_AD_UNIT_ID
-    if (adUnitId.isBlank()) return
+    val canRequestAds = AdsConsentManager.canRequestAds
+    if (adUnitId.isBlank()) return null
 
     val adView = remember(adUnitId) {
         AdView(context).apply {
@@ -546,7 +552,12 @@ private fun SettingsBannerAdBar() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            loadAd(AdRequest.Builder().build())
+        }
+    }
+
+    LaunchedEffect(canRequestAds, adView) {
+        if (canRequestAds) {
+            adView.loadAd(AdRequest.Builder().build())
         }
     }
 
@@ -554,6 +565,11 @@ private fun SettingsBannerAdBar() {
         onDispose { adView.destroy() }
     }
 
+    return if (canRequestAds) adView else null
+}
+
+@Composable
+private fun SettingsBannerAdBar(adView: AdView) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -567,7 +583,10 @@ private fun SettingsBannerAdBar() {
             contentAlignment = Alignment.Center
         ) {
             AndroidView(
-                factory = { adView },
+                factory = {
+                    (adView.parent as? ViewGroup)?.removeView(adView)
+                    adView
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
