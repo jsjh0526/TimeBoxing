@@ -1,5 +1,6 @@
 package dev.jsjh.timebox.widget
 
+import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import androidx.compose.runtime.Composable
@@ -84,17 +85,29 @@ private const val GuestUserId = "guest"
 
 class TodoWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = TodoWidget()
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        TodoWidgetUpdater.requestUpdate(context)
+    }
+
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
+        TodoWidgetUpdater.requestUpdate(context)
+    }
 }
 
 class TodoWidget : GlanceAppWidget() {
     override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val initialState = withContext(Dispatchers.IO) { loadTodoWidgetState(context) }
+        val initialState = withContext(Dispatchers.IO) { loadTodoWidgetStateOrFallback(context) }
         provideContent {
             val state by produceState(initialValue = initialState) {
                 TodoWidgetRefreshBus.events.collect {
-                    value = withContext(Dispatchers.IO) { loadTodoWidgetState(context) }
+                    value = withContext(Dispatchers.IO) {
+                        runCatching { loadTodoWidgetState(context) }.getOrElse { value }
+                    }
                 }
             }
             val size = LocalSize.current
@@ -111,10 +124,15 @@ class TodoWidget : GlanceAppWidget() {
 object TodoWidgetUpdater {
     fun requestUpdate(context: Context) {
         val appContext = context.applicationContext
-        TodoWidgetRefreshBus.notifyChanged()
         CoroutineScope(Dispatchers.Default).launch {
-            runCatching { TodoWidget().updateAll(appContext) }
+            updateNow(appContext)
         }
+    }
+
+    suspend fun updateNow(context: Context) {
+        val appContext = context.applicationContext
+        TodoWidgetRefreshBus.notifyChanged()
+        runCatching { TodoWidget().updateAll(appContext) }
     }
 }
 
@@ -154,6 +172,17 @@ private fun loadTodoWidgetState(context: Context): TodoWidgetState {
         isUnlocked = WidgetAccessStore.isUnlocked(appContext)
     )
 }
+
+private fun loadTodoWidgetStateOrFallback(context: Context): TodoWidgetState =
+    runCatching { loadTodoWidgetState(context) }.getOrElse {
+        TodoWidgetState(
+            date = LocalDate.now(),
+            tasks = emptyList(),
+            incompleteCount = 0,
+            totalCount = 0,
+            isUnlocked = false
+        )
+    }
 
 @Composable
 private fun TodoWidgetContent(

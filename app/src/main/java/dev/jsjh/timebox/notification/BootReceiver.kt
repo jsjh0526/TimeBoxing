@@ -20,39 +20,44 @@ class BootReceiver : BroadcastReceiver() {
         val action = intent.action ?: return
         if (action !in listOf(
                 Intent.ACTION_BOOT_COMPLETED,
+                Intent.ACTION_MY_PACKAGE_REPLACED,
                 "android.intent.action.QUICKBOOT_POWERON",
                 "com.htc.intent.action.QUICKBOOT_POWERON"
             )
         ) return
 
-        WidgetAccessStore.scheduleExpiryRefresh(context)
-        TodoWidgetUpdater.requestUpdate(context)
-
-        val settings = ReminderSettingsStore(context).read()
-        if (!settings.notificationsEnabled) return
-        val appSettings = AppSettingsStore(context).read()
-
-        ReminderScheduler.createChannels(context)
-
-        val userId = ActiveUserStore.readUserId(context)
-        val scope  = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        val pendingResult = goAsync()
+        val appContext = context.applicationContext
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         scope.launch {
             try {
-                val database     = TaskDatabase.get(context, userId)
-                val repository   = RoomTaskRepository(
-                    templateDao  = database.taskTemplateDao(),
-                    dailyTaskDao = database.dailyTaskDao(),
-                    seedInitialData = false
-                )
-                val today    = effectiveToday(appSettings.dayStartHour)
-                val tomorrow = today.plusDays(1)
+                WidgetAccessStore.scheduleExpiryRefresh(appContext)
+                TodoWidgetUpdater.updateNow(appContext)
 
-                listOf(today, tomorrow).forEach { date ->
-                    val tasks = repository.getTasks(date)
-                    ReminderScheduler.syncTasks(context, date, tasks, settings, appSettings.dayStartHour)
+                val settings = ReminderSettingsStore(appContext).read()
+                if (settings.notificationsEnabled) {
+                    val appSettings = AppSettingsStore(appContext).read()
+                    ReminderScheduler.createChannels(appContext)
+
+                    val userId = ActiveUserStore.readUserId(appContext)
+                    val database = TaskDatabase.get(appContext, userId)
+                    val repository = RoomTaskRepository(
+                        templateDao = database.taskTemplateDao(),
+                        dailyTaskDao = database.dailyTaskDao(),
+                        seedInitialData = false
+                    )
+                    val today = effectiveToday(appSettings.dayStartHour)
+                    val tomorrow = today.plusDays(1)
+
+                    listOf(today, tomorrow).forEach { date ->
+                        val tasks = repository.getTasks(date)
+                        ReminderScheduler.syncTasks(appContext, date, tasks, settings, appSettings.dayStartHour)
+                    }
                 }
             } catch (_: Exception) {
                 // Ignore boot-time database load failures quietly.
+            } finally {
+                pendingResult.finish()
             }
         }
     }
