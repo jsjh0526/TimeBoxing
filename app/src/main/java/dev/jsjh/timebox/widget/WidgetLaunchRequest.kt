@@ -27,7 +27,7 @@ data class WidgetLaunchRequest(
 
         fun todoIntent(context: android.content.Context): Intent =
             Intent(context, dev.jsjh.timebox.MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra(EXTRA_OPEN_TAB, TAB_TODO)
 
         fun addTaskIntent(context: android.content.Context): Intent =
@@ -35,7 +35,7 @@ data class WidgetLaunchRequest(
 
         fun settingsIntent(context: android.content.Context): Intent =
             Intent(context, dev.jsjh.timebox.MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra(EXTRA_OPEN_TAB, TAB_SETTINGS)
     }
 }

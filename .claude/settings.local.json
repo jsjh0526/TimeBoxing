@@ -7,7 +7,14 @@
       "mcp__plugin_supabase_supabase__list_projects",
       "mcp__plugin_supabase_supabase__get_advisors",
       "mcp__plugin_supabase_supabase__list_tables",
-      "mcp__plugin_supabase_supabase__execute_sql"
+      "mcp__plugin_supabase_supabase__execute_sql",
+      "Bash(adb devices *)",
+      "Bash(./gradlew.bat :app:compileDebugKotlin :app:compileReleaseKotlin --console=plain)",
+      "Bash(./gradlew.bat :app:assembleRelease --console=plain)",
+      "Bash(./gradlew.bat :app:compileDebugKotlin --console=plain)",
+      "Bash(grep -A3 \"^dev.jsjh.timebox.widget.TodoWidget:$\\\\|^dev.jsjh.timebox.widget.TodoWidgetReceiver:$\" app/build/outputs/mapping/release/usage.txt)",
+      "Bash(./gradlew.bat --stop)",
+      "Bash(grep -n 'RemoteTask\\\\|RemoteTemplate\\\\|$serializer\\\\|SupabaseSync' app/build/outputs/mapping/release/usage.txt)"
     ]
   }
 }

@@ -1,8 +1,8 @@
 package dev.jsjh.timebox.widget
 
-import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -26,8 +26,6 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
-import androidx.glance.appwidget.lazy.LazyColumn
-import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
@@ -48,6 +46,7 @@ import androidx.glance.text.TextAlign
 import androidx.glance.text.TextDecoration
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import dev.jsjh.timebox.BuildConfig
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.auth.ActiveUserStore
 import dev.jsjh.timebox.auth.initSupabase
@@ -90,16 +89,6 @@ private const val GuestUserId = "guest"
 
 class TodoWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = TodoWidget()
-
-    override fun onEnabled(context: Context) {
-        super.onEnabled(context)
-        TodoWidgetUpdater.requestUpdate(context)
-    }
-
-    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        super.onUpdate(context, appWidgetManager, appWidgetIds)
-        TodoWidgetUpdater.requestUpdate(context)
-    }
 }
 
 class TodoWidget : GlanceAppWidget() {
@@ -118,7 +107,8 @@ class TodoWidget : GlanceAppWidget() {
             val state by produceState(initialValue = initialState) {
                 TodoWidgetRefreshBus.events.collect {
                     value = withContext(Dispatchers.IO) {
-                        runCatching { loadTodoWidgetState(context) }.getOrElse { value }
+                        runCatching { loadTodoWidgetState(context) }
+                            .getOrElse { e -> value.copy(errorMessage = "${e::class.simpleName}: ${e.message}") }
                     }
                 }
             }
@@ -145,6 +135,7 @@ object TodoWidgetUpdater {
         val appContext = context.applicationContext
         TodoWidgetRefreshBus.notifyChanged()
         runCatching { TodoWidget().updateAll(appContext) }
+            .onFailure { e -> Log.e("TodoWidget", "updateAll failed", e) }
     }
 }
 
@@ -162,7 +153,8 @@ private data class TodoWidgetState(
     val tasks: List<DailyTask>,
     val incompleteCount: Int,
     val totalCount: Int,
-    val isUnlocked: Boolean
+    val isUnlocked: Boolean,
+    val errorMessage: String? = null
 )
 
 private fun loadTodoWidgetState(context: Context): TodoWidgetState {
@@ -186,13 +178,15 @@ private fun loadTodoWidgetState(context: Context): TodoWidgetState {
 }
 
 private fun loadTodoWidgetStateOrFallback(context: Context): TodoWidgetState =
-    runCatching { loadTodoWidgetState(context) }.getOrElse {
+    runCatching { loadTodoWidgetState(context) }.getOrElse { e ->
+        Log.e("TodoWidget", "loadTodoWidgetState failed", e)
         TodoWidgetState(
             date = LocalDate.now(),
             tasks = emptyList(),
             incompleteCount = 0,
             totalCount = 0,
-            isUnlocked = false
+            isUnlocked = false,
+            errorMessage = "${e::class.simpleName}: ${e.message}"
         )
     }
 
@@ -202,6 +196,11 @@ private fun TodoWidgetContent(
     compact: Boolean,
     context: Context
 ) {
+    if (state.errorMessage != null) {
+        ErrorWidgetState(context, state.errorMessage)
+        return
+    }
+
     val mainActivity = ComponentName(context, dev.jsjh.timebox.MainActivity::class.java)
     val addAction = actionStartActivity(
         mainActivity,
@@ -278,13 +277,15 @@ private fun TodoWidgetContent(
             return@Column
         }
 
-        LazyColumn(
+        val visibleLimit = if (compact) 1 else 2
+        val visibleTasks = state.tasks.take(visibleLimit)
+        Column(
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .defaultWeight(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            items(state.tasks, itemId = { task -> task.id.hashCode().toLong() }) { task ->
+            visibleTasks.forEach { task ->
                 Column {
                     TodoWidgetCard(
                         task = task,
@@ -294,7 +295,69 @@ private fun TodoWidgetContent(
                     Spacer(GlanceModifier.height(if (compact) 8.dp else 10.dp))
                 }
             }
+            val hiddenCount = state.tasks.size - visibleTasks.size
+            if (hiddenCount > 0) {
+                MoreWidgetTasksRow(context, hiddenCount)
+            }
         }
+    }
+}
+
+@Composable
+private fun MoreWidgetTasksRow(context: Context, hiddenCount: Int) {
+    Box(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .height(28.dp)
+            .cornerRadius(12.dp)
+            .background(WidgetCard.copy(alpha = 0.82f))
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = context.getString(R.string.widget_more_tasks, hiddenCount),
+            maxLines = 1,
+            style = TextStyle(
+                color = ColorProvider(WidgetMuted),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center
+            )
+        )
+    }
+}
+
+@Composable
+private fun ErrorWidgetState(context: Context, message: String) {
+    val title = if (BuildConfig.DEBUG) {
+        "DEBUG ERROR"
+    } else {
+        context.getString(R.string.widget_error_title)
+    }
+    val body = if (BuildConfig.DEBUG) {
+        message
+    } else {
+        context.getString(R.string.widget_error_message)
+    }
+    Column(
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .background(WidgetBg)
+            .cornerRadius(24.dp)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = title,
+            style = TextStyle(color = ColorProvider(Color(0xFFFF6B6B)), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        )
+        Spacer(GlanceModifier.height(6.dp))
+        Text(
+            text = body,
+            maxLines = 8,
+            style = TextStyle(color = ColorProvider(WidgetMuted), fontSize = 11.sp)
+        )
     }
 }
 

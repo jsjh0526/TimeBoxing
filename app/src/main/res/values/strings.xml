@@ -194,6 +194,9 @@
     <string name="widget_today">Today</string>
     <string name="widget_left">%1$d/%2$d left</string>
     <string name="widget_no_tasks">No tasks today</string>
+    <string name="widget_more_tasks">+%1$d more in TimeBox</string>
+    <string name="widget_error_title">Widget unavailable</string>
+    <string name="widget_error_message">Open TimeBox to refresh this widget.</string>
     <string name="widget_unscheduled">Unscheduled</string>
     <string name="widget_locked_title">Widget access expired</string>
     <string name="widget_locked_message">Open TimeBox and watch an ad to use the widget for 7 days.</string>

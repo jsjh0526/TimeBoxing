@@ -194,6 +194,9 @@
     <string name="widget_today">Today</string>
     <string name="widget_left">%1$d/%2$d left</string>
     <string name="widget_no_tasks">오늘 할일이 없어요</string>
+    <string name="widget_more_tasks">+%1$d개 더 보기</string>
+    <string name="widget_error_title">위젯을 불러오지 못했어요</string>
+    <string name="widget_error_message">TimeBox를 열어 위젯을 새로고침해 주세요.</string>
     <string name="widget_unscheduled">Unscheduled</string>
     <string name="widget_locked_title">위젯 이용 기간이 끝났어요</string>
     <string name="widget_locked_message">TimeBox에서 광고를 보고 위젯을 7일 동안 다시 열 수 있어요.</string>

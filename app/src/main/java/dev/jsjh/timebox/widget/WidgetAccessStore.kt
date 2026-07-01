@@ -5,12 +5,13 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import dev.jsjh.timebox.auth.ActiveUserStore
 import java.util.concurrent.TimeUnit
 import kotlin.math.max
 import kotlin.math.min
 
 object WidgetAccessStore {
-    private const val PREFS_NAME = "widget_access"
+    private const val PREFS_PREFIX = "widget_access"
     private const val KEY_UNLOCKED_UNTIL = "unlocked_until"
     private const val EXPIRY_REFRESH_REQUEST_CODE = 7407
     private val REWARD_DURATION_MS = TimeUnit.DAYS.toMillis(7)
@@ -63,8 +64,15 @@ object WidgetAccessStore {
         }
     }
 
-    private fun prefs(context: Context) =
-        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private fun prefs(context: Context): android.content.SharedPreferences {
+        val appContext = context.applicationContext
+        val userId = ActiveUserStore.readUserId(appContext)
+        val key = userId
+            .ifBlank { "unknown_user" }
+            .replace(Regex("[^a-zA-Z0-9_]"), "_")
+            .take(64)
+        return appContext.getSharedPreferences("${PREFS_PREFIX}_$key", Context.MODE_PRIVATE)
+    }
 
     private fun expiryPendingIntent(context: Context): PendingIntent =
         PendingIntent.getBroadcast(

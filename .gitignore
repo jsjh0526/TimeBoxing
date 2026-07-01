@@ -4,6 +4,7 @@
 .android-user/
 .kotlin/
 /local.properties
+/keystore.properties
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
