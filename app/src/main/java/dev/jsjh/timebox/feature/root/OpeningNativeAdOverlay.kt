@@ -54,6 +54,8 @@ import dev.jsjh.timebox.ads.OpeningNativeAdGate
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
+private const val OpeningNativeAdLoadTimeoutMs = 2_500L
+
 @Composable
 fun OpeningNativeAdOverlay() {
     val context = LocalContext.current
@@ -90,7 +92,7 @@ fun OpeningNativeAdOverlay() {
             .build()
 
         loader.loadAd(AdRequest.Builder().build())
-        delay(1200)
+        delay(OpeningNativeAdLoadTimeoutMs)
         if (nativeAd == null && !visible) {
             timedOut = true
             closed = true

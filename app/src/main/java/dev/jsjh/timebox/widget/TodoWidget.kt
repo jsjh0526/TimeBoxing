@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -77,6 +78,10 @@ private val WidgetAccent = Color(0xFF8687E7)
 private val WidgetText = Color(0xFFFFFFFF)
 private val WidgetMuted = Color(0xFF9AA1AF)
 private val WidgetBorder = Color(0xFFFFFFFF)
+private val WidgetCompactSize = DpSize(250.dp, 120.dp)
+private val WidgetWideCompactSize = DpSize(360.dp, 120.dp)
+private val WidgetTallSize = DpSize(250.dp, 220.dp)
+private val WidgetWideTallSize = DpSize(360.dp, 220.dp)
 private val WidgetControlHitSize = 30.dp
 private val WidgetCompactControlHitSize = 26.dp
 private val TaskIdKey = ActionParameters.Key<String>("task_id")
@@ -98,7 +103,14 @@ class TodoWidgetReceiver : GlanceAppWidgetReceiver() {
 }
 
 class TodoWidget : GlanceAppWidget() {
-    override val sizeMode: SizeMode = SizeMode.Exact
+    override val sizeMode: SizeMode = SizeMode.Responsive(
+        setOf(
+            WidgetCompactSize,
+            WidgetWideCompactSize,
+            WidgetTallSize,
+            WidgetWideTallSize
+        )
+    )
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val initialState = withContext(Dispatchers.IO) { loadTodoWidgetStateOrFallback(context) }
