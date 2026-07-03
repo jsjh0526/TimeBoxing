@@ -54,7 +54,8 @@ import dev.jsjh.timebox.ads.OpeningNativeAdGate
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
-private const val OpeningNativeAdLoadTimeoutMs = 2_500L
+private const val OpeningNativeAdLoadTimeoutMs = 2_000L
+private const val OpeningNativeAdPollIntervalMs = 50L
 
 @Composable
 fun OpeningNativeAdOverlay() {
@@ -63,12 +64,16 @@ fun OpeningNativeAdOverlay() {
     val canRequestAds = AdsConsentManager.canRequestAds
     val shouldAttempt = remember { OpeningNativeAdGate.consumeEligibility() }
     var nativeAd by remember { mutableStateOf<NativeAd?>(null) }
+    var pendingAd by remember { mutableStateOf<NativeAd?>(null) }
     var visible by remember { mutableStateOf(false) }
     var closed by remember { mutableStateOf(!shouldAttempt || adUnitId.isBlank()) }
     var timedOut by remember { mutableStateOf(false) }
 
     DisposableEffect(nativeAd) {
         onDispose { nativeAd?.destroy() }
+    }
+    DisposableEffect(Unit) {
+        onDispose { pendingAd?.destroy() }
     }
 
     LaunchedEffect(shouldAttempt, canRequestAds, adUnitId) {
@@ -79,9 +84,7 @@ fun OpeningNativeAdOverlay() {
                 if (closed || timedOut) {
                     ad.destroy()
                 } else {
-                    OpeningNativeAdGate.markShown(context)
-                    nativeAd = ad
-                    visible = true
+                    pendingAd = ad
                 }
             }
             .withAdListener(object : AdListener() {
@@ -92,11 +95,35 @@ fun OpeningNativeAdOverlay() {
             .build()
 
         loader.loadAd(AdRequest.Builder().build())
-        delay(OpeningNativeAdLoadTimeoutMs)
-        if (nativeAd == null && !visible) {
-            timedOut = true
-            closed = true
+
+        // Show only after the media asset is actually ready, so the modal never
+        // opens on a black placeholder while the image is still downloading.
+        repeat((OpeningNativeAdLoadTimeoutMs / OpeningNativeAdPollIntervalMs).toInt()) {
+            if (closed) return@LaunchedEffect
+            val ad = pendingAd
+            if (ad != null) {
+                val media = ad.mediaContent
+                if (media == null) {
+                    // Text-only ad: this opening modal is image-centric, skip it.
+                    pendingAd = null
+                    ad.destroy()
+                    closed = true
+                    return@LaunchedEffect
+                }
+                if (media.mainImage != null || media.hasVideoContent()) {
+                    OpeningNativeAdGate.markShown(context)
+                    nativeAd = ad
+                    pendingAd = null
+                    visible = true
+                    return@LaunchedEffect
+                }
+            }
+            delay(OpeningNativeAdPollIntervalMs)
         }
+        timedOut = true
+        closed = true
+        pendingAd?.destroy()
+        pendingAd = null
     }
 
     val ad = nativeAd
@@ -258,11 +285,16 @@ private fun bindOpeningNativeAdView(adView: NativeAdView, nativeAd: NativeAd) {
 
     val mediaView = adView.mediaView
     val mediaContent = nativeAd.mediaContent
+    // Hide the whole 330dp frame (not just the inner MediaView) when there is no
+    // media, otherwise an empty black box is left on screen. In practice media-less
+    // ads are filtered out before showing, so this is defensive.
+    val mediaFrame = mediaView?.parent as? View
     if (mediaView != null && mediaContent != null) {
+        mediaFrame?.visibility = View.VISIBLE
         mediaView.visibility = View.VISIBLE
         mediaView.mediaContent = mediaContent
     } else {
-        mediaView?.visibility = View.GONE
+        mediaFrame?.visibility = View.GONE
     }
 
     val bodyView = adView.bodyView as TextView

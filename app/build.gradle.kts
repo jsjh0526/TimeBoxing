@@ -26,8 +26,8 @@ android {
         applicationId = "dev.jsjh.timebox"
         minSdk = 28
         targetSdk = 36
-        versionCode = 22
-        versionName = "1.2.5"
+        versionCode = 23
+        versionName = "1.2.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
@@ -117,6 +117,7 @@ dependencies {
     implementation(libs.play.services.ads)
     implementation(libs.user.messaging.platform)
     implementation(libs.play.app.update.ktx)
+    implementation(libs.play.review.ktx)
     implementation(libs.androidx.glance.appwidget)
 
     testImplementation(libs.junit)

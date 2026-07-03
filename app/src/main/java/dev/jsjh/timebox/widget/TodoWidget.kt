@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -81,6 +82,8 @@ private val WidgetCompactSize = DpSize(250.dp, 120.dp)
 private val WidgetWideCompactSize = DpSize(360.dp, 120.dp)
 private val WidgetTallSize = DpSize(250.dp, 220.dp)
 private val WidgetWideTallSize = DpSize(360.dp, 220.dp)
+private val WidgetLargeTallSize = DpSize(300.dp, 404.dp)
+private val WidgetWideLargeTallSize = DpSize(360.dp, 404.dp)
 private val WidgetControlHitSize = 30.dp
 private val WidgetCompactControlHitSize = 26.dp
 private val TaskIdKey = ActionParameters.Key<String>("task_id")
@@ -97,7 +100,9 @@ class TodoWidget : GlanceAppWidget() {
             WidgetCompactSize,
             WidgetWideCompactSize,
             WidgetTallSize,
-            WidgetWideTallSize
+            WidgetWideTallSize,
+            WidgetLargeTallSize,
+            WidgetWideLargeTallSize
         )
     )
 
@@ -117,6 +122,7 @@ class TodoWidget : GlanceAppWidget() {
             TodoWidgetContent(
                 state = state,
                 compact = compact,
+                widgetHeight = size.height,
                 context = context
             )
         }
@@ -194,6 +200,7 @@ private fun loadTodoWidgetStateOrFallback(context: Context): TodoWidgetState =
 private fun TodoWidgetContent(
     state: TodoWidgetState,
     compact: Boolean,
+    widgetHeight: Dp,
     context: Context
 ) {
     if (state.errorMessage != null) {
@@ -277,30 +284,37 @@ private fun TodoWidgetContent(
             return@Column
         }
 
-        val visibleLimit = if (compact) 1 else 2
+        val visibleLimit = visibleTaskLimit(widgetHeight)
         val visibleTasks = state.tasks.take(visibleLimit)
+        val hiddenCount = (state.tasks.size - visibleTasks.size).coerceAtLeast(0)
+        val showMore = hiddenCount > 0
         Column(
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .defaultWeight(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            visibleTasks.forEach { task ->
-                Column {
-                    TodoWidgetCard(
-                        task = task,
-                        compact = compact,
-                        context = context
-                    )
+            visibleTasks.forEachIndexed { index, task ->
+                TodoWidgetCard(
+                    task = task,
+                    compact = compact,
+                    context = context
+                )
+                if (index < visibleTasks.lastIndex || showMore) {
                     Spacer(GlanceModifier.height(if (compact) 8.dp else 10.dp))
                 }
             }
-            val hiddenCount = state.tasks.size - visibleTasks.size
-            if (hiddenCount > 0) {
+            if (showMore) {
                 MoreWidgetTasksRow(context, hiddenCount)
             }
         }
     }
+}
+
+private fun visibleTaskLimit(widgetHeight: Dp): Int = when {
+    widgetHeight >= 360.dp -> 3
+    widgetHeight >= 180.dp -> 2
+    else -> 1
 }
 
 @Composable

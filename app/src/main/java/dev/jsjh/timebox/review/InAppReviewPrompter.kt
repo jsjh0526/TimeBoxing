@@ -1,0 +1,53 @@
+package dev.jsjh.timebox.review
+
+import android.app.Activity
+import android.content.Context
+import androidx.core.content.edit
+import com.google.android.play.core.review.ReviewManagerFactory
+import java.util.concurrent.TimeUnit
+
+object InAppReviewPrompter {
+    private const val PREFS_NAME = "in_app_review_prompt"
+    private const val KEY_LAUNCH_COUNT = "launch_count"
+    private const val KEY_LAST_REVIEW_REQUEST_AT = "last_review_request_at"
+    private const val MIN_LAUNCH_COUNT = 5
+    private val MIN_INSTALLED_AGE_MS = TimeUnit.DAYS.toMillis(3)
+    private val REVIEW_COOLDOWN_MS = TimeUnit.DAYS.toMillis(50)
+
+    private var requestedThisProcess = false
+
+    fun recordLaunch(context: Context) {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit {
+            putInt(KEY_LAUNCH_COUNT, prefs.getInt(KEY_LAUNCH_COUNT, 0) + 1)
+        }
+    }
+
+    fun requestIfEligible(activity: Activity) {
+        if (requestedThisProcess) return
+        val now = System.currentTimeMillis()
+        val appContext = activity.applicationContext
+        val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        if (prefs.getInt(KEY_LAUNCH_COUNT, 0) < MIN_LAUNCH_COUNT) return
+        if (now - firstInstallTime(appContext) < MIN_INSTALLED_AGE_MS) return
+
+        val lastRequestAt = prefs.getLong(KEY_LAST_REVIEW_REQUEST_AT, 0L)
+        if (lastRequestAt > 0L && now - lastRequestAt < REVIEW_COOLDOWN_MS) return
+
+        requestedThisProcess = true
+        prefs.edit { putLong(KEY_LAST_REVIEW_REQUEST_AT, now) }
+
+        val reviewManager = ReviewManagerFactory.create(appContext)
+        reviewManager.requestReviewFlow()
+            .addOnSuccessListener { reviewInfo ->
+                reviewManager.launchReviewFlow(activity, reviewInfo)
+            }
+    }
+
+    private fun firstInstallTime(context: Context): Long {
+        return runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).firstInstallTime
+        }.getOrDefault(System.currentTimeMillis())
+    }
+}

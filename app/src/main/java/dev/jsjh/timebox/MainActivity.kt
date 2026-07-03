@@ -29,6 +29,7 @@ import dev.jsjh.timebox.auth.initSupabase
 import dev.jsjh.timebox.feature.root.TimeBoxingApp
 import dev.jsjh.timebox.feature.settings.AppSettingsStore
 import dev.jsjh.timebox.notification.ReminderScheduler
+import dev.jsjh.timebox.review.InAppReviewPrompter
 import dev.jsjh.timebox.ui.theme.TimeBoxingTheme
 import dev.jsjh.timebox.widget.WidgetLaunchRequest
 import com.google.android.play.core.appupdate.AppUpdateManager
@@ -45,6 +46,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var appUpdateManager: AppUpdateManager
     private var mobileAdsInitialized = false
     private var widgetLaunchRequest by mutableStateOf<WidgetLaunchRequest?>(null)
+    private var launchedFromWidget = false
 
     private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         if (!keepSystemBarsVisible) hideSystemBars()
@@ -61,8 +63,10 @@ class MainActivity : AppCompatActivity() {
         checkForAppUpdate()
         initSupabase(this)
         widgetLaunchRequest = WidgetLaunchRequest.from(intent)
+        launchedFromWidget = widgetLaunchRequest != null
         if (savedInstanceState == null) {
             OpeningNativeAdGate.recordLaunch(this, fromWidget = widgetLaunchRequest != null)
+            InAppReviewPrompter.recordLaunch(this)
         }
         AdsConsentManager.gatherConsent(this) {
             initializeMobileAdsIfNeeded()
@@ -80,6 +84,9 @@ class MainActivity : AppCompatActivity() {
                     onRequestBatteryOptimizationExemption = ::requestIgnoreBatteryOptimizationsIfNeeded,
                     onLoginScreenVisible = { visible ->
                         loginScreenVisible = visible
+                        if (!visible && !launchedFromWidget) {
+                            InAppReviewPrompter.requestIfEligible(this)
+                        }
                         if (visible) OpeningNativeAdGate.disableForCurrentLaunch()
                         updateSystemBarsVisibility()
                     },
@@ -99,6 +106,7 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         widgetLaunchRequest = WidgetLaunchRequest.from(intent)
+        launchedFromWidget = widgetLaunchRequest != null
     }
 
     override fun onResume() {
