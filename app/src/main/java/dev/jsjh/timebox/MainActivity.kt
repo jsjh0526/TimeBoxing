@@ -1,6 +1,7 @@
 package dev.jsjh.timebox
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -22,11 +23,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.appcompat.app.AppCompatActivity
 import dev.jsjh.timebox.ads.AdsConsentManager
 import dev.jsjh.timebox.ads.OpeningNativeAdGate
 import dev.jsjh.timebox.auth.initSupabase
 import dev.jsjh.timebox.feature.root.TimeBoxingApp
+import dev.jsjh.timebox.feature.settings.AppLanguage
 import dev.jsjh.timebox.feature.settings.AppSettingsStore
 import dev.jsjh.timebox.notification.ReminderScheduler
 import dev.jsjh.timebox.review.InAppReviewPrompter
@@ -39,7 +40,7 @@ import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.android.gms.ads.MobileAds
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
     private var keepSystemBarsVisible = false
     private var loginScreenVisible = false
     private var showSystemNavigationBar = false
@@ -54,6 +55,10 @@ class MainActivity : AppCompatActivity() {
 
     private val appUpdateLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
         if (!keepSystemBarsVisible) hideSystemBars()
+    }
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,10 +78,7 @@ class MainActivity : AppCompatActivity() {
         }
         ReminderScheduler.createChannels(this)
         showSystemNavigationBar = AppSettingsStore(this).read().showSystemNavigationBar
-        enableEdgeToEdge(
-            statusBarStyle     = SystemBarStyle.dark(Color(0xFF121212).toArgb()),
-            navigationBarStyle = SystemBarStyle.dark(Color(0xFF1E1E1E).toArgb())
-        )
+        enableEdgeToEdgeSafely()
         setContent {
             TimeBoxingTheme {
                 TimeBoxingApp(
@@ -99,6 +101,18 @@ class MainActivity : AppCompatActivity() {
                     onWidgetLaunchRequestConsumed = { widgetLaunchRequest = null }
                 )
             }
+        }
+    }
+
+    private fun enableEdgeToEdgeSafely() {
+        runCatching {
+            enableEdgeToEdge(
+                statusBarStyle = SystemBarStyle.dark(Color(0xFF121212).toArgb()),
+                navigationBarStyle = SystemBarStyle.dark(Color(0xFF1E1E1E).toArgb())
+            )
+        }.onFailure {
+            window.statusBarColor = Color(0xFF121212).toArgb()
+            window.navigationBarColor = Color(0xFF1E1E1E).toArgb()
         }
     }
 

@@ -5,7 +5,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -73,7 +72,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
-import androidx.core.os.LocaleListCompat
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
@@ -223,7 +221,7 @@ fun SettingsScreen(
             SectionCard(title = stringResource(R.string.settings_app), icon = { MaterialSettingsIcon(SettingsIcon.Display, Accent) }) {
                 SettingsMenuRow(
                     title = stringResource(R.string.settings_language),
-                    subtitle = currentLanguageLabel(),
+                    subtitle = currentLanguageLabel(context),
                     icon = SettingsIcon.Language,
                     showChevron = true,
                     onClick = { languageDialogVisible = true }
@@ -577,12 +575,12 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
 
 @Composable
 private fun LanguageOptionRow(label: String, languageTag: String, onSelected: () -> Unit) {
-    val selected = AppCompatDelegate.getApplicationLocales().toLanguageTags() == languageTag
+    val context = LocalContext.current
+    val currentLanguageTag = AppLanguage.currentLanguageTag(context)
+    val selected = languageMatches(currentLanguageTag, languageTag)
     Box(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (selected) Accent.copy(alpha = 0.22f) else Color(0xFF2A2A2A)).clickable {
-            AppCompatDelegate.setApplicationLocales(
-                if (languageTag.isBlank()) LocaleListCompat.getEmptyLocaleList() else LocaleListCompat.forLanguageTags(languageTag)
-            )
+            context.findActivity()?.let { AppLanguage.setLanguage(it, languageTag) }
             onSelected()
         }.padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
@@ -591,13 +589,24 @@ private fun LanguageOptionRow(label: String, languageTag: String, onSelected: ()
 }
 
 @Composable
-private fun currentLanguageLabel(): String {
-    return when (AppCompatDelegate.getApplicationLocales().toLanguageTags()) {
+private fun currentLanguageLabel(context: Context): String {
+    return when (primaryLanguageCode(AppLanguage.currentLanguageTag(context))) {
         "en" -> stringResource(R.string.settings_language_english)
         "ko" -> stringResource(R.string.settings_language_korean)
         else -> stringResource(R.string.settings_language_system)
     }
 }
+
+private fun languageMatches(currentLanguageTag: String, optionLanguageTag: String): Boolean {
+    if (optionLanguageTag.isBlank()) return currentLanguageTag.isBlank()
+    return primaryLanguageCode(currentLanguageTag) == optionLanguageTag
+}
+
+private fun primaryLanguageCode(languageTag: String): String =
+    languageTag
+        .substringBefore(',')
+        .substringBefore('-')
+        .lowercase()
 
 @Composable
 private fun SectionCard(title: String, icon: @Composable () -> Unit, content: @Composable () -> Unit) {

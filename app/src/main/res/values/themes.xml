@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.TimeBoxing" parent="Theme.AppCompat.Light.NoActionBar">
+    <style name="Theme.TimeBoxing" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:fontFamily">sans</item>
     </style>
 
-    <style name="Theme.TimeBoxing.Starting" parent="Theme.AppCompat.NoActionBar">
+    <style name="Theme.TimeBoxing.Starting" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>
         <item name="android:windowBackground">@drawable/splash_screen_background</item>
