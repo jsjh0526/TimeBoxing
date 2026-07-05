@@ -9,9 +9,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
-import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
@@ -19,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.ComposeView
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -79,29 +80,41 @@ class MainActivity : ComponentActivity() {
         ReminderScheduler.createChannels(this)
         showSystemNavigationBar = AppSettingsStore(this).read().showSystemNavigationBar
         enableEdgeToEdgeSafely()
-        setContent {
-            TimeBoxingTheme {
-                TimeBoxingApp(
-                    onRequestNotificationPermission = ::requestNotificationPermissionIfNeeded,
-                    onRequestBatteryOptimizationExemption = ::requestIgnoreBatteryOptimizationsIfNeeded,
-                    onLoginScreenVisible = { visible ->
-                        loginScreenVisible = visible
-                        if (!visible && !launchedFromWidget) {
-                            InAppReviewPrompter.requestIfEligible(this)
-                        }
-                        if (visible) OpeningNativeAdGate.disableForCurrentLaunch()
-                        updateSystemBarsVisibility()
-                    },
-                    initialShowSystemNavigationBar = showSystemNavigationBar,
-                    onSystemNavigationBarPreferenceChange = { visible ->
-                        showSystemNavigationBar = visible
-                        updateSystemBarsVisibility()
-                    },
-                    widgetLaunchRequest = widgetLaunchRequest,
-                    onWidgetLaunchRequestConsumed = { widgetLaunchRequest = null }
-                )
-            }
-        }
+        setTimeBoxContent()
+    }
+
+    private fun setTimeBoxContent() {
+        setContentView(
+            ComposeView(this).apply {
+                setContent {
+                    TimeBoxingTheme {
+                        TimeBoxingApp(
+                            onRequestNotificationPermission = ::requestNotificationPermissionIfNeeded,
+                            onRequestBatteryOptimizationExemption = ::requestIgnoreBatteryOptimizationsIfNeeded,
+                            onLoginScreenVisible = { visible ->
+                                loginScreenVisible = visible
+                                if (!visible && !launchedFromWidget) {
+                                    InAppReviewPrompter.requestIfEligible(this@MainActivity)
+                                }
+                                if (visible) OpeningNativeAdGate.disableForCurrentLaunch()
+                                updateSystemBarsVisibility()
+                            },
+                            initialShowSystemNavigationBar = showSystemNavigationBar,
+                            onSystemNavigationBarPreferenceChange = { visible ->
+                                showSystemNavigationBar = visible
+                                updateSystemBarsVisibility()
+                            },
+                            widgetLaunchRequest = widgetLaunchRequest,
+                            onWidgetLaunchRequestConsumed = { widgetLaunchRequest = null }
+                        )
+                    }
+                }
+            },
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
     }
 
     private fun enableEdgeToEdgeSafely() {

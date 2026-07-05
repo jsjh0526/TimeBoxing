@@ -38,12 +38,20 @@ object AppLanguage {
 
     fun setLanguage(activity: Activity, languageTag: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            activity.getSystemService(LocaleManager::class.java)?.applicationLocales =
-                if (languageTag.isBlank()) LocaleList.getEmptyLocaleList() else LocaleList.forLanguageTags(languageTag)
-        } else {
-            activity.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit { putString(KEY_LANGUAGE_TAG, languageTag) }
+            val localeManager = activity.getSystemService(LocaleManager::class.java) ?: return
+            val nextLocales = if (languageTag.isBlank()) {
+                LocaleList.getEmptyLocaleList()
+            } else {
+                LocaleList.forLanguageTags(languageTag)
+            }
+            if (localeManager.applicationLocales.toLanguageTags() != nextLocales.toLanguageTags()) {
+                localeManager.applicationLocales = nextLocales
+            }
+            return
         }
+
+        activity.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit { putString(KEY_LANGUAGE_TAG, languageTag) }
         activity.recreate()
     }
 
