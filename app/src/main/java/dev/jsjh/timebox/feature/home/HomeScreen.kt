@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -75,7 +76,8 @@ import androidx.core.os.ConfigurationCompat
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.DailyTaskSource
-import dev.jsjh.timebox.domain.model.ScheduleBlock
+import dev.jsjh.timebox.ui.format.formatClock
+import dev.jsjh.timebox.ui.format.formatClockRange
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -185,6 +187,7 @@ fun HomeScreen(
 @Composable
 private fun HomeHeader(date: LocalDate, currentTime: LocalTime, completedCount: Int, totalCount: Int, onNotificationsClick: () -> Unit) {
     val configuration = LocalConfiguration.current
+    val context = LocalContext.current
     val locale = ConfigurationCompat.getLocales(configuration).get(0) ?: Locale.ENGLISH
     val datePattern = stringResource(R.string.home_date_pattern)
     val weekdayPattern = stringResource(R.string.home_weekday_pattern)
@@ -196,7 +199,7 @@ private fun HomeHeader(date: LocalDate, currentTime: LocalTime, completedCount: 
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(date.format(DateTimeFormatter.ofPattern(weekdayPattern, locale)), style = TextStyle(color = Secondary, fontSize = 13.sp, lineHeight = 19.5.sp, fontWeight = FontWeight.Medium))
             }
-            Text(currentTime.format(DateTimeFormatter.ofPattern("HH:mm")), style = TextStyle(color = Accent, fontSize = 20.sp, lineHeight = 20.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp))
+            Text(formatClock(context, currentTime), style = TextStyle(color = Accent, fontSize = 20.sp, lineHeight = 20.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp))
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(horizontalAlignment = Alignment.End) {
@@ -213,6 +216,7 @@ private fun HomeHeader(date: LocalDate, currentTime: LocalTime, completedCount: 
 
 @Composable
 private fun NowCard(task: DailyTask?, currentMinute: Int, onOpenTask: () -> Unit, onMarkComplete: () -> Unit) {
+    val context = LocalContext.current
     if (task == null) {
         Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardBackground).border(0.7.dp, CardBorder, RoundedCornerShape(16.dp)).padding(horizontal = 20.dp, vertical = 20.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -237,7 +241,7 @@ private fun NowCard(task: DailyTask?, currentMinute: Int, onOpenTask: () -> Unit
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         ClockIcon(Color.White.copy(alpha = 0.9f), modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(formatRange(schedule), style = bodyStyle(14.sp, Color.White.copy(alpha = 0.9f), FontWeight.Medium))
+                        Text(formatClockRange(context, schedule.startMinute, schedule.endMinute), style = bodyStyle(14.sp, Color.White.copy(alpha = 0.9f), FontWeight.Medium))
                     }
                     Box(modifier = Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.2f)).padding(horizontal = 12.dp, vertical = 8.dp)) {
                         Text(stringResource(R.string.home_minutes_left, remaining), style = bodyStyle(13.sp, Color.White, FontWeight.SemiBold))
@@ -253,11 +257,12 @@ private fun NowCard(task: DailyTask?, currentMinute: Int, onOpenTask: () -> Unit
 
 @Composable
 private fun UpNextCard(task: DailyTask) {
+    val context = LocalContext.current
     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CardBackground).border(0.7.dp, CardBorder, RoundedCornerShape(14.dp)).padding(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.home_next), style = sectionTitle(Muted))
-                Text(task.schedule?.let { formatClock(it.startMinute) }.orEmpty(), style = bodyStyle(13.sp, Secondary, FontWeight.Medium))
+                Text(task.schedule?.let { formatClock(context, it.startMinute) }.orEmpty(), style = bodyStyle(13.sp, Secondary, FontWeight.Medium))
             }
             Text(task.title, style = titleStyle(16.sp, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
             task.note?.takeIf { it.isNotBlank() }?.let { Text(it, style = bodyStyle(13.sp, Muted), maxLines = 2, overflow = TextOverflow.Ellipsis) }
@@ -294,6 +299,7 @@ private fun Big3Card(tasks: List<DailyTask>, expanded: Boolean, onToggle: () -> 
 
 @Composable
 private fun Big3Row(index: Int, task: DailyTask, onOpenTask: () -> Unit, onMarkComplete: () -> Unit) {
+    val context = LocalContext.current
     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(CardInner).clickable(onClick = onOpenTask).padding(horizontal = 12.dp, vertical = 12.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -303,7 +309,7 @@ private fun Big3Row(index: Int, task: DailyTask, onOpenTask: () -> Unit, onMarkC
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(task.title, style = titleStyle(15.sp, FontWeight.Medium).copy(color = if (task.isCompleted) Secondary else Color.White, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            task.schedule?.let { Text("${formatClock(it.startMinute)}  ${it.durationMinutes}min", style = bodyStyle(12.sp, if (task.isCompleted) Muted else Secondary), modifier = Modifier.padding(start = 32.dp)) }
+            task.schedule?.let { Text("${formatClock(context, it.startMinute)}  ${it.durationMinutes}min", style = bodyStyle(12.sp, if (task.isCompleted) Muted else Secondary), modifier = Modifier.padding(start = 32.dp)) }
         }
     }
 }
@@ -326,13 +332,14 @@ private fun UpcomingCard(tasks: List<DailyTask>, onOpenTask: (String) -> Unit) {
 
 @Composable
 private fun UpcomingRow(task: DailyTask, highlighted: Boolean, onOpenTask: (String) -> Unit) {
+    val context = LocalContext.current
     val schedule = task.schedule ?: return
     Row(modifier = Modifier.fillMaxWidth().clickable { onOpenTask(task.id) }.padding(vertical = 2.dp), verticalAlignment = Alignment.Top) {
         Row(modifier = Modifier.width(64.dp), verticalAlignment = Alignment.Top) {
             Box(modifier = Modifier.padding(top = 4.dp).size(10.dp).shadow(elevation = if (highlighted) 10.dp else 0.dp, shape = CircleShape, ambientColor = Accent.copy(alpha = 0.5f), spotColor = Accent.copy(alpha = 0.5f)).clip(CircleShape).background(if (highlighted) Accent else CardBackground).border(2.8.dp, if (highlighted) Accent else Accent.copy(alpha = 0.6f), CircleShape))
             Spacer(modifier = Modifier.width(12.dp))
             Column {
-                Text(formatClock(schedule.startMinute), style = bodyStyle(14.sp, if (highlighted) Accent else Secondary, FontWeight.SemiBold))
+                Text(formatClock(context, schedule.startMinute), style = bodyStyle(14.sp, if (highlighted) Accent else Secondary, FontWeight.SemiBold))
                 Text("${schedule.durationMinutes}m", style = bodyStyle(11.sp, Tertiary))
             }
         }
@@ -490,6 +497,7 @@ private fun NotificationPanel(
     onDismiss: () -> Unit,
     onOpenTask: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val alertTasks = tasks
         .filter { it.schedule?.reminderEnabled == true }
         .sortedBy { it.schedule!!.startMinute }
@@ -513,7 +521,7 @@ private fun NotificationPanel(
     val summary = when {
         alertTasks.isEmpty() -> stringResource(R.string.reminders_summary_empty)
         activeAlert != null -> stringResource(R.string.reminders_summary_now, activeAlert.title)
-        nextAlert != null -> stringResource(R.string.reminders_summary_next, formatClock(nextAlert.schedule!!.startMinute))
+        nextAlert != null -> stringResource(R.string.reminders_summary_next, formatClock(context, nextAlert.schedule!!.startMinute))
         else -> stringResource(R.string.reminders_summary_done)
     }
 
@@ -620,6 +628,7 @@ private fun ReminderTaskRow(
     currentMinute: Int,
     onOpenTask: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val schedule = task.schedule ?: return
     val isPast = schedule.endMinute <= currentMinute
     val isNow = currentMinute in schedule.startMinute until schedule.endMinute
@@ -651,7 +660,7 @@ private fun ReminderTaskRow(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                "${formatClock(schedule.startMinute)} - ${formatClock(schedule.endMinute)}",
+                formatClockRange(context, schedule.startMinute, schedule.endMinute),
                 style = TextStyle(
                     color = if (isNow) Accent else Secondary,
                     fontSize = 12.sp,
@@ -852,12 +861,6 @@ private fun titleStyle(size: TextUnit, weight: FontWeight): TextStyle =
 
 private fun bodyStyle(size: TextUnit, color: Color, weight: FontWeight = FontWeight.Normal): TextStyle =
     TextStyle(color = color, fontSize = size, lineHeight = size * 1.5f, fontWeight = weight)
-
-private fun formatClock(totalMinutes: Int): String =
-    String.format(Locale.ENGLISH, "%d:%02d", totalMinutes / 60, totalMinutes % 60)
-
-private fun formatRange(schedule: ScheduleBlock): String =
-    "${formatClock(schedule.startMinute)} - ${formatClock(schedule.endMinute)}"
 
 private fun appDayMinute(minute: Int, dayStartMinute: Int): Int {
     if (dayStartMinute <= 0) return minute

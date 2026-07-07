@@ -5,6 +5,7 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import dev.jsjh.timebox.R
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.IDToken
@@ -113,7 +114,7 @@ object AuthRepository {
                 return
             }
             hadGuestSessionBeforeLogin = false
-            _authState.value = AuthState.Error(message.ifBlank { "Login failed" })
+            _authState.value = AuthState.Error(message.ifBlank { context.getString(R.string.auth_login_failed) })
         }
     }
 

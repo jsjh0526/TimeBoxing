@@ -1,11 +1,12 @@
 <resources>
     <string name="app_name">TimeBox</string>
-    <string name="brand_name">Timebox</string>
+    <string name="brand_name">TimeBox</string>
     <string name="login_tagline">Focus on what matters most.</string>
     <string name="login_terms">By continuing, you agree to our Terms &amp; Conditions.</string>
     <string name="continue_with_google">Continue with Google</string>
     <string name="continue_without_account">Continue without account</string>
     <string name="google">Google</string>
+    <string name="auth_login_failed">Login failed</string>
 
     <string name="tab_home">Home</string>
     <string name="tab_todo">TODO</string>
@@ -42,10 +43,10 @@
     <string name="settings_widget_remaining_days">Remaining: %1$d days %2$d hours</string>
     <string name="settings_widget_remaining_hours">Remaining: %1$d hours %2$d minutes</string>
     <string name="settings_widget_remaining_minutes">Remaining: %1$d minutes</string>
-    <string name="settings_widget_unlock_limit">You can charge up to 28 days.</string>
-    <string name="settings_widget_unlock_open">Watch ad to unlock 7 days</string>
-    <string name="settings_widget_unlock_extend">Watch ad to add 7 days</string>
-    <string name="settings_widget_unlock_maxed">Charged up to 28 days</string>
+    <string name="settings_widget_unlock_limit">You can unlock up to 28 days.</string>
+    <string name="settings_widget_unlock_open">Watch an ad to unlock 7 days</string>
+    <string name="settings_widget_unlock_extend">Watch an ad to add 7 days</string>
+    <string name="settings_widget_unlock_maxed">Unlocked up to 28 days</string>
     <string name="settings_widget_unlocked_toast">Widget access was extended by 7 days.</string>
     <string name="settings_support_ad_title">Support</string>
     <string name="settings_support_ad_watch_title">Support by watching an ad</string>
@@ -61,6 +62,9 @@
     <string name="settings_language_system">System default</string>
     <string name="settings_language_english">English</string>
     <string name="settings_language_korean">한국어</string>
+    <string name="settings_survey">Survey</string>
+    <string name="settings_language_survey_title">Help choose the next language</string>
+    <string name="settings_language_survey_subtitle">Tell us which language you want in TimeBox.</string>
     <string name="settings_system_nav">System navigation bar</string>
     <string name="settings_system_nav_subtitle">Always show the Android bottom navigation bar</string>
     <string name="settings_day_start">Day start time</string>
@@ -91,7 +95,7 @@
     <string name="settings_terms">Terms &amp; Conditions</string>
     <string name="settings_terms_subtitle">Service usage terms</string>
     <string name="settings_privacy">Privacy Policy</string>
-    <string name="settings_privacy_subtitle">Account and sync data guide</string>
+    <string name="settings_privacy_subtitle">How account and sync data are handled</string>
     <string name="settings_open_source">Open source licenses</string>
     <string name="settings_open_source_subtitle">Library license information</string>
     <string name="settings_privacy_choices">Privacy choices</string>
@@ -123,7 +127,7 @@
     <string name="reminders_summary_empty">No reminders set</string>
     <string name="reminders_summary_now">Now · %1$s</string>
     <string name="reminders_summary_next">Next %1$s</string>
-    <string name="reminders_summary_done">All reminders are past</string>
+    <string name="reminders_summary_done">No more reminders today</string>
     <string name="reminders_count">%1$d reminders today · %2$s</string>
     <string name="reminders_empty_title">No reminders yet</string>
     <string name="reminders_empty_subtitle">Turn on Alert in a time block to get notified.</string>
@@ -136,7 +140,7 @@
 
     <string name="todo_title">Tasks &amp; Habits</string>
     <string name="todo_big3_limit_title">Big 3 is full</string>
-    <string name="todo_big3_limit_message">Unstar one task before adding another priority.</string>
+    <string name="todo_big3_limit_message">Remove a star from one task before adding another priority.</string>
     <string name="todo_hint_big3_empty">Star tasks below to prioritize</string>
     <string name="todo_hint_braindump_empty">No tasks yet. Add one above!</string>
     <string name="todo_hint_habits_empty">No recurring habits for today.</string>
@@ -176,7 +180,7 @@
     <string name="editor_create">Create</string>
     <string name="editor_save">Save</string>
 
-    <string name="timetable_title">Time Table</string>
+    <string name="timetable_title">Timetable</string>
     <string name="calendar_month_pattern">MMMM yyyy</string>
     <string name="calendar_add_for_date">Add task for this date</string>
     <string name="calendar_open_date">View this date timeline</string>
@@ -203,8 +207,8 @@
     <string name="widget_locked_action">Open settings</string>
     <string name="notification_complete_action">Complete</string>
     <string name="notification_channel_reminders">Task reminders</string>
-    <string name="notification_channel_reminders_sound">Task reminders sound</string>
-    <string name="notification_channel_reminders_vibration">Task reminders vibration</string>
-    <string name="notification_channel_reminders_silent">Task reminders silent</string>
+    <string name="notification_channel_reminders_sound">Task reminders (sound)</string>
+    <string name="notification_channel_reminders_vibration">Task reminders (vibration)</string>
+    <string name="notification_channel_reminders_silent">Task reminders (silent)</string>
     <string name="notification_channel_description">TimeBox task start reminders</string>
 </resources>

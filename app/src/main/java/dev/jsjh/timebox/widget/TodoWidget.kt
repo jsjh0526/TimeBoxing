@@ -61,8 +61,8 @@ import dev.jsjh.timebox.feature.settings.effectiveToday
 import dev.jsjh.timebox.notification.ReminderRefreshBus
 import dev.jsjh.timebox.notification.ReminderScheduler
 import dev.jsjh.timebox.notification.ReminderSettingsStore
+import dev.jsjh.timebox.ui.format.formatClockRange
 import java.time.LocalDate
-import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -448,7 +448,7 @@ private fun EmptyWidgetState(context: Context) {
 
 @Composable
 private fun TodoWidgetCard(task: DailyTask, compact: Boolean, context: Context) {
-    val timeText = task.schedule?.let { "${formatClock(it.startMinute)} - ${formatClock(it.endMinute)}" }
+    val timeText = task.schedule?.let { formatClockRange(context, it.startMinute, it.endMinute) }
         ?: context.getString(R.string.widget_unscheduled)
     val cardHeight = if (compact) 58.dp else 78.dp
     val actionParameters = actionParametersOf(
@@ -582,9 +582,6 @@ private fun WidgetCloseButton(compact: Boolean, action: Action) {
         )
     }
 }
-
-private fun formatClock(totalMinutes: Int): String =
-    String.format(Locale.ENGLISH, "%02d:%02d", totalMinutes / 60, totalMinutes % 60)
 
 class ToggleWidgetTaskAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {

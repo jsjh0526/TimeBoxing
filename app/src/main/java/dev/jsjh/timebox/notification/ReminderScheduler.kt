@@ -13,9 +13,9 @@ import android.os.Build
 import androidx.core.content.edit
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.domain.model.DailyTask
+import dev.jsjh.timebox.ui.format.formatClockRange
 import java.time.LocalDate
 import java.time.ZoneId
-import java.util.Locale
 import java.util.zip.CRC32
 
 object ReminderScheduler {
@@ -126,7 +126,7 @@ object ReminderScheduler {
             putExtra(EXTRA_KEY, key)
             putExtra(EXTRA_DATE, task.date.toString())
             putExtra(EXTRA_TITLE, task.title)
-            putExtra(EXTRA_TIME_RANGE, "${formatMinute(schedule.startMinute)} - ${formatMinute(schedule.endMinute)}")
+            putExtra(EXTRA_TIME_RANGE, formatClockRange(context, schedule.startMinute, schedule.endMinute))
             putExtra(EXTRA_TASK_ID, task.id)
         }
         val pendingIntent = reminderPendingIntent(context, key, intent) ?: return
@@ -225,11 +225,6 @@ object ReminderScheduler {
 
     private fun legacyReminderRequestCode(key: String): Int = key.hashCode()
 
-    private fun formatMinute(totalMinutes: Int): String {
-        val h = (totalMinutes / 60).coerceIn(0, 23)
-        val m = (totalMinutes % 60).coerceIn(0, 59)
-        return String.format(Locale.ENGLISH, "%02d:%02d", h, m)
-    }
 }
 
 internal fun reminderTriggerAtMillis(

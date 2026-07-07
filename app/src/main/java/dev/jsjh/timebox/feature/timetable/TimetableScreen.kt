@@ -58,6 +58,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -74,6 +75,8 @@ import androidx.compose.ui.zIndex
 import androidx.core.os.ConfigurationCompat
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.ScheduleBlock
+import dev.jsjh.timebox.ui.format.formatClock
+import dev.jsjh.timebox.ui.format.formatClockRange
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -360,6 +363,7 @@ private fun TimetableGrid(
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth().height(hourHeight * 24f).background(PanelBackground)
     ) {
+        val context = LocalContext.current
         val density = LocalDensity.current
         val pixelsPerHour = with(density) { hourHeight.toPx() }
         val edgeZonePx = with(density) { 56.dp.toPx() }
@@ -416,7 +420,7 @@ private fun TimetableGrid(
                 Column(modifier = Modifier.width(AxisWidth.dp).fillMaxSize().background(AxisBackground)) {
                     repeat(24) { hour ->
                         Box(modifier = Modifier.height(hourHeight).fillMaxWidth().padding(end = 1.4.dp)) {
-                            Text(text = String.format(Locale.ENGLISH, "%02d:00", hour), modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter), style = TextStyle(color = TextMuted, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center))
+                            Text(text = formatClock(context, hour * 60), modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter), style = TextStyle(color = TextMuted, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center))
                             Box(modifier = Modifier.align(Alignment.CenterEnd).width(8.dp).height(0.7.dp).background(GridLineHalf))
                         }
                     }
@@ -487,6 +491,7 @@ private fun TimetableGrid(
 
 @Composable
 private fun TrayDropPreviewCard(task: DailyTask, schedule: ScheduleBlock) {
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -501,7 +506,7 @@ private fun TrayDropPreviewCard(task: DailyTask, schedule: ScheduleBlock) {
     ) {
         CompletionStub()
         Text(text = task.title, modifier = Modifier.weight(1f), style = TextStyle(color = TextPrimary, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(text = "${formatClock(schedule.startMinute)} - ${formatClock(schedule.endMinute)}", style = TextStyle(color = Color.White.copy(alpha = 0.72f), fontSize = 10.sp, lineHeight = 14.sp, fontFamily = FontFamily.Monospace), maxLines = 1)
+        Text(text = formatClockRange(context, schedule.startMinute, schedule.endMinute), style = TextStyle(color = Color.White.copy(alpha = 0.72f), fontSize = 10.sp, lineHeight = 14.sp, fontFamily = FontFamily.Monospace), maxLines = 1)
         Box(modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(Color.Black.copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 3.dp)) {
             Text(durationLabel(schedule.durationMinutes), style = TextStyle(color = TextPrimary.copy(alpha = 0.76f), fontSize = 10.sp, lineHeight = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium))
         }
@@ -510,11 +515,12 @@ private fun TrayDropPreviewCard(task: DailyTask, schedule: ScheduleBlock) {
 
 @Composable
 private fun TopHeader(currentTime: LocalTime, onCalendarClick: () -> Unit) {
+    val context = LocalContext.current
     Row(modifier = Modifier.fillMaxWidth().height(69.dp).background(HeaderBackground).padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.timetable_title), style = TextStyle(color = TextPrimary, fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             CalendarHeaderButton(onClick = onCalendarClick)
-            Text(currentTime.format(DateTimeFormatter.ofPattern("HH:mm")), style = TextStyle(color = Accent, fontSize = 16.sp, lineHeight = 24.sp))
+            Text(formatClock(context, currentTime), style = TextStyle(color = Accent, fontSize = 16.sp, lineHeight = 24.sp))
         }
     }
 }
@@ -883,12 +889,13 @@ private fun ScheduledCard(
     onOpen: () -> Unit, onToggleComplete: () -> Unit, onUnschedule: () -> Unit, onChangeDuration: (Int) -> Unit,
     onDragStart: (Float) -> Unit, onDrag: (Float, Float) -> Unit, onDragEnd: () -> Unit
 ) {
+    val context = LocalContext.current
     var cardTopInRootPx by remember(task.id, gestureSchedule.startMinute, gestureSchedule.endMinute) { mutableStateOf(0f) }
     var durationExpanded by remember(task.id, gestureSchedule.startMinute, gestureSchedule.endMinute) { mutableStateOf(false) }
     val narrow = width < 140.dp
     val durationMinutes = schedule.durationMinutes
     val durationOptions = remember(schedule.startMinute) { durationMinuteOptions(schedule.startMinute) }
-    val timeText = "${formatClock(schedule.startMinute)} - ${formatClock(schedule.endMinute)}"
+    val timeText = formatClockRange(context, schedule.startMinute, schedule.endMinute)
     val hideTimeText = durationMinutes <= 30
     val prefersExpandedLayout = durationMinutes >= 45
     val showFullTimeRow = durationMinutes >= 60
@@ -1386,7 +1393,6 @@ private fun buildLayouts(tasks: List<DailyTask>): List<PositionedBlock> {
     }
 }
 
-private fun formatClock(totalMinutes: Int): String = String.format(Locale.ENGLISH, "%02d:%02d", totalMinutes / 60, totalMinutes % 60)
 private fun durationLabel(durationMinutes: Int): String = "${durationMinutes}m"
 private fun durationMinuteOptions(startMinute: Int): List<Int> {
     val maxDuration = (24 * 60 - startMinute).coerceAtLeast(MinimumBlockMinutes)

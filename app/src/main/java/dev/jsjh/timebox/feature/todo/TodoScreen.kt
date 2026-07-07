@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -78,6 +79,7 @@ import dev.jsjh.timebox.domain.model.DailyTaskSource
 import dev.jsjh.timebox.domain.model.RecurrenceRule
 import dev.jsjh.timebox.domain.model.RecurrenceType
 import dev.jsjh.timebox.domain.model.occursOn
+import dev.jsjh.timebox.ui.format.formatClockRange
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
@@ -608,6 +610,7 @@ private fun TaskCard(
     onDrag: (Float) -> Unit,
     onDragEnd: () -> Unit
 ) {
+    val context = LocalContext.current
     val isRecurring = task.source == DailyTaskSource.RECURRING
     val cardColor by animateColorAsState(
         targetValue = when {
@@ -671,7 +674,7 @@ private fun TaskCard(
                 if (isRecurring) RecurringBadge(rule = recurrenceRule)
                 task.schedule?.let { sch ->
                     Text(
-                        "${formatClock(sch.startMinute)} - ${formatClock(sch.endMinute)}",
+                        formatClockRange(context, sch.startMinute, sch.endMinute),
                         style = TextStyle(color = scheduleColor, fontSize = 10.sp, lineHeight = 15.sp)
                     )
                 }
@@ -893,11 +896,6 @@ private fun ChevronUpIcon(color: Color) {
 private fun ChevronDownIcon(color: Color) {
     Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = color, modifier = Modifier.size(12.dp))
 }
-
-// Formatting helpers
-
-private fun formatClock(totalMinutes: Int): String =
-    String.format(Locale.ENGLISH, "%d:%02d", totalMinutes / 60, totalMinutes % 60)
 
 @Composable
 private fun recurrenceLabel(rule: RecurrenceRule?): String {

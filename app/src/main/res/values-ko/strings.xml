@@ -1,11 +1,12 @@
 <resources>
     <string name="app_name">TimeBox</string>
-    <string name="brand_name">Timebox</string>
+    <string name="brand_name">TimeBox</string>
     <string name="login_tagline">Focus on what matters most.</string>
     <string name="login_terms">계속하면 Terms &amp; Conditions에 동의하게 됩니다.</string>
     <string name="continue_with_google">Continue with Google</string>
     <string name="continue_without_account">Continue without account</string>
     <string name="google">Google</string>
+    <string name="auth_login_failed">로그인에 실패했어요.</string>
 
     <string name="tab_home">홈</string>
     <string name="tab_todo">TODO</string>
@@ -42,10 +43,10 @@
     <string name="settings_widget_remaining_days">남은 기간: %1$d일 %2$d시간</string>
     <string name="settings_widget_remaining_hours">남은 기간: %1$d시간 %2$d분</string>
     <string name="settings_widget_remaining_minutes">남은 기간: %1$d분</string>
-    <string name="settings_widget_unlock_limit">최대 28일까지 충전할 수 있어요.</string>
+    <string name="settings_widget_unlock_limit">최대 28일까지 이용 기간을 열 수 있어요.</string>
     <string name="settings_widget_unlock_open">광고 보고 7일 열기</string>
     <string name="settings_widget_unlock_extend">광고 보고 7일 추가</string>
-    <string name="settings_widget_unlock_maxed">최대 충전 완료</string>
+    <string name="settings_widget_unlock_maxed">최대 기간 열림</string>
     <string name="settings_widget_unlocked_toast">위젯 이용 기간이 7일 늘어났어요.</string>
     <string name="settings_support_ad_title">후원</string>
     <string name="settings_support_ad_watch_title">광고 보고 응원하기</string>
@@ -61,6 +62,9 @@
     <string name="settings_language_system">시스템 기본값</string>
     <string name="settings_language_english">English</string>
     <string name="settings_language_korean">한국어</string>
+    <string name="settings_survey">설문조사</string>
+    <string name="settings_language_survey_title">다음 언어 선택에 참여하기</string>
+    <string name="settings_language_survey_subtitle">TimeBox에 추가되면 좋을 언어를 알려주세요.</string>
     <string name="settings_system_nav">시스템 내비게이션 바</string>
     <string name="settings_system_nav_subtitle">Android 하단 내비게이션 바를 항상 표시해요</string>
     <string name="settings_day_start">하루 시작 시간</string>
@@ -176,7 +180,7 @@
     <string name="editor_create">Create</string>
     <string name="editor_save">Save</string>
 
-    <string name="timetable_title">Time Table</string>
+    <string name="timetable_title">시간표</string>
     <string name="calendar_month_pattern">yyyy년 M월</string>
     <string name="calendar_add_for_date">이 날짜에 할일 추가</string>
     <string name="calendar_open_date">이 날짜 타임라인 보기</string>
