@@ -39,10 +39,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.google.android.gms.ads.AdListener
-import com.google.android.gms.ads.AdLoader
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.nativead.AdChoicesView
 import com.google.android.gms.ads.nativead.MediaView
 import com.google.android.gms.ads.nativead.NativeAd
@@ -51,6 +47,7 @@ import dev.jsjh.timebox.BuildConfig
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.ads.AdsConsentManager
 import dev.jsjh.timebox.ads.OpeningNativeAdGate
+import dev.jsjh.timebox.ads.OpeningNativeAdPreloader
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -64,7 +61,6 @@ fun OpeningNativeAdOverlay() {
     val canRequestAds = AdsConsentManager.canRequestAds
     val shouldAttempt = remember { OpeningNativeAdGate.consumeEligibility() }
     var nativeAd by remember { mutableStateOf<NativeAd?>(null) }
-    var pendingAd by remember { mutableStateOf<NativeAd?>(null) }
     var visible by remember { mutableStateOf(false) }
     var closed by remember { mutableStateOf(!shouldAttempt || adUnitId.isBlank()) }
     var timedOut by remember { mutableStateOf(false) }
@@ -72,58 +68,28 @@ fun OpeningNativeAdOverlay() {
     DisposableEffect(nativeAd) {
         onDispose { nativeAd?.destroy() }
     }
-    DisposableEffect(Unit) {
-        onDispose { pendingAd?.destroy() }
-    }
 
     LaunchedEffect(shouldAttempt, canRequestAds, adUnitId) {
         if (!shouldAttempt || !canRequestAds || adUnitId.isBlank()) return@LaunchedEffect
 
-        val loader = AdLoader.Builder(context, adUnitId)
-            .forNativeAd { ad ->
+        OpeningNativeAdPreloader.preload(context, adUnitId)
+        val attempts = (OpeningNativeAdLoadTimeoutMs / OpeningNativeAdPollIntervalMs).toInt()
+        repeat(attempts) {
+            val ad = OpeningNativeAdPreloader.consume()
+            if (ad != null) {
                 if (closed || timedOut) {
                     ad.destroy()
                 } else {
-                    pendingAd = ad
-                }
-            }
-            .withAdListener(object : AdListener() {
-                override fun onAdFailedToLoad(error: LoadAdError) {
-                    closed = true
-                }
-            })
-            .build()
-
-        loader.loadAd(AdRequest.Builder().build())
-
-        // Show only after the media asset is actually ready, so the modal never
-        // opens on a black placeholder while the image is still downloading.
-        repeat((OpeningNativeAdLoadTimeoutMs / OpeningNativeAdPollIntervalMs).toInt()) {
-            if (closed) return@LaunchedEffect
-            val ad = pendingAd
-            if (ad != null) {
-                val media = ad.mediaContent
-                if (media == null) {
-                    // Text-only ad: this opening modal is image-centric, skip it.
-                    pendingAd = null
-                    ad.destroy()
-                    closed = true
-                    return@LaunchedEffect
-                }
-                if (media.mainImage != null || media.hasVideoContent()) {
                     OpeningNativeAdGate.markShown(context)
                     nativeAd = ad
-                    pendingAd = null
                     visible = true
-                    return@LaunchedEffect
                 }
+                return@LaunchedEffect
             }
             delay(OpeningNativeAdPollIntervalMs)
         }
         timedOut = true
         closed = true
-        pendingAd?.destroy()
-        pendingAd = null
     }
 
     val ad = nativeAd
@@ -285,16 +251,24 @@ private fun bindOpeningNativeAdView(adView: NativeAdView, nativeAd: NativeAd) {
 
     val mediaView = adView.mediaView
     val mediaContent = nativeAd.mediaContent
-    // Hide the whole 330dp frame (not just the inner MediaView) when there is no
-    // media, otherwise an empty black box is left on screen. In practice media-less
-    // ads are filtered out before showing, so this is defensive.
     val mediaFrame = mediaView?.parent as? View
     if (mediaView != null && mediaContent != null) {
+        (mediaFrame?.layoutParams as? LinearLayout.LayoutParams)?.let { params ->
+            params.height = adView.context.dp(330)
+            params.topMargin = adView.context.dp(18)
+            mediaFrame.layoutParams = params
+        }
         mediaFrame?.visibility = View.VISIBLE
         mediaView.visibility = View.VISIBLE
         mediaView.mediaContent = mediaContent
     } else {
-        mediaFrame?.visibility = View.GONE
+        (mediaFrame?.layoutParams as? LinearLayout.LayoutParams)?.let { params ->
+            params.height = adView.context.dp(30)
+            params.topMargin = adView.context.dp(14)
+            mediaFrame.layoutParams = params
+        }
+        mediaFrame?.visibility = View.VISIBLE
+        mediaView?.visibility = View.GONE
     }
 
     val bodyView = adView.bodyView as TextView

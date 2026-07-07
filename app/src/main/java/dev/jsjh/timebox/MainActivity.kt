@@ -26,6 +26,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import dev.jsjh.timebox.ads.AdsConsentManager
 import dev.jsjh.timebox.ads.OpeningNativeAdGate
+import dev.jsjh.timebox.ads.OpeningNativeAdPreloader
 import dev.jsjh.timebox.auth.initSupabase
 import dev.jsjh.timebox.feature.root.TimeBoxingApp
 import dev.jsjh.timebox.feature.settings.AppLanguage
@@ -76,6 +77,7 @@ class MainActivity : ComponentActivity() {
         }
         AdsConsentManager.gatherConsent(this) {
             initializeMobileAdsIfNeeded()
+            preloadOpeningNativeAdIfEligible()
         }
         ReminderScheduler.createChannels(this)
         showSystemNavigationBar = AppSettingsStore(this).read().showSystemNavigationBar
@@ -96,7 +98,10 @@ class MainActivity : ComponentActivity() {
                                 if (!visible && !launchedFromWidget) {
                                     InAppReviewPrompter.requestIfEligible(this@MainActivity)
                                 }
-                                if (visible) OpeningNativeAdGate.disableForCurrentLaunch()
+                                if (visible) {
+                                    OpeningNativeAdGate.disableForCurrentLaunch()
+                                    OpeningNativeAdPreloader.clear()
+                                }
                                 updateSystemBarsVisibility()
                             },
                             initialShowSystemNavigationBar = showSystemNavigationBar,
@@ -177,6 +182,11 @@ class MainActivity : ComponentActivity() {
         if (mobileAdsInitialized) return
         mobileAdsInitialized = true
         MobileAds.initialize(this) {}
+    }
+
+    private fun preloadOpeningNativeAdIfEligible() {
+        if (!OpeningNativeAdGate.canPreloadForCurrentLaunch()) return
+        OpeningNativeAdPreloader.preload(this, BuildConfig.ADMOB_OPENING_NATIVE_AD_UNIT_ID)
     }
 
     private fun requestNotificationPermissionIfNeeded() {
