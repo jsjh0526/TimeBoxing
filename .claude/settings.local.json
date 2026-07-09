@@ -15,7 +15,8 @@
       "Bash(grep -A3 \"^dev.jsjh.timebox.widget.TodoWidget:$\\\\|^dev.jsjh.timebox.widget.TodoWidgetReceiver:$\" app/build/outputs/mapping/release/usage.txt)",
       "Bash(./gradlew.bat --stop)",
       "Bash(grep -n 'RemoteTask\\\\|RemoteTemplate\\\\|$serializer\\\\|SupabaseSync' app/build/outputs/mapping/release/usage.txt)",
-      "Bash(grep -v \"storePassword\\\\|keyPassword\\\\|PASSWORD_KEY\\\\|import\\\\|//\")"
+      "Bash(grep -v \"storePassword\\\\|keyPassword\\\\|PASSWORD_KEY\\\\|import\\\\|//\")",
+      "Bash(if [ -f \"/c/Users/jsjh0/.claude/projects/C--AndroidStudio-TimeBoxing/memory/MEMORY.md\" ]; then cat \"/c/Users/jsjh0/.claude/projects/C--AndroidStudio-TimeBoxing/memory/MEMORY.md\"; else echo \"MEMORY.md does not exist yet\"; fi)"
     ]
   }
 }
