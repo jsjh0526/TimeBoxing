@@ -30,9 +30,6 @@ object OpeningNativeAdGate {
         eligibleForCurrentLaunch = false
     }
 
-    fun canPreloadForCurrentLaunch(): Boolean =
-        eligibleForCurrentLaunch && !consumedForCurrentLaunch
-
     fun consumeEligibility(): Boolean {
         if (!eligibleForCurrentLaunch || consumedForCurrentLaunch) return false
         consumedForCurrentLaunch = true

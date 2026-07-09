@@ -66,7 +66,8 @@ fun OpeningNativeAdOverlay() {
     var timedOut by remember { mutableStateOf(false) }
 
     DisposableEffect(nativeAd) {
-        onDispose { nativeAd?.destroy() }
+        val adToDispose = nativeAd
+        onDispose { adToDispose?.destroy() }
     }
 
     LaunchedEffect(shouldAttempt, canRequestAds, adUnitId) {

@@ -77,7 +77,6 @@ class MainActivity : ComponentActivity() {
         }
         AdsConsentManager.gatherConsent(this) {
             initializeMobileAdsIfNeeded()
-            preloadOpeningNativeAdIfEligible()
         }
         ReminderScheduler.createChannels(this)
         showSystemNavigationBar = AppSettingsStore(this).read().showSystemNavigationBar
@@ -182,11 +181,6 @@ class MainActivity : ComponentActivity() {
         if (mobileAdsInitialized) return
         mobileAdsInitialized = true
         MobileAds.initialize(this) {}
-    }
-
-    private fun preloadOpeningNativeAdIfEligible() {
-        if (!OpeningNativeAdGate.canPreloadForCurrentLaunch()) return
-        OpeningNativeAdPreloader.preload(this, BuildConfig.ADMOB_OPENING_NATIVE_AD_UNIT_ID)
     }
 
     private fun requestNotificationPermissionIfNeeded() {
