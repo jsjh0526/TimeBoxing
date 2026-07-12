@@ -7,18 +7,33 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import dev.jsjh.timebox.data.local.dao.DailyTaskDao
+import dev.jsjh.timebox.data.local.dao.SyncOutboxDao
+import dev.jsjh.timebox.data.local.dao.SyncMetadataDao
+import dev.jsjh.timebox.data.local.dao.SyncShadowDao
 import dev.jsjh.timebox.data.local.dao.TaskTemplateDao
 import dev.jsjh.timebox.data.local.entity.DailyTaskEntity
+import dev.jsjh.timebox.data.local.entity.SyncOutboxEntity
+import dev.jsjh.timebox.data.local.entity.SyncMetadataEntity
+import dev.jsjh.timebox.data.local.entity.SyncShadowEntity
 import dev.jsjh.timebox.data.local.entity.TaskTemplateEntity
 
 @Database(
-    entities = [TaskTemplateEntity::class, DailyTaskEntity::class],
-    version = 3,
-    exportSchema = false
+    entities = [
+        TaskTemplateEntity::class,
+        DailyTaskEntity::class,
+        SyncOutboxEntity::class,
+        SyncShadowEntity::class,
+        SyncMetadataEntity::class
+    ],
+    version = 5,
+    exportSchema = true
 )
 abstract class TaskDatabase : RoomDatabase() {
     abstract fun taskTemplateDao(): TaskTemplateDao
     abstract fun dailyTaskDao(): DailyTaskDao
+    abstract fun syncOutboxDao(): SyncOutboxDao
+    abstract fun syncShadowDao(): SyncShadowDao
+    abstract fun syncMetadataDao(): SyncMetadataDao
 
     companion object {
         private val instances = mutableMapOf<String, TaskDatabase>()
@@ -36,8 +51,7 @@ abstract class TaskDatabase : RoomDatabase() {
                     TaskDatabase::class.java,
                     databaseName(userId)
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
-                    .allowMainThreadQueries()
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { instances[key] = it }
             }
@@ -93,6 +107,58 @@ abstract class TaskDatabase : RoomDatabase() {
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE task_templates ADD COLUMN startDateIso TEXT")
+            }
+        }
+
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS sync_outbox (
+                        queueKey TEXT NOT NULL,
+                        generation TEXT NOT NULL,
+                        entityType TEXT NOT NULL,
+                        entityId TEXT NOT NULL,
+                        templateId TEXT,
+                        operationType TEXT NOT NULL,
+                        payload TEXT,
+                        baseRemoteUpdatedAt TEXT,
+                        createdAtEpochMs INTEGER NOT NULL,
+                        attemptCount INTEGER NOT NULL,
+                        nextAttemptAtEpochMs INTEGER NOT NULL,
+                        lastError TEXT,
+                        PRIMARY KEY(queueKey)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_sync_outbox_nextAttemptAtEpochMs_createdAtEpochMs ON sync_outbox(nextAttemptAtEpochMs, createdAtEpochMs)"
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS sync_shadows (
+                        entityType TEXT NOT NULL,
+                        entityId TEXT NOT NULL,
+                        remoteUpdatedAt TEXT NOT NULL,
+                        remoteDeletedAt TEXT,
+                        PRIMARY KEY(entityType, entityId)
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS sync_metadata (
+                        `key` TEXT NOT NULL,
+                        value TEXT NOT NULL,
+                        PRIMARY KEY(`key`)
+                    )
+                    """.trimIndent()
+                )
             }
         }
     }

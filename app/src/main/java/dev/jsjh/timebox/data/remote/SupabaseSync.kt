@@ -2,8 +2,10 @@ package dev.jsjh.timebox.data.remote
 
 import dev.jsjh.timebox.auth.supabase
 import dev.jsjh.timebox.data.local.dao.DailyTaskDao
+import dev.jsjh.timebox.data.local.dao.SyncShadowDao
 import dev.jsjh.timebox.data.local.dao.TaskTemplateDao
 import dev.jsjh.timebox.data.local.entity.DailyTaskEntity
+import dev.jsjh.timebox.data.local.entity.SyncShadowEntity
 import dev.jsjh.timebox.data.local.entity.TaskTemplateEntity
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
@@ -15,6 +17,11 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 data class RemoteSyncStatus(val templateCount: Int, val taskCount: Int)
+
+data class RemoteSyncSnapshot(
+    val templatesById: Map<String, RemoteTemplate>,
+    val tasksById: Map<String, RemoteTask>
+)
 
 private const val USER_SCOPED_CONFLICT = "user_id,id"
 
@@ -70,6 +77,7 @@ object SupabaseSync {
         userId: String,
         templateDao: TaskTemplateDao,
         dailyTaskDao: DailyTaskDao,
+        syncShadowDao: SyncShadowDao? = null,
         replaceLocal: Boolean = false
     ): RemoteSyncStatus {
         val remoteTemplates = supabase.from("task_templates")
@@ -93,6 +101,7 @@ object SupabaseSync {
         if (replaceLocal) {
             dailyTaskDao.clearAll()
             templateDao.clearAll()
+            syncShadowDao?.clearAll()
         }
 
         if (deletedTemplateIds.isNotEmpty()) {
@@ -106,61 +115,22 @@ object SupabaseSync {
         if (deletedTaskIds.isNotEmpty()) dailyTaskDao.deleteByIds(deletedTaskIds)
         if (activeTasks.isNotEmpty()) dailyTaskDao.upsertAll(activeTasks.map { it.toEntity() })
 
+        syncShadowDao?.upsertAll(
+            remoteTemplates.mapNotNull { remote ->
+                remote.updatedAt?.let {
+                    SyncShadowEntity(TEMPLATE, remote.id, it, remote.deletedAt)
+                }
+            } + remoteTasks.mapNotNull { remote ->
+                remote.updatedAt?.let {
+                    SyncShadowEntity(TASK, remote.id, it, remote.deletedAt)
+                }
+            }
+        )
+
         return RemoteSyncStatus(
             templateCount = activeTemplates.size,
             taskCount = activeTasks.size
         )
-    }
-
-    suspend fun syncAll(
-        userId: String,
-        templateDao: TaskTemplateDao,
-        dailyTaskDao: DailyTaskDao
-    ): RemoteSyncStatus {
-        requireMatchingAuthUser(userId)
-
-        val templates = templateDao.getAll()
-        val tasks = dailyTaskDao.getAll()
-
-        softDeleteRemoteItemsMissingLocally(userId, templates, tasks)
-
-        if (templates.isNotEmpty()) pushTemplatesInternal(userId, templates)
-        if (tasks.isNotEmpty()) pushTasksInternal(userId, tasks)
-
-        return status(userId)
-    }
-
-    private suspend fun softDeleteRemoteItemsMissingLocally(
-        userId: String,
-        templates: List<TaskTemplateEntity>,
-        tasks: List<DailyTaskEntity>
-    ) {
-        val localTemplateIds = templates.map { it.id }.toSet()
-        val remoteTemplates = supabase.from("task_templates")
-            .select(Columns.list("id", "deleted_at")) { filter { eq("user_id", userId) } }
-            .decodeList<RemoteItemStatus>()
-
-        val toDeleteTemplateIds = remoteTemplates
-            .filter { it.deletedAt == null && it.id !in localTemplateIds }
-            .map { it.id }
-
-        if (toDeleteTemplateIds.isNotEmpty()) {
-            softDeleteTemplates(userId, toDeleteTemplateIds)
-            softDeleteTasksByTemplateIds(userId, toDeleteTemplateIds)
-        }
-
-        val localTaskIds = tasks.map { it.id }.toSet()
-        val remoteTasks = supabase.from("daily_tasks")
-            .select(Columns.list("id", "deleted_at")) { filter { eq("user_id", userId) } }
-            .decodeList<RemoteItemStatus>()
-
-        val toDeleteTaskIds = remoteTasks
-            .filter { it.deletedAt == null && it.id !in localTaskIds }
-            .map { it.id }
-
-        if (toDeleteTaskIds.isNotEmpty()) {
-            softDeleteTasks(userId, toDeleteTaskIds)
-        }
     }
 
     suspend fun status(userId: String): RemoteSyncStatus {
@@ -178,18 +148,22 @@ object SupabaseSync {
         )
     }
 
+    suspend fun fetchSnapshot(userId: String): RemoteSyncSnapshot {
+        val templates = supabase.from("task_templates")
+            .select(Columns.ALL) { filter { eq("user_id", userId) } }
+            .decodeList<RemoteTemplate>()
+        val tasks = supabase.from("daily_tasks")
+            .select(Columns.ALL) { filter { eq("user_id", userId) } }
+            .decodeList<RemoteTask>()
+        return RemoteSyncSnapshot(
+            templatesById = templates.associateBy { it.id },
+            tasksById = tasks.associateBy { it.id }
+        )
+    }
+
     suspend fun pushTask(userId: String, entity: DailyTaskEntity) {
         supabase.from("daily_tasks").upsert(entity.toRemote(userId)) {
             onConflict = USER_SCOPED_CONFLICT
-        }
-    }
-
-    suspend fun pushTasks(userId: String, entities: List<DailyTaskEntity>) {
-        if (entities.isEmpty()) return
-        entities.chunked(100).forEach { chunk ->
-            supabase.from("daily_tasks").upsert(chunk.map { it.toRemote(userId) }) {
-                onConflict = USER_SCOPED_CONFLICT
-            }
         }
     }
 
@@ -199,55 +173,39 @@ object SupabaseSync {
         }
     }
 
-    suspend fun pushTemplates(userId: String, entities: List<TaskTemplateEntity>) {
-        if (entities.isEmpty()) return
-        entities.chunked(100).forEach { chunk ->
-            supabase.from("task_templates").upsert(chunk.map { it.toRemote(userId) }) {
-                onConflict = USER_SCOPED_CONFLICT
+    suspend fun fetchTask(userId: String, taskId: String): RemoteTask? =
+        supabase.from("daily_tasks")
+            .select(Columns.ALL) {
+                filter {
+                    eq("user_id", userId)
+                    eq("id", taskId)
+                }
+                limit(1)
             }
-        }
-    }
+            .decodeList<RemoteTask>()
+            .firstOrNull()
 
-    suspend fun replaceTasksForTemplate(
-        userId: String,
-        templateId: String,
-        entities: List<DailyTaskEntity>
-    ) {
-        val localTaskIds = entities.map { it.id }.toSet()
-        val remoteTasks = supabase.from("daily_tasks")
-            .select(Columns.list("id", "deleted_at")) {
+    suspend fun fetchTemplate(userId: String, templateId: String): RemoteTemplate? =
+        supabase.from("task_templates")
+            .select(Columns.ALL) {
+                filter {
+                    eq("user_id", userId)
+                    eq("id", templateId)
+                }
+                limit(1)
+            }
+            .decodeList<RemoteTemplate>()
+            .firstOrNull()
+
+    suspend fun fetchTasksByTemplate(userId: String, templateId: String): List<RemoteTask> =
+        supabase.from("daily_tasks")
+            .select(Columns.ALL) {
                 filter {
                     eq("user_id", userId)
                     eq("template_id", templateId)
                 }
             }
-            .decodeList<RemoteItemStatus>()
-
-        val staleRemoteTaskIds = remoteTasks
-            .filter { it.deletedAt == null && it.id !in localTaskIds }
-            .map { it.id }
-
-        if (staleRemoteTaskIds.isNotEmpty()) {
-            softDeleteTasks(userId, staleRemoteTaskIds)
-        }
-        pushTasks(userId, entities)
-    }
-
-    private suspend fun pushTasksInternal(userId: String, entities: List<DailyTaskEntity>) {
-        entities.chunked(100).forEach { chunk ->
-            supabase.from("daily_tasks").upsert(chunk.map { it.toRemote(userId) }) {
-                onConflict = USER_SCOPED_CONFLICT
-            }
-        }
-    }
-
-    private suspend fun pushTemplatesInternal(userId: String, entities: List<TaskTemplateEntity>) {
-        entities.chunked(100).forEach { chunk ->
-            supabase.from("task_templates").upsert(chunk.map { it.toRemote(userId) }) {
-                onConflict = USER_SCOPED_CONFLICT
-            }
-        }
-    }
+            .decodeList()
 
     suspend fun deleteTask(userId: String, taskId: String) {
         softDeleteTasks(userId, listOf(taskId))
@@ -255,10 +213,6 @@ object SupabaseSync {
 
     suspend fun deleteTemplate(userId: String, templateId: String) {
         softDeleteTemplates(userId, listOf(templateId))
-    }
-
-    suspend fun deleteTasksByTemplateId(userId: String, templateId: String) {
-        softDeleteTasksByTemplateIds(userId, listOf(templateId))
     }
 
     private suspend fun softDeleteTasks(userId: String, taskIds: List<String>) {
@@ -285,19 +239,7 @@ object SupabaseSync {
         }
     }
 
-    private suspend fun softDeleteTasksByTemplateIds(userId: String, templateIds: List<String>) {
-        if (templateIds.isEmpty()) return
-        templateIds.chunked(100).forEach { chunk ->
-            supabase.from("daily_tasks").update(softDeletePatch()) {
-                filter {
-                    eq("user_id", userId)
-                    isIn("template_id", chunk)
-                }
-            }
-        }
-    }
-
-    private suspend fun requireMatchingAuthUser(userId: String) {
+    internal suspend fun requireMatchingAuthUser(userId: String) {
         val authUserId = supabase.auth.currentUserOrNull()?.id
             ?: runCatching {
                 supabase.auth.retrieveUserForCurrentSession(updateSession = true).id
@@ -308,7 +250,7 @@ object SupabaseSync {
         }
     }
 
-    private fun RemoteTemplate.toEntity(startDateIso: String?) = TaskTemplateEntity(
+    internal fun RemoteTemplate.toEntity(startDateIso: String? = null) = TaskTemplateEntity(
         id = id,
         title = title,
         note = note,
@@ -321,7 +263,7 @@ object SupabaseSync {
         reminderEnabled = reminderEnabled ?: false
     )
 
-    private fun RemoteTask.toEntity() = DailyTaskEntity(
+    internal fun RemoteTask.toEntity() = DailyTaskEntity(
         id = id,
         templateId = templateId,
         dateIso = dateIso,
@@ -372,3 +314,6 @@ object SupabaseSync {
             OffsetDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
         )
 }
+
+internal const val TEMPLATE = "TEMPLATE"
+internal const val TASK = "TASK"

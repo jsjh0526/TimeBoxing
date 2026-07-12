@@ -16,7 +16,14 @@
       "Bash(./gradlew.bat --stop)",
       "Bash(grep -n 'RemoteTask\\\\|RemoteTemplate\\\\|$serializer\\\\|SupabaseSync' app/build/outputs/mapping/release/usage.txt)",
       "Bash(grep -v \"storePassword\\\\|keyPassword\\\\|PASSWORD_KEY\\\\|import\\\\|//\")",
-      "Bash(if [ -f \"/c/Users/jsjh0/.claude/projects/C--AndroidStudio-TimeBoxing/memory/MEMORY.md\" ]; then cat \"/c/Users/jsjh0/.claude/projects/C--AndroidStudio-TimeBoxing/memory/MEMORY.md\"; else echo \"MEMORY.md does not exist yet\"; fi)"
+      "Bash(if [ -f \"/c/Users/jsjh0/.claude/projects/C--AndroidStudio-TimeBoxing/memory/MEMORY.md\" ]; then cat \"/c/Users/jsjh0/.claude/projects/C--AndroidStudio-TimeBoxing/memory/MEMORY.md\"; else echo \"MEMORY.md does not exist yet\"; fi)",
+      "Bash(./gradlew.bat :app:compileDebugKotlin :app:compileReleaseKotlin :app:testDebugUnitTest --console=plain)",
+      "Bash(./gradlew.bat :app:bundleRelease --console=plain)",
+      "Bash(./gradlew.bat :app:compileDebugKotlin :app:compileReleaseKotlin :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin --console=plain)",
+      "Bash(xargs ls -la)",
+      "Bash(./gradlew.bat :app:compileReleaseKotlin :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintVitalRelease --console=plain)",
+      "Bash(sed -n '/fun fetchSnapshot/,/^    }/p' app/src/main/java/dev/jsjh/timebox/data/remote/SupabaseSync.kt)",
+      "Bash(sed -n '/data class RemoteSyncSnapshot/,/\\)/p' app/src/main/java/dev/jsjh/timebox/data/remote/SupabaseSync.kt)"
     ]
   }
 }

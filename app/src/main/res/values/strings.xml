@@ -27,6 +27,7 @@
     <string name="settings_sync_idle">Manual sync ready</string>
     <string name="settings_syncing">Syncing recent changes...</string>
     <string name="settings_sync_success">Last sync: %1$s</string>
+    <string name="settings_sync_success_with_conflicts">Last sync: %1$s · %2$d conflict copy saved</string>
     <string name="settings_sync_error">Error: %1$s</string>
     <string name="settings_sync_error_account_mismatch">The logged-in account does not match the sync account. Log out and sign in again.</string>
     <string name="settings_sync_error_verification_failed">The uploaded server data count does not match. Please sync again.</string>

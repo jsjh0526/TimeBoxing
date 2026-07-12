@@ -5,6 +5,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import dev.jsjh.timebox.data.repository.TemplateProvider
 import dev.jsjh.timebox.domain.model.DailyTask
@@ -23,6 +24,8 @@ import dev.jsjh.timebox.feature.editor.toEditorDraft
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 internal const val MaxConcurrentTimeBlocks = 5
 internal const val ScheduleLimitMessageToken = "schedule_limit"
@@ -30,7 +33,8 @@ internal const val ScheduleLimitMessageToken = "schedule_limit"
 @Stable
 class TimeBoxingAppState(
     private val repository: TaskRepository,
-    initialTodayDate: LocalDate
+    initialTodayDate: LocalDate,
+    private val scope: CoroutineScope
 ) {
     private val sectionOrderByDate = mutableMapOf<LocalDate, MutableMap<String, MutableList<String>>>()
     private var todayDate by mutableStateOf(initialTodayDate)
@@ -40,11 +44,11 @@ class TimeBoxingAppState(
         private set
     var selectedDate by mutableStateOf(today)
         private set
-    var todayTasks by mutableStateOf(repository.getTasks(today))
+    var todayTasks by mutableStateOf<List<DailyTask>>(emptyList())
         private set
-    var todayTodoTasks by mutableStateOf(repository.getTasks(today))
+    var todayTodoTasks by mutableStateOf<List<DailyTask>>(emptyList())
         private set
-    var selectedDateTasks by mutableStateOf(repository.getTasks(selectedDate))
+    var selectedDateTasks by mutableStateOf<List<DailyTask>>(emptyList())
         private set
     var editorDraft by mutableStateOf<TaskEditorDraft?>(null)
         private set
@@ -61,8 +65,7 @@ class TimeBoxingAppState(
         private set
 
     init {
-        refreshTemplateCache(today)
-        refreshYesterdayIncomplete()
+        refreshAll()
     }
 
     fun updateTodayDate(nextToday: LocalDate) {
@@ -77,78 +80,100 @@ class TimeBoxingAppState(
 
     fun selectTab(tab: AppTab) {
         currentTab = tab
-        if (tab == AppTab.TIMETABLE) refreshSelectedDate() else refreshToday()
+        scope.launch {
+            if (tab == AppTab.TIMETABLE) refreshSelectedDate() else refreshToday()
+        }
     }
 
     fun openTimetable(date: LocalDate = today) {
         currentTab = AppTab.TIMETABLE
         selectedDate = date
-        refreshSelectedDate()
+        scope.launch { refreshSelectedDate() }
     }
 
     fun openTodo() {
         currentTab = AppTab.TODO
-        refreshToday()
+        scope.launch { refreshToday() }
     }
 
     fun moveSelectedDateBy(days: Long) {
         selectedDate = selectedDate.plusDays(days)
-        refreshSelectedDate()
+        scope.launch { refreshSelectedDate() }
     }
 
     fun goToToday() {
         selectedDate = today
-        refreshSelectedDate()
+        scope.launch { refreshSelectedDate() }
     }
 
     fun selectDate(date: LocalDate) {
         selectedDate = date
-        refreshSelectedDate()
+        scope.launch { refreshSelectedDate() }
     }
 
-    fun completionCounts(date: LocalDate): Pair<Int, Int> {
+    suspend fun completionCounts(date: LocalDate): Pair<Int, Int> {
         return repository.getTaskCompletionCounts(listOf(date))[date] ?: (0 to 0)
     }
 
-    fun completionCounts(dates: Collection<LocalDate>): Map<LocalDate, Pair<Int, Int>> {
+    suspend fun completionCounts(dates: Collection<LocalDate>): Map<LocalDate, Pair<Int, Int>> {
         return repository.getTaskCompletionCounts(dates)
     }
 
     fun toggleCompleted(taskId: String, date: LocalDate = today) {
-        repository.toggleCompleted(date, taskId)
-        refreshAll()
+        scope.launch {
+            repository.toggleCompleted(date, taskId)
+            refreshAllNow()
+        }
     }
 
     fun toggleBig3(taskId: String) {
-        val current = repository.getTask(today, taskId) ?: return
+        val current = todayTasks.firstOrNull { it.id == taskId } ?: return
         val enable = !current.isBig3
-        if (enable && repository.getTasks(today).count { it.isBig3 } >= 3) {
+        if (enable && todayTasks.count { it.isBig3 } >= 3) {
             big3LimitNoticeCount++
             return
         }
-        repository.toggleBig3(today, taskId)
-        refreshToday()
+        scope.launch {
+            repository.toggleBig3(today, taskId)
+            refreshToday()
+        }
     }
 
     fun moveToUnscheduled(taskId: String, date: LocalDate = selectedDate) {
-        repository.setSchedule(date, taskId, null)
-        refreshAll()
+        scope.launch {
+            repository.setSchedule(date, taskId, null)
+            refreshAllNow()
+        }
     }
 
     fun updateSchedule(taskId: String, date: LocalDate = selectedDate, schedule: ScheduleBlock): Boolean {
-        if (!canPlaceSchedule(date = date, replacingTaskId = taskId, schedule = schedule)) {
-            notifyScheduleLimit()
-            return false
+        when (canPlaceSchedule(date = date, replacingTaskId = taskId, schedule = schedule)) {
+            false -> {
+                notifyScheduleLimit()
+                return false
+            }
+            null -> {
+                // Never accept a time block using an empty fallback list. The normal
+                // timetable path is already cached; an uncached date is refreshed
+                // before the user tries again.
+                scope.launch { refreshSelectedDate() }
+                return false
+            }
+            true -> Unit
         }
-        repository.setSchedule(date, taskId, schedule)
-        refreshAll()
+        scope.launch {
+            repository.setSchedule(date, taskId, schedule)
+            refreshAllNow()
+        }
         return true
     }
 
     fun quickAddTask(title: String, date: LocalDate = today) {
         if (title.isBlank()) return
-        repository.addTask(date = date, title = title.trim())
-        refreshAll()
+        scope.launch {
+            repository.addTask(date = date, title = title.trim())
+            refreshAllNow()
+        }
     }
 
     fun reorderTodayTodoTask(taskId: String, toIndex: Int) {
@@ -166,14 +191,18 @@ class TimeBoxingAppState(
 
     fun carryOverYesterdayIncompleteTasks() {
         val yesterday = today.minusDays(1)
-        repository.carryOverIncompleteTasks(fromDate = yesterday, toDate = today)
-        refreshAll()
+        scope.launch {
+            repository.carryOverIncompleteTasks(fromDate = yesterday, toDate = today)
+            refreshAllNow()
+        }
     }
 
     fun dismissYesterdayTask(taskId: String) {
         val yesterday = today.minusDays(1)
-        repository.deleteTask(yesterday, taskId)
-        refreshYesterdayIncomplete()
+        scope.launch {
+            repository.deleteTask(yesterday, taskId)
+            refreshYesterdayIncomplete()
+        }
     }
 
     fun openNewTaskEditor(date: LocalDate = today, initialTitle: String = "") {
@@ -181,16 +210,18 @@ class TimeBoxingAppState(
     }
 
     fun openTaskEditor(taskId: String, date: LocalDate = today) {
-        val task = repository.getTask(date, taskId)
-        if (task != null) {
-            val recurrenceRule = task.templateId?.let { repository.getTemplate(it)?.recurrenceRule }
-            editorDraft = task.toEditorDraft(existingRule = recurrenceRule)
-            return
-        }
+        scope.launch {
+            val task = repository.getTask(date, taskId)
+            if (task != null) {
+                val recurrenceRule = task.templateId?.let { repository.getTemplate(it)?.recurrenceRule }
+                editorDraft = task.toEditorDraft(existingRule = recurrenceRule)
+                return@launch
+            }
 
-        val templateId = taskId.removePrefix("template-")
-        val template = repository.getTemplate(templateId) ?: return
-        editorDraft = template.toTemplateEditorDraft(date)
+            val templateId = taskId.removePrefix("template-")
+            val template = repository.getTemplate(templateId) ?: return@launch
+            editorDraft = template.toTemplateEditorDraft(date)
+        }
     }
 
     fun updateEditor(transform: (TaskEditorDraft) -> TaskEditorDraft) {
@@ -221,29 +252,32 @@ class TimeBoxingAppState(
         } else {
             null
         }
-        if (schedule != null) {
-            val replacingTaskId = draft.taskId ?: draft.templateId?.let { "$it-${draft.date}" }
-            if (!canPlaceSchedule(date = draft.date, replacingTaskId = replacingTaskId, schedule = schedule)) {
-                notifyScheduleLimit()
-                return
+        scope.launch {
+            if (schedule != null) {
+                val replacingTaskId = draft.taskId ?: draft.templateId?.let { "$it-${draft.date}" }
+                val tasks = repository.getTasks(draft.date)
+                if (exceedsMaxConcurrentTimeBlocks(tasks, replacingTaskId, schedule)) {
+                    notifyScheduleLimit()
+                    return@launch
+                }
             }
-        }
 
-        repository.upsertTask(
-            TaskEditInput(
-                taskId = draft.taskId,
-                templateId = draft.templateId,
-                date = draft.date,
-                title = draft.title.trim(),
-                note = draft.note.trim().ifEmpty { null },
-                tags = draft.tags,
-                isBig3 = draft.isBig3,
-                recurrenceRule = recurrence,
-                schedule = schedule
+            repository.upsertTask(
+                TaskEditInput(
+                    taskId = draft.taskId,
+                    templateId = draft.templateId,
+                    date = draft.date,
+                    title = draft.title.trim(),
+                    note = draft.note.trim().ifEmpty { null },
+                    tags = draft.tags,
+                    isBig3 = draft.isBig3,
+                    recurrenceRule = recurrence,
+                    schedule = schedule
+                )
             )
-        )
-        dismissEditor()
-        refreshAll()
+            dismissEditor()
+            refreshAllNow()
+        }
     }
 
     fun clearScheduleLimitMessage() {
@@ -253,17 +287,23 @@ class TimeBoxingAppState(
     fun deleteEditingTask() {
         val draft = editorDraft ?: return
         val taskId = draft.taskId ?: draft.templateId?.let { "template-$it" } ?: return
-        repository.deleteTask(draft.date, taskId)
         dismissEditor()
-        refreshAll()
+        scope.launch {
+            repository.deleteTask(draft.date, taskId)
+            refreshAllNow()
+        }
     }
 
     fun refreshAll() {
+        scope.launch { refreshAllNow() }
+    }
+
+    private suspend fun refreshAllNow() {
         refreshToday()
         refreshSelectedDate()
     }
 
-    private fun refreshToday() {
+    private suspend fun refreshToday() {
         val fresh = repository.getTasks(today)
         todayTasks = fresh
         syncSectionOrders(today, fresh)
@@ -272,11 +312,11 @@ class TimeBoxingAppState(
         refreshYesterdayIncomplete()
     }
 
-    private fun refreshSelectedDate() {
+    private suspend fun refreshSelectedDate() {
         selectedDateTasks = repository.getTasks(selectedDate)
     }
 
-    private fun refreshTemplateCache(date: LocalDate) {
+    private suspend fun refreshTemplateCache(date: LocalDate) {
         val templateProvider = repository as? TemplateProvider ?: return
         val templates = templateProvider.getTemplates()
         recurrenceByTemplateId = templates.associate { it.id to it.recurrenceRule }
@@ -286,7 +326,7 @@ class TimeBoxingAppState(
             .map { it.toOtherHabitTask(date) }
     }
 
-    private fun refreshYesterdayIncomplete() {
+    private suspend fun refreshYesterdayIncomplete() {
         val yesterday = today.minusDays(1)
         val carriedTodayIds = repository.getTasks(today)
             .filter { task -> task.source == DailyTaskSource.CARRY_OVER || task.id.startsWith("carry-") }
@@ -297,8 +337,16 @@ class TimeBoxingAppState(
             .filter { task -> "carry-${task.id}-$today" !in carriedTodayIds }
     }
 
-    private fun canPlaceSchedule(date: LocalDate, replacingTaskId: String?, schedule: ScheduleBlock): Boolean {
-        val tasks = repository.getTasks(date)
+    private fun canPlaceSchedule(
+        date: LocalDate,
+        replacingTaskId: String?,
+        schedule: ScheduleBlock
+    ): Boolean? {
+        val tasks = when (date) {
+            today -> todayTasks
+            selectedDate -> selectedDateTasks
+            else -> return null
+        }
         return !exceedsMaxConcurrentTimeBlocks(tasks, replacingTaskId, schedule)
     }
 
@@ -425,5 +473,9 @@ private fun formatEditorTime(totalMinutes: Int): String {
 }
 
 @Composable
-fun rememberTimeBoxingAppState(repository: TaskRepository, today: LocalDate): TimeBoxingAppState =
-    remember(repository) { TimeBoxingAppState(repository = repository, initialTodayDate = today) }
+fun rememberTimeBoxingAppState(repository: TaskRepository, today: LocalDate): TimeBoxingAppState {
+    val scope = rememberCoroutineScope()
+    return remember(repository) {
+        TimeBoxingAppState(repository = repository, initialTodayDate = today, scope = scope)
+    }
+}

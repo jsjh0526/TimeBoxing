@@ -1,139 +1,165 @@
 package dev.jsjh.timebox.data.repository
 
-import android.util.Log
+import androidx.room.withTransaction
 import dev.jsjh.timebox.data.local.dao.DailyTaskDao
 import dev.jsjh.timebox.data.local.dao.TaskTemplateDao
-import dev.jsjh.timebox.data.remote.SupabaseSync
+import dev.jsjh.timebox.data.local.database.TaskDatabase
+import dev.jsjh.timebox.data.local.entity.DailyTaskEntity
+import dev.jsjh.timebox.data.local.entity.TaskTemplateEntity
+import dev.jsjh.timebox.data.remote.SyncOutboxProcessor
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.DailyTaskSource
 import dev.jsjh.timebox.domain.model.ScheduleBlock
 import dev.jsjh.timebox.domain.model.TaskEditInput
 import dev.jsjh.timebox.domain.repository.TaskRepository
 import java.time.LocalDate
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 
 class SyncedTaskRepository(
+    private val database: TaskDatabase,
     private val local: RoomTaskRepository,
     private val templateDao: TaskTemplateDao,
     private val dailyTaskDao: DailyTaskDao,
     private val userId: String
 ) : TaskRepository by local, TemplateProvider by local {
+    private val outbox = SyncOutboxProcessor(
+        userId = userId,
+        templateDao = templateDao,
+        dailyTaskDao = dailyTaskDao,
+        outboxDao = database.syncOutboxDao(),
+        shadowDao = database.syncShadowDao()
+    )
 
-    private val syncExceptionHandler = CoroutineExceptionHandler { _, throwable ->
-        Log.w("TaskSync", "Background sync failed", throwable)
-    }
-    private val syncScope = CoroutineScope(Dispatchers.IO + SupervisorJob() + syncExceptionHandler)
-
-    override fun toggleCompleted(date: LocalDate, taskId: String) {
-        local.toggleCompleted(date, taskId)
-        val entity = dailyTaskDao.getById(date.toString(), taskId) ?: return
-        syncScope.launch { SupabaseSync.pushTask(userId, entity) }
-    }
-
-    override fun markCompleted(date: LocalDate, taskId: String) {
-        local.markCompleted(date, taskId)
-        val entity = dailyTaskDao.getById(date.toString(), taskId) ?: return
-        syncScope.launch { SupabaseSync.pushTask(userId, entity) }
-    }
-
-    override fun toggleBig3(date: LocalDate, taskId: String) {
-        local.toggleBig3(date, taskId)
-        val entity = dailyTaskDao.getById(date.toString(), taskId) ?: return
-        syncScope.launch { SupabaseSync.pushTask(userId, entity) }
-    }
-
-    override fun setSchedule(date: LocalDate, taskId: String, schedule: ScheduleBlock?) {
-        val before = local.getTask(date, taskId)
-        local.setSchedule(date, taskId, schedule)
-        val taskEntity = dailyTaskDao.getById(date.toString(), taskId)
-        val templateId = before?.templateId ?: taskEntity?.templateId
-        if (templateId != null) {
-            syncScope.launch {
-                pushTemplateSnapshot(templateId)
-            }
-        } else if (taskEntity != null) {
-            syncScope.launch { SupabaseSync.pushTask(userId, taskEntity) }
+    override suspend fun toggleCompleted(date: LocalDate, taskId: String) {
+        database.withTransaction {
+            local.toggleCompletedBlocking(date, taskId)
+            dailyTaskDao.getById(date.toString(), taskId)?.let(outbox::queueTaskUpsert)
         }
     }
 
-    override fun addTask(date: LocalDate, title: String): DailyTask {
-        val task = local.addTask(date, title)
-        val entity = dailyTaskDao.getById(date.toString(), task.id) ?: return task
-        syncScope.launch { SupabaseSync.pushTask(userId, entity) }
-        return task
+    override suspend fun markCompleted(date: LocalDate, taskId: String) {
+        database.withTransaction {
+            local.markCompletedBlocking(date, taskId)
+            dailyTaskDao.getById(date.toString(), taskId)?.let(outbox::queueTaskUpsert)
+        }
     }
 
-    override fun upsertTask(input: TaskEditInput): DailyTask {
-        val previous = input.taskId?.let { local.getTask(input.date, it) }
-        val previousTemplateId = previous?.templateId ?: input.templateId
-        val task = local.upsertTask(input)
-        syncScope.launch {
-            if (previousTemplateId != null && previousTemplateId != task.templateId) {
-                SupabaseSync.deleteTemplate(userId, previousTemplateId)
-                SupabaseSync.deleteTasksByTemplateId(userId, previousTemplateId)
-            }
-            dailyTaskDao.getById(task.date.toString(), task.id)?.let {
-                SupabaseSync.pushTask(userId, it)
-            }
-            task.templateId?.let { tplId ->
-                pushTemplateSnapshot(tplId)
-            }
+    override suspend fun toggleBig3(date: LocalDate, taskId: String) {
+        database.withTransaction {
+            local.toggleBig3Blocking(date, taskId)
+            dailyTaskDao.getById(date.toString(), taskId)?.let(outbox::queueTaskUpsert)
         }
-        return task
     }
 
-    override fun deleteTask(date: LocalDate, taskId: String) {
-        if (taskId.startsWith("template-")) {
-            val templateId = taskId.removePrefix("template-")
-            local.deleteTask(date, taskId)
-            syncScope.launch {
-                SupabaseSync.deleteTemplate(userId, templateId)
-                SupabaseSync.deleteTasksByTemplateId(userId, templateId)
-            }
-            return
-        }
-
-        val existing = local.getTask(date, taskId)
-        val carryOverSourceId = existing?.let { carryOverSourceId(it, date) }
-        local.deleteTask(date, taskId)
-        syncScope.launch {
-            val templateId = existing?.templateId
+    override suspend fun setSchedule(date: LocalDate, taskId: String, schedule: ScheduleBlock?) {
+        database.withTransaction {
+            val before = local.getTaskBlocking(date, taskId)
+            val templateId = before?.templateId
+            val beforeTemplate = templateId?.let(templateDao::getById)
+            val beforeTasks = templateId?.let(dailyTaskDao::getByTemplateId).orEmpty()
+            local.setScheduleBlocking(date, taskId, schedule)
             if (templateId != null) {
-                SupabaseSync.deleteTemplate(userId, templateId)
-                SupabaseSync.deleteTasksByTemplateId(userId, templateId)
+                queueTemplateChanges(templateId, beforeTemplate, beforeTasks)
             } else {
-                SupabaseSync.deleteTask(userId, taskId)
-                carryOverSourceId?.let { SupabaseSync.deleteTask(userId, it) }
+                dailyTaskDao.getById(date.toString(), taskId)?.let(outbox::queueTaskUpsert)
             }
         }
     }
 
-    override fun carryOverIncompleteTasks(fromDate: LocalDate, toDate: LocalDate): Int {
-        val count = local.carryOverIncompleteTasks(fromDate, toDate)
-        syncScope.launch {
-            val carried = dailyTaskDao.getByDate(toDate.toString())
-                .filter { it.source == DailyTaskSource.CARRY_OVER.name }
-            SupabaseSync.pushTasks(userId, carried)
+    override suspend fun addTask(date: LocalDate, title: String): DailyTask {
+        var result: DailyTask? = null
+        database.withTransaction {
+            val task = local.addTaskBlocking(date, title)
+            result = task
+            dailyTaskDao.getById(date.toString(), task.id)?.let(outbox::queueTaskUpsert)
+        }
+        return checkNotNull(result)
+    }
+
+    override suspend fun upsertTask(input: TaskEditInput): DailyTask {
+        var result: DailyTask? = null
+        database.withTransaction {
+            val previous = input.taskId?.let { local.getTaskBlocking(input.date, it) }
+            val previousTemplateId = previous?.templateId ?: input.templateId
+            val beforeTemplate = previousTemplateId?.let(templateDao::getById)
+            val beforeTasks = previousTemplateId?.let(dailyTaskDao::getByTemplateId).orEmpty()
+            val task = local.upsertTaskBlocking(input)
+            result = task
+
+            if (previousTemplateId != null) {
+                queueTemplateChanges(previousTemplateId, beforeTemplate, beforeTasks)
+            }
+            if (task.templateId != null && task.templateId != previousTemplateId) {
+                queueTemplateChanges(task.templateId, null, emptyList())
+            } else if (task.templateId == null) {
+                dailyTaskDao.getById(task.date.toString(), task.id)?.let(outbox::queueTaskUpsert)
+            }
+        }
+        return checkNotNull(result)
+    }
+
+    override suspend fun deleteTask(date: LocalDate, taskId: String) {
+        database.withTransaction {
+            val templateId = if (taskId.startsWith("template-")) {
+                taskId.removePrefix("template-")
+            } else {
+                local.getTaskBlocking(date, taskId)?.templateId
+            }
+
+            if (templateId != null) {
+                val template = templateDao.getById(templateId)
+                val tasks = dailyTaskDao.getByTemplateId(templateId)
+                local.deleteTaskBlocking(date, taskId)
+                template?.let(outbox::queueTemplateDelete)
+                tasks.forEach(outbox::queueTaskDelete)
+            } else {
+                val existing = local.getTaskBlocking(date, taskId)
+                val existingEntity = dailyTaskDao.getById(date.toString(), taskId)
+                val source = existing?.let { carryOverSourceEntity(it, date) }
+                local.deleteTaskBlocking(date, taskId)
+                existingEntity?.let(outbox::queueTaskDelete)
+                source?.let(outbox::queueTaskDelete)
+            }
+        }
+    }
+
+    override suspend fun carryOverIncompleteTasks(fromDate: LocalDate, toDate: LocalDate): Int {
+        var count = 0
+        database.withTransaction {
+            val beforeIds = dailyTaskDao.getByDate(toDate.toString()).mapTo(mutableSetOf()) { it.id }
+            count = local.carryOverIncompleteTasksBlocking(fromDate, toDate)
+            dailyTaskDao.getByDate(toDate.toString())
+                .filter { it.id !in beforeIds && it.source == DailyTaskSource.CARRY_OVER.name }
+                .forEach(outbox::queueTaskUpsert)
         }
         return count
     }
 
-    private suspend fun pushTemplateSnapshot(templateId: String) {
-        templateDao.getById(templateId)?.let { SupabaseSync.pushTemplate(userId, it) }
-        SupabaseSync.replaceTasksForTemplate(userId, templateId, dailyTaskDao.getByTemplateId(templateId))
+    private fun queueTemplateChanges(
+        templateId: String,
+        beforeTemplate: TaskTemplateEntity?,
+        beforeTasks: List<DailyTaskEntity>
+    ) {
+        val afterTemplate = templateDao.getById(templateId)
+        val afterTasks = dailyTaskDao.getByTemplateId(templateId)
+        if (afterTemplate == null) {
+            beforeTemplate?.let(outbox::queueTemplateDelete)
+        } else {
+            outbox.queueTemplateUpsert(afterTemplate)
+        }
+        val afterIds = afterTasks.mapTo(hashSetOf()) { it.id }
+        beforeTasks.filter { it.id !in afterIds }.forEach(outbox::queueTaskDelete)
+        afterTasks.forEach(outbox::queueTaskUpsert)
     }
 
-    private fun carryOverSourceId(task: DailyTask, toDate: LocalDate): String? {
+    private fun carryOverSourceEntity(task: DailyTask, toDate: LocalDate): DailyTaskEntity? {
         if (task.source != DailyTaskSource.CARRY_OVER && !task.id.startsWith("carry-")) return null
         val suffix = "-$toDate"
-        return task.id
+        val sourceId = task.id
             .takeIf { it.startsWith("carry-") && it.endsWith(suffix) }
             ?.removePrefix("carry-")
             ?.removeSuffix(suffix)
             ?.takeIf { it.isNotBlank() }
+            ?: return null
+        return dailyTaskDao.getById(toDate.minusDays(1).toString(), sourceId)
     }
 }

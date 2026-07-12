@@ -2,8 +2,10 @@ package dev.jsjh.timebox.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 @Entity(tableName = "daily_tasks")
+@Serializable
 data class DailyTaskEntity(
     @PrimaryKey val id: String,
     val templateId: String?,

@@ -153,7 +153,10 @@ fun SettingsScreen(
                 val (statusText, statusColor) = when (syncState) {
                     is SyncState.Idle -> stringResource(R.string.settings_sync_idle) to TextSecondary
                     is SyncState.Syncing -> stringResource(R.string.settings_syncing) to Accent
-                    is SyncState.Success -> stringResource(R.string.settings_sync_success, (syncState as SyncState.Success).time) to Green
+                    is SyncState.Success -> stringResource(
+                        R.string.settings_sync_success,
+                        (syncState as SyncState.Success).time
+                    ) to Green
                     is SyncState.Error -> stringResource(R.string.settings_sync_error, syncErrorMessage((syncState as SyncState.Error).type)) to Color(0xFFFF5F57)
                 }
                 Text(statusText, style = TextStyle(color = statusColor, fontSize = 13.sp, lineHeight = 19.sp))

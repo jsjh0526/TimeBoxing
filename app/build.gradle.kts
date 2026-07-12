@@ -8,6 +8,10 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
@@ -26,8 +30,8 @@ android {
         applicationId = "dev.jsjh.timebox"
         minSdk = 28
         targetSdk = 36
-        versionCode = 27
-        versionName = "1.2.10"
+        versionCode = 29
+        versionName = "1.2.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
@@ -81,6 +85,13 @@ android {
     androidResources {
         generateLocaleConfig = true
     }
+    bundle {
+        language {
+            // The app changes its display locale independently from the system locale.
+            // Keep bundled language resources available after the initial Play install.
+            enableSplit = false
+        }
+    }
     dependenciesInfo {
         includeInApk = true
         includeInBundle = true
@@ -118,6 +129,7 @@ dependencies {
     implementation(libs.play.app.update.ktx)
     implementation(libs.play.review.ktx)
     implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.work.runtime.ktx)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -52,6 +52,7 @@ import dev.jsjh.timebox.R
 import dev.jsjh.timebox.auth.ActiveUserStore
 import dev.jsjh.timebox.auth.initSupabase
 import dev.jsjh.timebox.data.local.database.TaskDatabase
+import dev.jsjh.timebox.data.remote.SyncScheduler
 import dev.jsjh.timebox.data.repository.RoomTaskRepository
 import dev.jsjh.timebox.data.repository.SyncedTaskRepository
 import dev.jsjh.timebox.domain.model.DailyTask
@@ -163,7 +164,7 @@ private data class TodoWidgetState(
     val errorMessage: String? = null
 )
 
-private fun loadTodoWidgetState(context: Context): TodoWidgetState {
+private suspend fun loadTodoWidgetState(context: Context): TodoWidgetState {
     val appContext = context.applicationContext
     val today = effectiveToday(AppSettingsStore(appContext).read().dayStartHour)
     val repository = createWidgetLocalRepository(appContext)
@@ -183,7 +184,7 @@ private fun loadTodoWidgetState(context: Context): TodoWidgetState {
     )
 }
 
-private fun loadTodoWidgetStateOrFallback(context: Context): TodoWidgetState =
+private suspend fun loadTodoWidgetStateOrFallback(context: Context): TodoWidgetState =
     runCatching { loadTodoWidgetState(context) }.getOrElse { e ->
         Log.e("TodoWidget", "loadTodoWidgetState failed", e)
         TodoWidgetState(
@@ -612,6 +613,9 @@ private suspend fun refreshAfterWidgetMutation(
     date: LocalDate
 ) {
     val appContext = context.applicationContext
+    ActiveUserStore.readUserId(appContext)
+        .takeIf { it != GuestUserId }
+        ?.let { SyncScheduler.enqueueUpload(appContext, it) }
     ReminderRefreshBus.notifyTaskChanged()
     TodoWidgetRefreshBus.notifyChanged()
     runCatching { TodoWidget().update(appContext, glanceId) }
@@ -648,6 +652,7 @@ private fun createWidgetRepository(context: Context): TaskRepository {
     if (userId == GuestUserId) return local
     initSupabase(appContext)
     return SyncedTaskRepository(
+        database = database,
         local = local,
         templateDao = database.taskTemplateDao(),
         dailyTaskDao = database.dailyTaskDao(),

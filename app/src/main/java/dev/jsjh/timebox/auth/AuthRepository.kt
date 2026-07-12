@@ -6,6 +6,7 @@ import androidx.credentials.GetCredentialRequest
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import dev.jsjh.timebox.R
+import dev.jsjh.timebox.data.remote.SyncScheduler
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.IDToken
@@ -119,6 +120,8 @@ object AuthRepository {
     }
 
     suspend fun signOut(context: Context) {
+        val userId = ActiveUserStore.readUserId(context)
+        SyncScheduler.cancel(context, userId)
         try {
             supabase.auth.signOut()
         } catch (_: Exception) {

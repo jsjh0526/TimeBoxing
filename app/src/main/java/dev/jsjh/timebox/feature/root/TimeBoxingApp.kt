@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -57,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.os.ConfigurationCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
@@ -69,6 +72,8 @@ import dev.jsjh.timebox.auth.LoginScreen
 import dev.jsjh.timebox.data.local.database.TaskDatabase
 import dev.jsjh.timebox.data.remote.SupabaseSync
 import dev.jsjh.timebox.data.remote.SyncManager
+import dev.jsjh.timebox.data.remote.DurableSync
+import dev.jsjh.timebox.data.remote.SyncScheduler
 import dev.jsjh.timebox.data.repository.RoomTaskRepository
 import dev.jsjh.timebox.data.repository.SyncedTaskRepository
 import dev.jsjh.timebox.domain.repository.TaskRepository
@@ -158,17 +163,9 @@ fun TimeBoxingApp(
                             val success = withContext(Dispatchers.IO) {
                                 runCatching {
                                     val db = TaskDatabase.get(context, state.userId)
-                                    SupabaseSync.pull(
-                                        userId = state.userId,
-                                        templateDao = db.taskTemplateDao(),
-                                        dailyTaskDao = db.dailyTaskDao()
-                                    )
+                                    DurableSync.reconcile(state.userId, db)
                                     TaskDatabase.migrateGuestData(context, state.userId)
-                                    SupabaseSync.syncAll(
-                                        userId = state.userId,
-                                        templateDao = db.taskTemplateDao(),
-                                        dailyTaskDao = db.dailyTaskDao()
-                                    )
+                                    DurableSync.queueLocalRowsMissingFromServer(db)
                                 }.isSuccess
                             }
                             if (success) {
@@ -188,6 +185,7 @@ fun TimeBoxingApp(
                                         userId = state.userId,
                                         templateDao = db.taskTemplateDao(),
                                         dailyTaskDao = db.dailyTaskDao(),
+                                        syncShadowDao = db.syncShadowDao(),
                                         replaceLocal = true
                                     )
                                 }
@@ -228,6 +226,7 @@ private fun MainApp(
     onWidgetLaunchRequestConsumed: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
     var restoreReady by remember(userId, isGuest, reloadKey) { mutableStateOf(isGuest) }
 
     LaunchedEffect(userId, isGuest, reloadKey) {
@@ -238,28 +237,17 @@ private fun MainApp(
                     val database = TaskDatabase.get(context, userId)
                     val templateDao = database.taskTemplateDao()
                     val dailyTaskDao = database.dailyTaskDao()
-                    val hasLocalData = templateDao.count() > 0 || dailyTaskDao.count() > 0
-
-                    if (!hasLocalData) {
-                        val remoteStatus = SupabaseSync.pull(
-                            userId = userId,
+                    val remoteStatus = DurableSync.reconcile(userId, database)
+                    val hasDataAfterReconcile = templateDao.count() > 0 || dailyTaskDao.count() > 0
+                    if (!hadLocalDatabase && !hasDataAfterReconcile && remoteStatus.templateCount == 0 && remoteStatus.taskCount == 0) {
+                        val seededRepository = RoomTaskRepository(
                             templateDao = templateDao,
-                            dailyTaskDao = dailyTaskDao
+                            dailyTaskDao = dailyTaskDao,
+                            seedLanguage = currentAppLanguage(context),
+                            seedInitialData = true
                         )
-                        val hasDataAfterPull = templateDao.count() > 0 || dailyTaskDao.count() > 0
-                        if (!hadLocalDatabase && !hasDataAfterPull && remoteStatus.templateCount == 0 && remoteStatus.taskCount == 0) {
-                            RoomTaskRepository(
-                                templateDao = templateDao,
-                                dailyTaskDao = dailyTaskDao,
-                                seedLanguage = currentAppLanguage(context),
-                                seedInitialData = true
-                            )
-                            SupabaseSync.syncAll(
-                                userId = userId,
-                                templateDao = templateDao,
-                                dailyTaskDao = dailyTaskDao
-                            )
-                        }
+                        seededRepository.initialize()
+                        DurableSync.queueSeedData(userId, database)
                     }
                 }
             }
@@ -291,6 +279,7 @@ private fun MainApp(
             room
         } else {
             SyncedTaskRepository(
+                database = database,
                 local = room,
                 templateDao = database.taskTemplateDao(),
                 dailyTaskDao = database.dailyTaskDao(),
@@ -312,6 +301,38 @@ private fun MainApp(
     val appToday = effectiveToday(appSettings.dayStartHour, nowForDayBoundary)
     val currentTime = nowForDayBoundary.toLocalTime()
     val appState = rememberTimeBoxingAppState(repository, appToday)
+    DisposableEffect(userId, isGuest, appState, lifecycleOwner) {
+        if (isGuest) return@DisposableEffect onDispose { }
+        val lifecycle = lifecycleOwner.lifecycle
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> {
+                    // Start a best-effort upload immediately while this process still has time to run.
+                    // WorkManager remains the durable fallback if Android interrupts this attempt.
+                    SyncScheduler.enqueueUpload(context, userId)
+                    scope.launch {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                DurableSync.uploadPending(userId, TaskDatabase.get(context, userId))
+                            }
+                        }
+                    }
+                }
+                Lifecycle.Event.ON_START -> scope.launch {
+                    runCatching {
+                        DurableSync.reconcile(userId, TaskDatabase.get(context, userId))
+                    }.onSuccess {
+                        appState.refreshAll()
+                    }
+                }
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+        }
+    }
     LaunchedEffect(appToday) {
         appState.updateTodayDate(appToday)
     }
@@ -459,8 +480,7 @@ private fun MainApp(
                             val database = TaskDatabase.get(context, userId)
                             SyncManager.syncAll(
                                 userId = userId,
-                                templateDao = database.taskTemplateDao(),
-                                dailyTaskDao = database.dailyTaskDao()
+                                database = database
                             )
                             appState.refreshAll()
                         }

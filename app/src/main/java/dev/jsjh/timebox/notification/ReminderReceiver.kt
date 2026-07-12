@@ -14,13 +14,11 @@ import androidx.core.content.ContextCompat
 import dev.jsjh.timebox.MainActivity
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.auth.ActiveUserStore
-import dev.jsjh.timebox.auth.initSupabase
-import dev.jsjh.timebox.auth.supabase
 import dev.jsjh.timebox.data.local.database.TaskDatabase
-import dev.jsjh.timebox.data.remote.SupabaseSync
+import dev.jsjh.timebox.data.remote.SyncScheduler
 import dev.jsjh.timebox.data.repository.RoomTaskRepository
+import dev.jsjh.timebox.data.repository.SyncedTaskRepository
 import dev.jsjh.timebox.widget.TodoWidgetUpdater
-import io.github.jan.supabase.auth.auth
 import java.time.LocalDate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -101,20 +99,19 @@ class ReminderReceiver : BroadcastReceiver() {
                         templateDao = database.taskTemplateDao(),
                         dailyTaskDao = database.dailyTaskDao()
                     )
-                    roomRepository.markCompleted(date, taskId)
-                    ReminderScheduler.removeScheduledKey(appContext, date, taskId)
-                    if (userId != "guest") {
-                        initSupabase(appContext)
-                        val sessionReady = runCatching {
-                            supabase.auth.awaitInitialization()
-                            supabase.auth.loadFromStorage()
-                        }.getOrDefault(false)
-                        if (sessionReady) {
-                            database.dailyTaskDao().getById(date.toString(), taskId)?.let { entity ->
-                                runCatching { SupabaseSync.pushTask(userId, entity) }
-                            }
-                        }
+                    if (userId == "guest") {
+                        roomRepository.markCompleted(date, taskId)
+                    } else {
+                        SyncedTaskRepository(
+                            database = database,
+                            local = roomRepository,
+                            templateDao = database.taskTemplateDao(),
+                            dailyTaskDao = database.dailyTaskDao(),
+                            userId = userId
+                        ).markCompleted(date, taskId)
+                        SyncScheduler.enqueueUpload(appContext, userId)
                     }
+                    ReminderScheduler.removeScheduledKey(appContext, date, taskId)
                     ReminderRefreshBus.notifyTaskChanged()
                     TodoWidgetUpdater.requestUpdate(appContext)
                 }

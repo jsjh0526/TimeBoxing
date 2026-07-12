@@ -1,7 +1,6 @@
 package dev.jsjh.timebox.data.remote
 
-import dev.jsjh.timebox.data.local.dao.DailyTaskDao
-import dev.jsjh.timebox.data.local.dao.TaskTemplateDao
+import dev.jsjh.timebox.data.local.database.TaskDatabase
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,14 +38,14 @@ object SyncManager {
 
     suspend fun syncAll(
         userId: String,
-        templateDao: TaskTemplateDao,
-        dailyTaskDao: DailyTaskDao
+        database: TaskDatabase
     ) {
         if (_state.value is SyncState.Syncing) return
         _state.value = SyncState.Syncing
 
         try {
-            val status = SupabaseSync.syncAll(userId, templateDao, dailyTaskDao)
+            val result = DurableSync.syncAll(userId, database)
+            val status = result.remoteStatus
             val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
             _remoteStatus.value = RemoteStatusUi(
                 templateCount = status.templateCount,

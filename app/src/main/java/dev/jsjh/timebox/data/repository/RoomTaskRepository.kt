@@ -17,6 +17,8 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class RoomTaskRepository(
     private val templateDao: TaskTemplateDao,
@@ -25,18 +27,90 @@ class RoomTaskRepository(
     private val seedLanguage: String = Locale.getDefault().language,
     private val seedInitialData: Boolean = false
 ) : TaskRepository, TemplateProvider {
+    @Volatile
+    private var seedChecked = !seedInitialData
+    private val seedLock = Any()
 
-    init {
-        if (seedInitialData) seedIfNeeded()
+    suspend fun initialize() = io { Unit }
+
+    override suspend fun getTasks(date: LocalDate): List<DailyTask> = io {
+        getTasksBlocking(date)
     }
 
-    override fun getTasks(date: LocalDate): List<DailyTask> {
+    override suspend fun getTasks(dates: Collection<LocalDate>): Map<LocalDate, List<DailyTask>> = io {
+        getTasksBlocking(dates)
+    }
+
+    override suspend fun getTaskCompletionCounts(dates: Collection<LocalDate>): Map<LocalDate, Pair<Int, Int>> = io {
+        getTaskCompletionCountsBlocking(dates)
+    }
+
+    override suspend fun getTask(date: LocalDate, taskId: String): DailyTask? = io {
+        getTaskBlocking(date, taskId)
+    }
+
+    override suspend fun getTemplate(templateId: String): TaskTemplate? = io {
+        getTemplateBlocking(templateId)
+    }
+
+    override suspend fun getTemplates(): List<TaskTemplate> = io {
+        getTemplatesBlocking()
+    }
+
+    override suspend fun toggleCompleted(date: LocalDate, taskId: String) = io {
+        toggleCompletedBlocking(date, taskId)
+    }
+
+    override suspend fun markCompleted(date: LocalDate, taskId: String) = io {
+        markCompletedBlocking(date, taskId)
+    }
+
+    override suspend fun toggleBig3(date: LocalDate, taskId: String) = io {
+        toggleBig3Blocking(date, taskId)
+    }
+
+    override suspend fun setSchedule(date: LocalDate, taskId: String, schedule: ScheduleBlock?) = io {
+        setScheduleBlocking(date, taskId, schedule)
+    }
+
+    override suspend fun addTask(date: LocalDate, title: String): DailyTask = io {
+        addTaskBlocking(date, title)
+    }
+
+    override suspend fun upsertTask(input: TaskEditInput): DailyTask = io {
+        upsertTaskBlocking(input)
+    }
+
+    override suspend fun deleteTask(date: LocalDate, taskId: String) = io {
+        deleteTaskBlocking(date, taskId)
+    }
+
+    override suspend fun carryOverIncompleteTasks(fromDate: LocalDate, toDate: LocalDate): Int = io {
+        carryOverIncompleteTasksBlocking(fromDate, toDate)
+    }
+
+    private suspend fun <T> io(block: () -> T): T = withContext(Dispatchers.IO) {
+        ensureSeeded()
+        block()
+    }
+
+    private fun ensureSeeded() {
+        if (seedChecked) return
+        synchronized(seedLock) {
+            if (!seedChecked) {
+                seedIfNeeded()
+                seedChecked = true
+            }
+        }
+    }
+
+    internal fun getTasksBlocking(date: LocalDate): List<DailyTask> {
         ensureDate(date)
         syncRecurringForDate(date)
         return dailyTaskDao.getByDate(date.toString()).map { it.toDomain() }
     }
 
-    override fun getTasks(dates: Collection<LocalDate>): Map<LocalDate, List<DailyTask>> {
+    internal fun getTasksBlocking(dates: Collection<LocalDate>): Map<LocalDate, List<DailyTask>> {
         val distinctDates = dates.distinct()
         if (distinctDates.isEmpty()) return emptyMap()
         syncRecurringForDates(distinctDates)
@@ -47,7 +121,7 @@ class RoomTaskRepository(
         return distinctDates.associateWith { grouped[it].orEmpty() }
     }
 
-    override fun getTaskCompletionCounts(dates: Collection<LocalDate>): Map<LocalDate, Pair<Int, Int>> {
+    internal fun getTaskCompletionCountsBlocking(dates: Collection<LocalDate>): Map<LocalDate, Pair<Int, Int>> {
         val distinctDates = dates.distinct()
         if (distinctDates.isEmpty()) return emptyMap()
         val existingByDate = dailyTaskDao
@@ -64,42 +138,42 @@ class RoomTaskRepository(
         }
     }
 
-    override fun getTask(date: LocalDate, taskId: String): DailyTask? {
+    internal fun getTaskBlocking(date: LocalDate, taskId: String): DailyTask? {
         ensureDate(date)
         syncRecurringForDate(date)
         return dailyTaskDao.getById(date.toString(), taskId)?.toDomain()
     }
 
-    override fun getTemplate(templateId: String): TaskTemplate? {
+    internal fun getTemplateBlocking(templateId: String): TaskTemplate? {
         return templateDao.getById(templateId)?.toDomain()
     }
 
-    override fun getTemplates(): List<TaskTemplate> {
+    internal fun getTemplatesBlocking(): List<TaskTemplate> {
         return templateDao.getAll().map { it.toDomain() }
     }
 
-    override fun toggleCompleted(date: LocalDate, taskId: String) {
-        val current = getTask(date, taskId) ?: return
+    internal fun toggleCompletedBlocking(date: LocalDate, taskId: String) {
+        val current = getTaskBlocking(date, taskId) ?: return
         dailyTaskDao.upsert(current.copy(isCompleted = !current.isCompleted).toEntity())
     }
 
-    override fun markCompleted(date: LocalDate, taskId: String) {
-        val current = getTask(date, taskId) ?: return
+    internal fun markCompletedBlocking(date: LocalDate, taskId: String) {
+        val current = getTaskBlocking(date, taskId) ?: return
         if (current.isCompleted) return
         dailyTaskDao.upsert(current.copy(isCompleted = true).toEntity())
     }
 
-    override fun toggleBig3(date: LocalDate, taskId: String) {
+    internal fun toggleBig3Blocking(date: LocalDate, taskId: String) {
         ensureDate(date)
-        val current = getTask(date, taskId) ?: return
+        val current = getTaskBlocking(date, taskId) ?: return
         val enable = !current.isBig3
-        val activeBig3 = getTasks(date).count { it.isBig3 }
+        val activeBig3 = getTasksBlocking(date).count { it.isBig3 }
         if (enable && activeBig3 >= 3) return
         dailyTaskDao.upsert(current.copy(isBig3 = enable).toEntity())
     }
 
-    override fun setSchedule(date: LocalDate, taskId: String, schedule: ScheduleBlock?) {
-        val current = getTask(date, taskId) ?: return
+    internal fun setScheduleBlocking(date: LocalDate, taskId: String, schedule: ScheduleBlock?) {
+        val current = getTaskBlocking(date, taskId) ?: return
         val templateId = current.templateId
         if (current.source == DailyTaskSource.RECURRING && templateId != null) {
             val template = templateDao.getById(templateId)?.toDomain() ?: return
@@ -110,7 +184,7 @@ class RoomTaskRepository(
         dailyTaskDao.upsert(current.copy(schedule = schedule).toEntity())
     }
 
-    override fun addTask(date: LocalDate, title: String): DailyTask {
+    internal fun addTaskBlocking(date: LocalDate, title: String): DailyTask {
         ensureDate(date)
         val task = DailyTask(
             id = UUID.randomUUID().toString(),
@@ -122,9 +196,9 @@ class RoomTaskRepository(
         return task
     }
 
-    override fun upsertTask(input: TaskEditInput): DailyTask {
+    internal fun upsertTaskBlocking(input: TaskEditInput): DailyTask {
         ensureDate(input.date)
-        val existing = input.taskId?.let { getTask(input.date, it) }
+        val existing = input.taskId?.let { getTaskBlocking(input.date, it) }
         val existingTemplateId = existing?.templateId ?: input.templateId
         val templateId = when {
             input.recurrenceRule != null -> existingTemplateId ?: "tpl-${UUID.randomUUID()}"
@@ -190,7 +264,7 @@ class RoomTaskRepository(
         return updated
     }
 
-    override fun deleteTask(date: LocalDate, taskId: String) {
+    internal fun deleteTaskBlocking(date: LocalDate, taskId: String) {
         if (taskId.startsWith("template-")) {
             val templateId = taskId.removePrefix("template-")
             templateDao.deleteById(templateId)
@@ -198,7 +272,7 @@ class RoomTaskRepository(
             return
         }
         ensureDate(date)
-        val existing = getTask(date, taskId) ?: return
+        val existing = getTaskBlocking(date, taskId) ?: return
         dailyTaskDao.deleteById(date.toString(), taskId)
         carryOverSourceId(existing, date)?.let { sourceId ->
             dailyTaskDao.deleteById(date.minusDays(1).toString(), sourceId)
@@ -209,7 +283,7 @@ class RoomTaskRepository(
         }
     }
 
-    override fun carryOverIncompleteTasks(fromDate: LocalDate, toDate: LocalDate): Int {
+    internal fun carryOverIncompleteTasksBlocking(fromDate: LocalDate, toDate: LocalDate): Int {
         ensureDate(fromDate)
         ensureDate(toDate)
         syncRecurringForDate(fromDate)
