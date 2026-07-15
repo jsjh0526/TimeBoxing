@@ -213,6 +213,7 @@ object SupabaseSync {
 
     suspend fun deleteTemplate(userId: String, templateId: String) {
         softDeleteTemplates(userId, listOf(templateId))
+        softDeleteTasksByTemplate(userId, templateId)
     }
 
     private suspend fun softDeleteTasks(userId: String, taskIds: List<String>) {
@@ -235,6 +236,16 @@ object SupabaseSync {
                     eq("user_id", userId)
                     isIn("id", chunk)
                 }
+            }
+        }
+    }
+
+    /** A template tombstone owns every materialized task derived from it, including rows created on other devices. */
+    private suspend fun softDeleteTasksByTemplate(userId: String, templateId: String) {
+        supabase.from("daily_tasks").update(softDeletePatch()) {
+            filter {
+                eq("user_id", userId)
+                eq("template_id", templateId)
             }
         }
     }

@@ -24,9 +24,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
 import dev.jsjh.timebox.ads.AdsConsentManager
 import dev.jsjh.timebox.ads.OpeningNativeAdGate
 import dev.jsjh.timebox.ads.OpeningNativeAdPreloader
+import dev.jsjh.timebox.analytics.TimeBoxAnalytics
 import dev.jsjh.timebox.auth.initSupabase
 import dev.jsjh.timebox.feature.root.TimeBoxingApp
 import dev.jsjh.timebox.feature.settings.AppLanguage
@@ -35,6 +37,7 @@ import dev.jsjh.timebox.notification.ReminderScheduler
 import dev.jsjh.timebox.review.InAppReviewPrompter
 import dev.jsjh.timebox.ui.theme.TimeBoxingTheme
 import dev.jsjh.timebox.widget.WidgetLaunchRequest
+import com.google.android.play.core.appupdate.AppUpdateInfo
 import com.google.android.play.core.appupdate.AppUpdateManager
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.google.android.play.core.appupdate.AppUpdateOptions
@@ -50,12 +53,15 @@ class MainActivity : ComponentActivity() {
     private var mobileAdsInitialized = false
     private var widgetLaunchRequest by mutableStateOf<WidgetLaunchRequest?>(null)
     private var launchedFromWidget = false
+    private var appUpdateCheckRequested = false
+    private var appUpdateFlowInProgress = false
 
     private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         if (!keepSystemBarsVisible) hideSystemBars()
     }
 
     private val appUpdateLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
+        appUpdateFlowInProgress = false
         if (!keepSystemBarsVisible) hideSystemBars()
     }
 
@@ -67,8 +73,8 @@ class MainActivity : ComponentActivity() {
         setTheme(R.style.Theme_TimeBoxing)
         super.onCreate(savedInstanceState)
         appUpdateManager = AppUpdateManagerFactory.create(this)
-        checkForAppUpdate()
         initSupabase(this)
+        TimeBoxAnalytics.initialize(this)
         widgetLaunchRequest = WidgetLaunchRequest.from(intent)
         launchedFromWidget = widgetLaunchRequest != null
         if (savedInstanceState == null) {
@@ -142,6 +148,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        checkForAppUpdate()
         resumeAppUpdateIfNeeded()
     }
 
@@ -151,16 +158,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkForAppUpdate() {
+        if (!::appUpdateManager.isInitialized || appUpdateCheckRequested) return
+        appUpdateCheckRequested = true
         appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
             val updateAvailable = appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
             val immediateAllowed = appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)
             if (updateAvailable && immediateAllowed) {
-                appUpdateManager.startUpdateFlowForResult(
-                    appUpdateInfo,
-                    appUpdateLauncher,
-                    AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
-                )
+                startImmediateUpdateSafely(appUpdateInfo)
             }
+        }.addOnFailureListener {
+            appUpdateCheckRequested = false
         }
     }
 
@@ -168,12 +175,25 @@ class MainActivity : ComponentActivity() {
         if (!::appUpdateManager.isInitialized) return
         appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
             if (appUpdateInfo.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
-                appUpdateManager.startUpdateFlowForResult(
-                    appUpdateInfo,
-                    appUpdateLauncher,
-                    AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
-                )
+                startImmediateUpdateSafely(appUpdateInfo)
             }
+        }
+    }
+
+    private fun startImmediateUpdateSafely(appUpdateInfo: AppUpdateInfo) {
+        if (appUpdateFlowInProgress) return
+        if (isFinishing || isDestroyed) return
+        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return
+
+        appUpdateFlowInProgress = true
+        runCatching {
+            appUpdateManager.startUpdateFlowForResult(
+                appUpdateInfo,
+                appUpdateLauncher,
+                AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
+            )
+        }.onFailure {
+            appUpdateFlowInProgress = false
         }
     }
 

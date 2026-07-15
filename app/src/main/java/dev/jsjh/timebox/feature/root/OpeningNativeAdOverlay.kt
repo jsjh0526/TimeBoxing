@@ -48,6 +48,7 @@ import dev.jsjh.timebox.R
 import dev.jsjh.timebox.ads.AdsConsentManager
 import dev.jsjh.timebox.ads.OpeningNativeAdGate
 import dev.jsjh.timebox.ads.OpeningNativeAdPreloader
+import dev.jsjh.timebox.analytics.TimeBoxAnalytics
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -73,6 +74,7 @@ fun OpeningNativeAdOverlay() {
     LaunchedEffect(shouldAttempt, canRequestAds, adUnitId) {
         if (!shouldAttempt || !canRequestAds || adUnitId.isBlank()) return@LaunchedEffect
 
+        TimeBoxAnalytics.openingAdWindowOpened()
         OpeningNativeAdPreloader.preload(context, adUnitId)
         val attempts = (OpeningNativeAdLoadTimeoutMs / OpeningNativeAdPollIntervalMs).toInt()
         repeat(attempts) {
@@ -84,6 +86,7 @@ fun OpeningNativeAdOverlay() {
                     OpeningNativeAdGate.markShown(context)
                     nativeAd = ad
                     visible = true
+                    TimeBoxAnalytics.openingAdShown()
                 }
                 return@LaunchedEffect
             }
@@ -91,12 +94,14 @@ fun OpeningNativeAdOverlay() {
         }
         timedOut = true
         closed = true
+        TimeBoxAnalytics.openingAdTimedOut()
     }
 
     val ad = nativeAd
     if (closed || !visible || ad == null) return
 
-    fun dismiss() {
+    fun dismiss(source: String) {
+        TimeBoxAnalytics.openingAdDismissed(source)
         visible = false
         closed = true
         nativeAd = null
@@ -110,7 +115,7 @@ fun OpeningNativeAdOverlay() {
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = ::dismiss
+                    onClick = { dismiss("backdrop") }
                 )
         )
         Box(
@@ -134,7 +139,7 @@ fun OpeningNativeAdOverlay() {
                     .align(Alignment.TopEnd)
                     .size(42.dp)
                     .clip(RoundedCornerShape(21.dp))
-                    .clickable(onClick = ::dismiss)
+                    .clickable(onClick = { dismiss("close_button") })
                     .padding(8.dp),
                 contentAlignment = Alignment.Center
             ) {

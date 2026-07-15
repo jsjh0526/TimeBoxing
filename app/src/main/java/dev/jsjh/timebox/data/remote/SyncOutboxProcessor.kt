@@ -281,6 +281,14 @@ internal class SnapshotMerger(
         val firstBootstrap = metadata.getValue(BOOTSTRAP_KEY) == null
         val remoteTemplateIds = snapshot.templatesById.keys
         val remoteTaskIds = snapshot.tasksById.keys
+        val deletedRemoteTemplateIds = snapshot.templatesById.values
+            .asSequence()
+            .filter { it.deletedAt != null }
+            .filter { remote ->
+                // A queued local template upsert intentionally wins over an older remote tombstone.
+                outbox.get("$TEMPLATE:${remote.id}")?.operationType != UPSERT
+            }
+            .mapTo(hashSetOf()) { it.id }
 
         val remoteTemplateStartDates = snapshot.tasksById.values
             .asSequence()
@@ -306,6 +314,15 @@ internal class SnapshotMerger(
         }
 
         snapshot.tasksById.values.forEach { remote ->
+            if (remote.templateId in deletedRemoteTemplateIds) {
+                // Never resurrect a materialized child whose parent template is tombstoned.
+                tasks.deleteByIds(listOf(remote.id))
+                if (outbox.get("$TASK:${remote.id}")?.operationType == UPSERT) {
+                    outbox.deleteEntity(TASK, remote.id)
+                }
+                remember(TASK, remote.id, remote.updatedAt, remote.deletedAt)
+                return@forEach
+            }
             if (!discardPendingRemoteRows && hasPending(TASK, remote.id)) {
                 remember(TASK, remote.id, remote.updatedAt, remote.deletedAt)
                 return@forEach

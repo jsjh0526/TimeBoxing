@@ -82,6 +82,7 @@ import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import dev.jsjh.timebox.BuildConfig
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.ads.AdsConsentManager
+import dev.jsjh.timebox.analytics.TimeBoxAnalytics
 import dev.jsjh.timebox.auth.AuthRepository
 import dev.jsjh.timebox.auth.AuthState
 import dev.jsjh.timebox.data.remote.SyncErrorType
@@ -350,11 +351,17 @@ private fun SupportAdCard() {
                 override fun onAdLoaded(ad: RewardedAd) {
                     rewardedAd = ad
                     isLoading = false
+                    TimeBoxAnalytics.adLoadResult(TimeBoxAnalytics.PLACEMENT_SUPPORT_REWARDED, loaded = true)
                 }
 
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     rewardedAd = null
                     isLoading = false
+                    TimeBoxAnalytics.adLoadResult(
+                        placement = TimeBoxAnalytics.PLACEMENT_SUPPORT_REWARDED,
+                        loaded = false,
+                        errorCode = error.code
+                    )
                 }
             }
         )
@@ -401,16 +408,26 @@ private fun SupportAdCard() {
                 }
                 rewardedAd = null
                 ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdShowedFullScreenContent() {
+                        TimeBoxAnalytics.rewardedAdShown(TimeBoxAnalytics.PLACEMENT_SUPPORT_REWARDED)
+                    }
+
                     override fun onAdDismissedFullScreenContent() {
+                        TimeBoxAnalytics.rewardedAdDismissed(TimeBoxAnalytics.PLACEMENT_SUPPORT_REWARDED)
                         loadAd()
                     }
 
                     override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                        TimeBoxAnalytics.rewardedAdShowFailed(
+                            placement = TimeBoxAnalytics.PLACEMENT_SUPPORT_REWARDED,
+                            errorCode = adError.code
+                        )
                         Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
                         loadAd()
                     }
                 }
                 ad.show(activity) {
+                    TimeBoxAnalytics.rewardedAdEarned(TimeBoxAnalytics.PLACEMENT_SUPPORT_REWARDED)
                     Toast.makeText(context, thanksMessage, Toast.LENGTH_SHORT).show()
                 }
             }
@@ -454,11 +471,17 @@ private fun WidgetAccessCard() {
                 override fun onAdLoaded(ad: RewardedAd) {
                     rewardedAd = ad
                     isLoading = false
+                    TimeBoxAnalytics.adLoadResult(TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED, loaded = true)
                 }
 
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     rewardedAd = null
                     isLoading = false
+                    TimeBoxAnalytics.adLoadResult(
+                        placement = TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED,
+                        loaded = false,
+                        errorCode = error.code
+                    )
                 }
             }
         )
@@ -528,17 +551,28 @@ private fun WidgetAccessCard() {
                 }
                 rewardedAd = null
                 ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdShowedFullScreenContent() {
+                        TimeBoxAnalytics.rewardedAdShown(TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED)
+                    }
+
                     override fun onAdDismissedFullScreenContent() {
+                        TimeBoxAnalytics.rewardedAdDismissed(TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED)
                         loadAd()
                     }
 
                     override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                        TimeBoxAnalytics.rewardedAdShowFailed(
+                            placement = TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED,
+                            errorCode = adError.code
+                        )
                         Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
                         loadAd()
                     }
                 }
                 ad.show(activity) {
+                    TimeBoxAnalytics.rewardedAdEarned(TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED)
                     WidgetAccessStore.extendByReward(context)
+                    TimeBoxAnalytics.widgetAccessExtended()
                     refreshKey++
                     TodoWidgetUpdater.requestUpdate(context)
                     Toast.makeText(context, unlockedMessage, Toast.LENGTH_SHORT).show()

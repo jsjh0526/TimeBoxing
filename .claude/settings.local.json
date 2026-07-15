@@ -23,7 +23,8 @@
       "Bash(xargs ls -la)",
       "Bash(./gradlew.bat :app:compileReleaseKotlin :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintVitalRelease --console=plain)",
       "Bash(sed -n '/fun fetchSnapshot/,/^    }/p' app/src/main/java/dev/jsjh/timebox/data/remote/SupabaseSync.kt)",
-      "Bash(sed -n '/data class RemoteSyncSnapshot/,/\\)/p' app/src/main/java/dev/jsjh/timebox/data/remote/SupabaseSync.kt)"
+      "Bash(sed -n '/data class RemoteSyncSnapshot/,/\\)/p' app/src/main/java/dev/jsjh/timebox/data/remote/SupabaseSync.kt)",
+      "Bash(./gradlew.bat :app:compileReleaseKotlin :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin --console=plain)"
     ]
   }
 }

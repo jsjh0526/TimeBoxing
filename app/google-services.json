@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "281638732195",
+    "project_id": "timeboxing-app-ef580",
+    "storage_bucket": "timeboxing-app-ef580.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:281638732195:android:833c5b06867f38e726da16",
+        "android_client_info": {
+          "package_name": "dev.jsjh.timebox"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDiemfTnZvU1GBfCVzX8HSLgrPoVWihnI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

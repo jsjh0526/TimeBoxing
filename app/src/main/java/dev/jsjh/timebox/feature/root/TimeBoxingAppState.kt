@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import dev.jsjh.timebox.analytics.TimeBoxAnalytics
 import dev.jsjh.timebox.data.repository.TemplateProvider
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.DailyTaskSource
@@ -121,7 +122,9 @@ class TimeBoxingAppState(
 
     fun toggleCompleted(taskId: String, date: LocalDate = today) {
         scope.launch {
+            val wasCompleted = repository.getTask(date, taskId)?.isCompleted
             repository.toggleCompleted(date, taskId)
+            if (wasCompleted != null) TimeBoxAnalytics.taskCompleted(completed = !wasCompleted)
             refreshAllNow()
         }
     }
@@ -142,6 +145,7 @@ class TimeBoxingAppState(
     fun moveToUnscheduled(taskId: String, date: LocalDate = selectedDate) {
         scope.launch {
             repository.setSchedule(date, taskId, null)
+            TimeBoxAnalytics.timeboxRemoved()
             refreshAllNow()
         }
     }
@@ -163,6 +167,10 @@ class TimeBoxingAppState(
         }
         scope.launch {
             repository.setSchedule(date, taskId, schedule)
+            TimeBoxAnalytics.timeboxScheduled(
+                source = "timetable_drag",
+                durationMinutes = schedule.endMinute - schedule.startMinute
+            )
             refreshAllNow()
         }
         return true
@@ -172,6 +180,11 @@ class TimeBoxingAppState(
         if (title.isBlank()) return
         scope.launch {
             repository.addTask(date = date, title = title.trim())
+            TimeBoxAnalytics.taskCreated(
+                source = "quick_add",
+                hasSchedule = false,
+                isRecurring = false
+            )
             refreshAllNow()
         }
     }
@@ -192,7 +205,8 @@ class TimeBoxingAppState(
     fun carryOverYesterdayIncompleteTasks() {
         val yesterday = today.minusDays(1)
         scope.launch {
-            repository.carryOverIncompleteTasks(fromDate = yesterday, toDate = today)
+            val count = repository.carryOverIncompleteTasks(fromDate = yesterday, toDate = today)
+            if (count > 0) TimeBoxAnalytics.tasksCarriedOver(count)
             refreshAllNow()
         }
     }
@@ -235,6 +249,7 @@ class TimeBoxingAppState(
     fun saveEditor() {
         val draft = editorDraft ?: return
         if (draft.title.isBlank()) return
+        val isNewTask = draft.taskId == null && draft.templateId == null
 
         val startMinute = parseTime(draft.startText)
         val endMinute = parseTime(draft.endText)
@@ -275,6 +290,19 @@ class TimeBoxingAppState(
                     schedule = schedule
                 )
             )
+            if (isNewTask) {
+                TimeBoxAnalytics.taskCreated(
+                    source = "editor",
+                    hasSchedule = schedule != null,
+                    isRecurring = recurrence != null
+                )
+            }
+            if (schedule != null) {
+                TimeBoxAnalytics.timeboxScheduled(
+                    source = "editor",
+                    durationMinutes = schedule.endMinute - schedule.startMinute
+                )
+            }
             dismissEditor()
             refreshAllNow()
         }

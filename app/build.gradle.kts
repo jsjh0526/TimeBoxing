@@ -2,6 +2,7 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.google.services)
     id("com.google.android.gms.oss-licenses-plugin")
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
@@ -30,8 +31,8 @@ android {
         applicationId = "dev.jsjh.timebox"
         minSdk = 28
         targetSdk = 36
-        versionCode = 29
-        versionName = "1.2.12"
+        versionCode = 30
+        versionName = "1.2.13"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
@@ -66,7 +67,7 @@ android {
             manifestPlaceholders["admobAppId"] = "ca-app-pub-8399175755552427~4280120387"
             buildConfigField("String", "ADMOB_SETTINGS_BANNER_AD_UNIT_ID", "\"ca-app-pub-8399175755552427/7520562638\"")
             buildConfigField("String", "ADMOB_SUPPORT_REWARDED_AD_UNIT_ID", "\"ca-app-pub-8399175755552427/9139665010\"")
-            buildConfigField("String", "ADMOB_WIDGET_REWARDED_AD_UNIT_ID", "\"ca-app-pub-8399175755552427/9139665010\"")
+            buildConfigField("String", "ADMOB_WIDGET_REWARDED_AD_UNIT_ID", "\"ca-app-pub-8399175755552427/1436917315\"")
             buildConfigField("String", "ADMOB_OPENING_NATIVE_AD_UNIT_ID", "\"ca-app-pub-8399175755552427/9478078921\"")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -130,6 +131,8 @@ dependencies {
     implementation(libs.play.review.ktx)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

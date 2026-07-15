@@ -6,6 +6,7 @@ import com.google.android.gms.ads.AdLoader
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.nativead.NativeAd
+import dev.jsjh.timebox.analytics.TimeBoxAnalytics
 import java.util.concurrent.TimeUnit
 
 object OpeningNativeAdPreloader {
@@ -22,9 +23,11 @@ object OpeningNativeAdPreloader {
 
         val requestGeneration = generation
         loading = true
+        TimeBoxAnalytics.openingAdRequested()
         AdLoader.Builder(context.applicationContext, adUnitId)
             .forNativeAd { ad ->
                 loading = false
+                TimeBoxAnalytics.adLoadResult(TimeBoxAnalytics.PLACEMENT_OPENING, loaded = true)
                 if (requestGeneration != generation) {
                     ad.destroy()
                 } else {
@@ -36,6 +39,11 @@ object OpeningNativeAdPreloader {
             .withAdListener(object : AdListener() {
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     if (requestGeneration == generation) loading = false
+                    TimeBoxAnalytics.adLoadResult(
+                        placement = TimeBoxAnalytics.PLACEMENT_OPENING,
+                        loaded = false,
+                        errorCode = error.code
+                    )
                 }
             })
             .build()

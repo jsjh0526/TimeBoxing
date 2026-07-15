@@ -60,12 +60,17 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.os.ConfigurationCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.LoadAdError
 import dev.jsjh.timebox.BuildConfig
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.ads.AdsConsentManager
+import dev.jsjh.timebox.ads.OpeningNativeAdGate
+import dev.jsjh.timebox.ads.OpeningNativeAdPreloader
+import dev.jsjh.timebox.analytics.TimeBoxAnalytics
 import dev.jsjh.timebox.auth.AuthRepository
 import dev.jsjh.timebox.auth.AuthState
 import dev.jsjh.timebox.auth.LoginScreen
@@ -119,6 +124,21 @@ fun TimeBoxingApp(
 
     val authState by AuthRepository.authState.collectAsState()
     val loginScreenVisible = authState is AuthState.SignedOut || authState is AuthState.Error
+    val canRequestAds = AdsConsentManager.canRequestAds
+
+    LaunchedEffect(authState, canRequestAds) {
+        val authReady = authState is AuthState.Guest || authState is AuthState.LoggedIn
+        if (
+            authReady &&
+            canRequestAds &&
+            OpeningNativeAdGate.canPreloadForCurrentLaunch()
+        ) {
+            OpeningNativeAdPreloader.preload(
+                context = context,
+                adUnitId = BuildConfig.ADMOB_OPENING_NATIVE_AD_UNIT_ID
+            )
+        }
+    }
 
     LaunchedEffect(loginScreenVisible) {
         onLoginScreenVisible(loginScreenVisible)
@@ -266,6 +286,9 @@ private fun MainApp(
     }
 
     val seedLanguage = currentAppLanguage(context)
+    LaunchedEffect(isGuest, seedLanguage) {
+        TimeBoxAnalytics.setUserContext(isGuest = isGuest, language = seedLanguage)
+    }
     val repository: TaskRepository = remember(userId, isGuest, reloadKey, seedLanguage) {
         val shouldSeedGuest = isGuest && !TaskDatabase.exists(context, userId)
         val database = TaskDatabase.get(context, userId)
@@ -301,6 +324,9 @@ private fun MainApp(
     val appToday = effectiveToday(appSettings.dayStartHour, nowForDayBoundary)
     val currentTime = nowForDayBoundary.toLocalTime()
     val appState = rememberTimeBoxingAppState(repository, appToday)
+    LaunchedEffect(appState.currentTab) {
+        TimeBoxAnalytics.screenViewed(appState.currentTab.name.lowercase())
+    }
     DisposableEffect(userId, isGuest, appState, lifecycleOwner) {
         if (isGuest) return@DisposableEffect onDispose { }
         val lifecycle = lifecycleOwner.lifecycle
@@ -572,6 +598,19 @@ private fun rememberSettingsBannerAdView(): AdView? {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
+            adListener = object : AdListener() {
+                override fun onAdLoaded() {
+                    TimeBoxAnalytics.adLoadResult(TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER, loaded = true)
+                }
+
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    TimeBoxAnalytics.adLoadResult(
+                        placement = TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER,
+                        loaded = false,
+                        errorCode = error.code
+                    )
+                }
+            }
         }
     }
 

@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="dev.jsjh.timebox" />
+                  <option name="mobileSdkAppId" value="1:281638732195:android:833c5b06867f38e726da16" />
+                  <option name="projectId" value="timeboxing-app-ef580" />
+                  <option name="projectNumber" value="281638732195" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

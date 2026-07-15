@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -91,5 +92,70 @@ class SnapshotMergerTest {
         assertEquals(1, withContext(Dispatchers.IO) { database.syncOutboxDao().count() })
         assertNotNull(mergedOther)
         assertEquals(true, mergedOther?.isCompleted)
+    }
+
+    @Test
+    fun merge_doesNotResurrectActiveChildOfDeletedTemplate() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val userId = "deleted_template_child_test"
+        val templateId = "habit-template"
+        val childId = "habit-child-from-other-device"
+        context.deleteDatabase("timeboxing_${userId}.db")
+        val database = TaskDatabase.get(context, userId)
+
+        val localGhost = DailyTaskEntity(
+            id = childId,
+            templateId = templateId,
+            dateIso = "2026-07-20",
+            title = "Should stay deleted",
+            note = null,
+            tagsSerialized = "",
+            isBig3 = false,
+            isCompleted = false,
+            startMinute = null,
+            endMinute = null,
+            reminderEnabled = false,
+            source = "RECURRING"
+        )
+
+        withContext(Dispatchers.IO) {
+            database.dailyTaskDao().upsert(localGhost)
+            database.withTransaction {
+                SnapshotMerger(
+                    database = database,
+                    snapshot = RemoteSyncSnapshot(
+                        templatesById = mapOf(
+                            templateId to RemoteTemplate(
+                                id = templateId,
+                                userId = userId,
+                                title = "Deleted habit",
+                                updatedAt = "2026-07-20T00:00:00Z",
+                                deletedAt = "2026-07-20T00:00:00Z"
+                            )
+                        ),
+                        tasksById = mapOf(
+                            childId to RemoteTask(
+                                id = childId,
+                                userId = userId,
+                                templateId = templateId,
+                                dateIso = localGhost.dateIso,
+                                title = localGhost.title,
+                                isCompleted = false,
+                                source = localGhost.source,
+                                updatedAt = "2026-07-19T00:00:00Z",
+                                deletedAt = null
+                            )
+                        )
+                    ),
+                    discardPendingRemoteRows = false
+                ).merge()
+            }
+        }
+
+        assertNull(
+            withContext(Dispatchers.IO) {
+                database.dailyTaskDao().getById(localGhost.dateIso, childId)
+            }
+        )
     }
 }
