@@ -3,6 +3,8 @@ package dev.jsjh.timebox.review
 import android.app.Activity
 import android.content.Context
 import androidx.core.content.edit
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
 import com.google.android.play.core.review.ReviewManagerFactory
 import java.util.concurrent.TimeUnit
 
@@ -25,6 +27,7 @@ object InAppReviewPrompter {
 
     fun requestIfEligible(activity: Activity) {
         if (requestedThisProcess) return
+        if (!activity.isReadyForReviewFlow()) return
         val now = System.currentTimeMillis()
         val appContext = activity.applicationContext
         val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -36,12 +39,25 @@ object InAppReviewPrompter {
         if (lastRequestAt > 0L && now - lastRequestAt < REVIEW_COOLDOWN_MS) return
 
         requestedThisProcess = true
-        prefs.edit { putLong(KEY_LAST_REVIEW_REQUEST_AT, now) }
 
         val reviewManager = ReviewManagerFactory.create(appContext)
         reviewManager.requestReviewFlow()
             .addOnSuccessListener { reviewInfo ->
-                reviewManager.launchReviewFlow(activity, reviewInfo)
+                if (!activity.isReadyForReviewFlow()) {
+                    requestedThisProcess = false
+                    return@addOnSuccessListener
+                }
+
+                runCatching {
+                    reviewManager.launchReviewFlow(activity, reviewInfo)
+                }.onSuccess {
+                    prefs.edit { putLong(KEY_LAST_REVIEW_REQUEST_AT, now) }
+                }.onFailure {
+                    requestedThisProcess = false
+                }
+            }
+            .addOnFailureListener {
+                requestedThisProcess = false
             }
     }
 
@@ -49,5 +65,13 @@ object InAppReviewPrompter {
         return runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).firstInstallTime
         }.getOrDefault(System.currentTimeMillis())
+    }
+
+    private fun Activity.isReadyForReviewFlow(): Boolean {
+        if (isFinishing || isDestroyed) return false
+        val lifecycleOwner = this as? LifecycleOwner ?: return false
+        if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return false
+        val decorView = window.decorView
+        return decorView.isAttachedToWindow && hasWindowFocus()
     }
 }

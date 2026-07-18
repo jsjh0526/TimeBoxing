@@ -13,6 +13,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import dev.jsjh.timebox.MainActivity
 import dev.jsjh.timebox.R
+import dev.jsjh.timebox.analytics.TimeBoxAnalytics
 import dev.jsjh.timebox.auth.ActiveUserStore
 import dev.jsjh.timebox.data.local.database.TaskDatabase
 import dev.jsjh.timebox.data.remote.SyncScheduler
@@ -25,6 +26,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class ReminderReceiver : BroadcastReceiver() {
+    companion object {
+        const val EXTRA_OPENED_FROM_REMINDER =
+            "dev.jsjh.timebox.extra.OPENED_FROM_REMINDER"
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             ReminderScheduler.ACTION_SHOW_REMINDER -> showReminder(context, intent)
@@ -54,10 +60,13 @@ class ReminderReceiver : BroadcastReceiver() {
             completeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val openAppIntent = Intent(context, MainActivity::class.java).apply {
+            putExtra(EXTRA_OPENED_FROM_REMINDER, true)
+        }
         val contentIntent = PendingIntent.getActivity(
             context,
             key.hashCode(),
-            Intent(context, MainActivity::class.java),
+            openAppIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -75,6 +84,8 @@ class ReminderReceiver : BroadcastReceiver() {
             .build()
 
         showNotification(context, key.hashCode(), notification)
+        TimeBoxAnalytics.initialize(context.applicationContext)
+        TimeBoxAnalytics.notificationShown()
     }
 
     private fun completeTask(context: Context, intent: Intent) {
@@ -99,6 +110,7 @@ class ReminderReceiver : BroadcastReceiver() {
                         templateDao = database.taskTemplateDao(),
                         dailyTaskDao = database.dailyTaskDao()
                     )
+                    val task = roomRepository.getTask(date, taskId)
                     if (userId == "guest") {
                         roomRepository.markCompleted(date, taskId)
                     } else {
@@ -110,6 +122,17 @@ class ReminderReceiver : BroadcastReceiver() {
                             userId = userId
                         ).markCompleted(date, taskId)
                         SyncScheduler.enqueueUpload(appContext, userId)
+                    }
+                    if (task != null && !task.isCompleted) {
+                        TimeBoxAnalytics.initialize(appContext)
+                        TimeBoxAnalytics.taskCompleted(
+                            completed = true,
+                            source = "notification",
+                            isBig3 = task.isBig3,
+                            isTutorial = task.id.startsWith("seed-") ||
+                                task.templateId == "tpl-standup"
+                        )
+                        TimeBoxAnalytics.notificationTaskCompleted()
                     }
                     ReminderScheduler.removeScheduledKey(appContext, date, taskId)
                     ReminderRefreshBus.notifyTaskChanged()

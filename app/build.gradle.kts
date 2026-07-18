@@ -31,8 +31,9 @@ android {
         applicationId = "dev.jsjh.timebox"
         minSdk = 28
         targetSdk = 36
-        versionCode = 30
-        versionName = "1.2.13"
+        versionCode = 31
+        versionName = "1.3.0"
+        resourceConfigurations += listOf("en", "ko", "es", "hi", "fil", "zu")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"

@@ -49,6 +49,7 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import dev.jsjh.timebox.BuildConfig
 import dev.jsjh.timebox.R
+import dev.jsjh.timebox.analytics.TimeBoxAnalytics
 import dev.jsjh.timebox.auth.ActiveUserStore
 import dev.jsjh.timebox.auth.initSupabase
 import dev.jsjh.timebox.data.local.database.TaskDatabase
@@ -93,6 +94,18 @@ private const val GuestUserId = "guest"
 
 class TodoWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = TodoWidget()
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        TimeBoxAnalytics.initialize(context.applicationContext)
+        TimeBoxAnalytics.widgetAdded()
+    }
+
+    override fun onDisabled(context: Context) {
+        TimeBoxAnalytics.initialize(context.applicationContext)
+        TimeBoxAnalytics.widgetRemoved()
+        super.onDisabled(context)
+    }
 }
 
 class TodoWidget : GlanceAppWidget() {
@@ -590,7 +603,17 @@ class ToggleWidgetTaskAction : ActionCallback {
         val date = parameters[TaskDateKey]?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return
         val appContext = context.applicationContext
         val repository = createWidgetRepository(appContext)
+        val task = repository.getTask(date, taskId)
         repository.toggleCompleted(date, taskId)
+        if (task != null) {
+            TimeBoxAnalytics.initialize(appContext)
+            TimeBoxAnalytics.taskCompleted(
+                completed = !task.isCompleted,
+                source = "widget",
+                isBig3 = task.isBig3,
+                isTutorial = task.id.startsWith("seed-") || task.templateId == "tpl-standup"
+            )
+        }
         refreshAfterWidgetMutation(appContext, glanceId, repository, date)
     }
 }

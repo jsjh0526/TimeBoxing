@@ -5,6 +5,7 @@ import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdLoader
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.OnPaidEventListener
 import com.google.android.gms.ads.nativead.NativeAd
 import dev.jsjh.timebox.analytics.TimeBoxAnalytics
 import java.util.concurrent.TimeUnit
@@ -28,6 +29,15 @@ object OpeningNativeAdPreloader {
             .forNativeAd { ad ->
                 loading = false
                 TimeBoxAnalytics.adLoadResult(TimeBoxAnalytics.PLACEMENT_OPENING, loaded = true)
+                ad.setOnPaidEventListener(OnPaidEventListener { adValue ->
+                    TimeBoxAnalytics.adRevenuePaid(
+                        placement = TimeBoxAnalytics.PLACEMENT_OPENING,
+                        adFormat = "native",
+                        valueMicros = adValue.valueMicros,
+                        currencyCode = adValue.currencyCode,
+                        precisionType = adValue.precisionType
+                    )
+                })
                 if (requestGeneration != generation) {
                     ad.destroy()
                 } else {
@@ -37,6 +47,20 @@ object OpeningNativeAdPreloader {
                 }
             }
             .withAdListener(object : AdListener() {
+                override fun onAdImpression() {
+                    TimeBoxAnalytics.adImpressionRecorded(
+                        placement = TimeBoxAnalytics.PLACEMENT_OPENING,
+                        adFormat = "native"
+                    )
+                }
+
+                override fun onAdClicked() {
+                    TimeBoxAnalytics.adClicked(
+                        placement = TimeBoxAnalytics.PLACEMENT_OPENING,
+                        adFormat = "native"
+                    )
+                }
+
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     if (requestGeneration == generation) loading = false
                     TimeBoxAnalytics.adLoadResult(

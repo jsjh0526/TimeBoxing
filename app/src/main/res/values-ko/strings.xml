@@ -63,6 +63,10 @@
     <string name="settings_language_system">시스템 기본값</string>
     <string name="settings_language_english">English</string>
     <string name="settings_language_korean">한국어</string>
+    <string name="settings_language_spanish">Español</string>
+    <string name="settings_language_hindi">हिन्दी</string>
+    <string name="settings_language_filipino">Filipino</string>
+    <string name="settings_language_zulu">isiZulu</string>
     <string name="settings_survey">설문조사</string>
     <string name="settings_language_survey_title">다음 언어 선택에 참여하기</string>
     <string name="settings_language_survey_subtitle">TimeBox에 추가되면 좋을 언어를 알려주세요.</string>
@@ -212,4 +216,20 @@
     <string name="notification_channel_reminders_vibration">할일 알림 진동</string>
     <string name="notification_channel_reminders_silent">할일 알림 무음</string>
     <string name="notification_channel_description">TimeBox 할일 시작 알림</string>
+
+    <string name="tutorial_habit_title">습관 계획하기</string>
+    <string name="tutorial_habit_note">반복 습관은 매일 자동으로 생성돼요.</string>
+    <string name="tutorial_leftover_title">어제 못 끝낸 할 일 넘겨보기</string>
+    <string name="tutorial_leftover_note">오늘로 모두 옮기기를 누르면 오늘 할 일로 이월돼요.</string>
+    <string name="tutorial_search_timeboxing">유튜브에 타임박싱 기법을 검색</string>
+    <string name="tutorial_choose_big3">오늘의 중요한 할 일 3가지 정하기</string>
+    <string name="tutorial_brain_dump">할 일은 여기에 쏟아두기</string>
+    <string name="tutorial_complete_task">&lt;&lt; 완료 체크하기</string>
+    <string name="tutorial_mark_big3">BIG3를 지정하기 &gt;&gt;</string>
+    <string name="tutorial_enable_alert">클릭해서 알림 켜고 시간 설정</string>
+    <string name="tutorial_open_timetable">시간표에서 드래그로 할 일을 배치</string>
+
+    <string name="announcement_current_title">TimeBox 지원 언어가 늘었어요</string>
+    <string name="announcement_current_message">이제 스페인어, 힌디어, 필리핀어, 줄루어로도 TimeBox를 사용할 수 있어요. 설정에서 언제든 언어를 바꿀 수 있습니다.\n\n추가로 원하는 언어가 있다면 설정의 언어 설문조사에 참여해 주세요.</string>
+    <string name="announcement_current_confirm">확인</string>
 </resources>

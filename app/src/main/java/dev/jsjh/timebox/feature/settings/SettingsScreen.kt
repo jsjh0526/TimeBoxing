@@ -76,6 +76,7 @@ import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.OnPaidEventListener
 import com.google.android.gms.oss.licenses.v2.OssLicensesMenuActivity
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
@@ -349,6 +350,15 @@ private fun SupportAdCard() {
             AdRequest.Builder().build(),
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
+                    ad.onPaidEventListener = OnPaidEventListener { adValue ->
+                        TimeBoxAnalytics.adRevenuePaid(
+                            placement = TimeBoxAnalytics.PLACEMENT_SUPPORT_REWARDED,
+                            adFormat = "rewarded",
+                            valueMicros = adValue.valueMicros,
+                            currencyCode = adValue.currencyCode,
+                            precisionType = adValue.precisionType
+                        )
+                    }
                     rewardedAd = ad
                     isLoading = false
                     TimeBoxAnalytics.adLoadResult(TimeBoxAnalytics.PLACEMENT_SUPPORT_REWARDED, loaded = true)
@@ -412,6 +422,20 @@ private fun SupportAdCard() {
                         TimeBoxAnalytics.rewardedAdShown(TimeBoxAnalytics.PLACEMENT_SUPPORT_REWARDED)
                     }
 
+                    override fun onAdImpression() {
+                        TimeBoxAnalytics.adImpressionRecorded(
+                            placement = TimeBoxAnalytics.PLACEMENT_SUPPORT_REWARDED,
+                            adFormat = "rewarded"
+                        )
+                    }
+
+                    override fun onAdClicked() {
+                        TimeBoxAnalytics.adClicked(
+                            placement = TimeBoxAnalytics.PLACEMENT_SUPPORT_REWARDED,
+                            adFormat = "rewarded"
+                        )
+                    }
+
                     override fun onAdDismissedFullScreenContent() {
                         TimeBoxAnalytics.rewardedAdDismissed(TimeBoxAnalytics.PLACEMENT_SUPPORT_REWARDED)
                         loadAd()
@@ -469,6 +493,15 @@ private fun WidgetAccessCard() {
             AdRequest.Builder().build(),
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
+                    ad.onPaidEventListener = OnPaidEventListener { adValue ->
+                        TimeBoxAnalytics.adRevenuePaid(
+                            placement = TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED,
+                            adFormat = "rewarded",
+                            valueMicros = adValue.valueMicros,
+                            currencyCode = adValue.currencyCode,
+                            precisionType = adValue.precisionType
+                        )
+                    }
                     rewardedAd = ad
                     isLoading = false
                     TimeBoxAnalytics.adLoadResult(TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED, loaded = true)
@@ -555,6 +588,20 @@ private fun WidgetAccessCard() {
                         TimeBoxAnalytics.rewardedAdShown(TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED)
                     }
 
+                    override fun onAdImpression() {
+                        TimeBoxAnalytics.adImpressionRecorded(
+                            placement = TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED,
+                            adFormat = "rewarded"
+                        )
+                    }
+
+                    override fun onAdClicked() {
+                        TimeBoxAnalytics.adClicked(
+                            placement = TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED,
+                            adFormat = "rewarded"
+                        )
+                    }
+
                     override fun onAdDismissedFullScreenContent() {
                         TimeBoxAnalytics.rewardedAdDismissed(TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED)
                         loadAd()
@@ -618,6 +665,10 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
                 LanguageOptionRow(stringResource(R.string.settings_language_system), "") { onDismiss() }
                 LanguageOptionRow(stringResource(R.string.settings_language_english), "en") { onDismiss() }
                 LanguageOptionRow(stringResource(R.string.settings_language_korean), "ko") { onDismiss() }
+                LanguageOptionRow(stringResource(R.string.settings_language_spanish), "es") { onDismiss() }
+                LanguageOptionRow(stringResource(R.string.settings_language_hindi), "hi") { onDismiss() }
+                LanguageOptionRow(stringResource(R.string.settings_language_filipino), "fil") { onDismiss() }
+                LanguageOptionRow(stringResource(R.string.settings_language_zulu), "zu") { onDismiss() }
             }
         },
         confirmButton = {}
@@ -631,6 +682,12 @@ private fun LanguageOptionRow(label: String, languageTag: String, onSelected: ()
     val selected = languageMatches(currentLanguageTag, languageTag)
     Box(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (selected) Accent.copy(alpha = 0.22f) else Color(0xFF2A2A2A)).clickable {
+            if (!selected) {
+                TimeBoxAnalytics.languageChanged(
+                    fromLanguage = analyticsLanguageTag(currentLanguageTag),
+                    toLanguage = analyticsLanguageTag(languageTag)
+                )
+            }
             context.findActivity()?.let { AppLanguage.setLanguage(it, languageTag) }
             onSelected()
         }.padding(horizontal = 14.dp, vertical = 12.dp)
@@ -644,6 +701,10 @@ private fun currentLanguageLabel(context: Context): String {
     return when (primaryLanguageCode(AppLanguage.currentLanguageTag(context))) {
         "en" -> stringResource(R.string.settings_language_english)
         "ko" -> stringResource(R.string.settings_language_korean)
+        "es" -> stringResource(R.string.settings_language_spanish)
+        "hi" -> stringResource(R.string.settings_language_hindi)
+        "fil" -> stringResource(R.string.settings_language_filipino)
+        "zu" -> stringResource(R.string.settings_language_zulu)
         else -> stringResource(R.string.settings_language_system)
     }
 }
@@ -658,6 +719,12 @@ private fun primaryLanguageCode(languageTag: String): String =
         .substringBefore(',')
         .substringBefore('-')
         .lowercase()
+
+private fun analyticsLanguageTag(languageTag: String): String =
+    languageTag
+        .takeIf { it.isNotBlank() }
+        ?.let(::primaryLanguageCode)
+        ?: "system"
 
 @Composable
 private fun SectionCard(title: String, icon: @Composable () -> Unit, content: @Composable () -> Unit) {

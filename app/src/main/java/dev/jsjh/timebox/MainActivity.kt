@@ -31,8 +31,11 @@ import dev.jsjh.timebox.ads.OpeningNativeAdPreloader
 import dev.jsjh.timebox.analytics.TimeBoxAnalytics
 import dev.jsjh.timebox.auth.initSupabase
 import dev.jsjh.timebox.feature.root.TimeBoxingApp
+import dev.jsjh.timebox.feature.root.AppAnnouncementStore
+import dev.jsjh.timebox.feature.root.CurrentAppAnnouncement
 import dev.jsjh.timebox.feature.settings.AppLanguage
 import dev.jsjh.timebox.feature.settings.AppSettingsStore
+import dev.jsjh.timebox.notification.ReminderReceiver
 import dev.jsjh.timebox.notification.ReminderScheduler
 import dev.jsjh.timebox.review.InAppReviewPrompter
 import dev.jsjh.timebox.ui.theme.TimeBoxingTheme
@@ -53,16 +56,22 @@ class MainActivity : ComponentActivity() {
     private var mobileAdsInitialized = false
     private var widgetLaunchRequest by mutableStateOf<WidgetLaunchRequest?>(null)
     private var launchedFromWidget = false
-    private var appUpdateCheckRequested = false
+    private var appAnnouncementEligible = false
+    private var appUpdateCheckNeeded = false
+    private var appUpdateInfoRequestInFlight = false
+    private var normalUpdatePromptAttempted = false
     private var appUpdateFlowInProgress = false
+    private var pendingImmediateUpdateInfo: AppUpdateInfo? = null
+    private var reviewRequestPending = false
 
-    private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-        if (!keepSystemBarsVisible) hideSystemBars()
+    private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        TimeBoxAnalytics.notificationPermissionResult(granted)
     }
 
     private val appUpdateLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
         appUpdateFlowInProgress = false
-        if (!keepSystemBarsVisible) hideSystemBars()
+        appUpdateCheckNeeded = true
+        scheduleExternalFlowCheck()
     }
 
     override fun attachBaseContext(newBase: Context) {
@@ -75,10 +84,19 @@ class MainActivity : ComponentActivity() {
         appUpdateManager = AppUpdateManagerFactory.create(this)
         initSupabase(this)
         TimeBoxAnalytics.initialize(this)
+        recordNotificationOpen(intent)
         widgetLaunchRequest = WidgetLaunchRequest.from(intent)
         launchedFromWidget = widgetLaunchRequest != null
+        appAnnouncementEligible = AppAnnouncementStore.shouldShow(
+            this,
+            CurrentAppAnnouncement.value
+        )
         if (savedInstanceState == null) {
-            OpeningNativeAdGate.recordLaunch(this, fromWidget = widgetLaunchRequest != null)
+            OpeningNativeAdGate.recordLaunch(
+                this,
+                fromWidget = widgetLaunchRequest != null ||
+                    appAnnouncementEligible
+            )
             InAppReviewPrompter.recordLaunch(this)
         }
         AdsConsentManager.gatherConsent(this) {
@@ -100,8 +118,13 @@ class MainActivity : ComponentActivity() {
                             onRequestBatteryOptimizationExemption = ::requestIgnoreBatteryOptimizationsIfNeeded,
                             onLoginScreenVisible = { visible ->
                                 loginScreenVisible = visible
-                                if (!visible && !launchedFromWidget) {
-                                    InAppReviewPrompter.requestIfEligible(this@MainActivity)
+                                if (
+                                    !visible &&
+                                    !launchedFromWidget &&
+                                    !appAnnouncementEligible
+                                ) {
+                                    reviewRequestPending = true
+                                    scheduleExternalFlowCheck()
                                 }
                                 if (visible) {
                                     OpeningNativeAdGate.disableForCurrentLaunch()
@@ -142,59 +165,104 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        recordNotificationOpen(intent)
         widgetLaunchRequest = WidgetLaunchRequest.from(intent)
         launchedFromWidget = widgetLaunchRequest != null
     }
 
     override fun onResume() {
         super.onResume()
-        checkForAppUpdate()
-        resumeAppUpdateIfNeeded()
+        appUpdateCheckNeeded = true
+        scheduleExternalFlowCheck()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && !keepSystemBarsVisible) hideSystemBars()
+        if (hasFocus) {
+            if (!keepSystemBarsVisible) hideSystemBars()
+            scheduleExternalFlowCheck()
+        }
+    }
+
+    private fun scheduleExternalFlowCheck() {
+        window.decorView.post {
+            if (!isWindowReadyForExternalFlow()) return@post
+
+            pendingImmediateUpdateInfo?.let { appUpdateInfo ->
+                startImmediateUpdateSafely(appUpdateInfo)
+                return@post
+            }
+
+            if (appUpdateCheckNeeded && !appUpdateInfoRequestInFlight && !appUpdateFlowInProgress) {
+                checkForAppUpdate()
+                return@post
+            }
+
+            requestReviewIfPending()
+        }
     }
 
     private fun checkForAppUpdate() {
-        if (!::appUpdateManager.isInitialized || appUpdateCheckRequested) return
-        appUpdateCheckRequested = true
+        if (!::appUpdateManager.isInitialized || appUpdateInfoRequestInFlight || appUpdateFlowInProgress) return
+        if (!isWindowReadyForExternalFlow()) return
+
+        appUpdateCheckNeeded = false
+        appUpdateInfoRequestInFlight = true
         appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
+            appUpdateInfoRequestInFlight = false
+            val updateInProgress =
+                appUpdateInfo.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS
             val updateAvailable = appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
             val immediateAllowed = appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)
-            if (updateAvailable && immediateAllowed) {
-                startImmediateUpdateSafely(appUpdateInfo)
+
+            if (updateInProgress || (updateAvailable && immediateAllowed && !normalUpdatePromptAttempted)) {
+                if (updateAvailable) normalUpdatePromptAttempted = true
+                reviewRequestPending = false
+                pendingImmediateUpdateInfo = appUpdateInfo
+                scheduleExternalFlowCheck()
+            } else {
+                requestReviewIfPending()
             }
         }.addOnFailureListener {
-            appUpdateCheckRequested = false
+            appUpdateInfoRequestInFlight = false
+            requestReviewIfPending()
         }
     }
 
-    private fun resumeAppUpdateIfNeeded() {
-        if (!::appUpdateManager.isInitialized) return
-        appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
-            if (appUpdateInfo.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
-                startImmediateUpdateSafely(appUpdateInfo)
-            }
-        }
+    private fun requestReviewIfPending() {
+        if (!reviewRequestPending || appUpdateCheckNeeded) return
+        if (appUpdateInfoRequestInFlight || appUpdateFlowInProgress || pendingImmediateUpdateInfo != null) return
+        if (!isWindowReadyForExternalFlow()) return
+
+        reviewRequestPending = false
+        InAppReviewPrompter.requestIfEligible(this)
     }
 
     private fun startImmediateUpdateSafely(appUpdateInfo: AppUpdateInfo) {
         if (appUpdateFlowInProgress) return
-        if (isFinishing || isDestroyed) return
-        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return
+        if (!isWindowReadyForExternalFlow()) return
 
+        pendingImmediateUpdateInfo = null
         appUpdateFlowInProgress = true
-        runCatching {
+        val started = runCatching {
             appUpdateManager.startUpdateFlowForResult(
                 appUpdateInfo,
                 appUpdateLauncher,
                 AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
             )
-        }.onFailure {
+        }.getOrDefault(false)
+
+        if (!started) {
             appUpdateFlowInProgress = false
+            appUpdateCheckNeeded = true
         }
+    }
+
+    private fun isWindowReadyForExternalFlow(): Boolean {
+        if (isFinishing || isDestroyed) return false
+        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return false
+        val decorView = window.decorView
+        return decorView.isAttachedToWindow && hasWindowFocus()
     }
 
     private fun initializeMobileAdsIfNeeded() {
@@ -207,6 +275,12 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (!granted) requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    private fun recordNotificationOpen(intent: Intent?) {
+        if (intent?.getBooleanExtra(ReminderReceiver.EXTRA_OPENED_FROM_REMINDER, false) != true) return
+        TimeBoxAnalytics.notificationOpened()
+        intent.removeExtra(ReminderReceiver.EXTRA_OPENED_FROM_REMINDER)
     }
 
     private fun requestIgnoreBatteryOptimizationsIfNeeded() {
@@ -230,14 +304,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun hideSystemBars() {
-        WindowCompat.getInsetsController(window, window.decorView)?.apply {
+        val decorView = window.decorView
+        if (!decorView.isAttachedToWindow) return
+        WindowCompat.getInsetsController(window, decorView)?.apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.navigationBars())
         }
     }
 
     private fun showSystemBars() {
-        WindowCompat.getInsetsController(window, window.decorView)?.apply {
+        val decorView = window.decorView
+        if (!decorView.isAttachedToWindow) return
+        WindowCompat.getInsetsController(window, decorView)?.apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
             show(WindowInsetsCompat.Type.navigationBars())
         }

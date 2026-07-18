@@ -63,6 +63,10 @@
     <string name="settings_language_system">System default</string>
     <string name="settings_language_english">English</string>
     <string name="settings_language_korean">한국어</string>
+    <string name="settings_language_spanish">Español</string>
+    <string name="settings_language_hindi">हिन्दी</string>
+    <string name="settings_language_filipino">Filipino</string>
+    <string name="settings_language_zulu">isiZulu</string>
     <string name="settings_survey">Survey</string>
     <string name="settings_language_survey_title">Help choose the next language</string>
     <string name="settings_language_survey_subtitle">Tell us which language you want in TimeBox.</string>
@@ -212,4 +216,20 @@
     <string name="notification_channel_reminders_vibration">Task reminders (vibration)</string>
     <string name="notification_channel_reminders_silent">Task reminders (silent)</string>
     <string name="notification_channel_description">TimeBox task start reminders</string>
+
+    <string name="tutorial_habit_title">Plan a habit</string>
+    <string name="tutorial_habit_note">Recurring habits are created automatically every day.</string>
+    <string name="tutorial_leftover_title">Try carrying over unfinished tasks</string>
+    <string name="tutorial_leftover_note">Tap Move all to today to carry this into today\'s tasks.</string>
+    <string name="tutorial_search_timeboxing">Search YouTube for timeboxing techniques</string>
+    <string name="tutorial_choose_big3">Choose today\'s 3 most important tasks</string>
+    <string name="tutorial_brain_dump">Dump tasks here</string>
+    <string name="tutorial_complete_task">&lt;&lt; Tap to complete</string>
+    <string name="tutorial_mark_big3">Mark this as BIG3 &gt;&gt;</string>
+    <string name="tutorial_enable_alert">Tap to turn on alerts and set a time</string>
+    <string name="tutorial_open_timetable">Drag tasks into the timetable</string>
+
+    <string name="announcement_current_title">TimeBox now supports more languages</string>
+    <string name="announcement_current_message">You can now use TimeBox in Spanish, Hindi, Filipino, and isiZulu. Change the language anytime in Settings.\n\nIf you\'d like TimeBox in another language, please take the language survey in Settings.</string>
+    <string name="announcement_current_confirm">Got it</string>
 </resources>

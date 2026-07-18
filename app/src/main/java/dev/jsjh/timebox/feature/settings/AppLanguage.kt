@@ -8,11 +8,13 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.LocaleList
 import androidx.core.content.edit
+import androidx.core.os.ConfigurationCompat
 import java.util.Locale
 
 object AppLanguage {
     private const val PREFS_NAME = "app_language"
     private const val KEY_LANGUAGE_TAG = "language_tag"
+    val supportedLanguageCodes = setOf("en", "ko", "es", "hi", "fil", "zu")
 
     fun wrap(base: Context): Context {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return base
@@ -34,6 +36,15 @@ object AppLanguage {
                 .orEmpty()
         }
         return savedLanguageTag(context)
+    }
+
+    fun appliedLanguageCode(context: Context): String {
+        val language = ConfigurationCompat.getLocales(context.resources.configuration)
+            .get(0)
+            ?.language
+            .orEmpty()
+            .lowercase()
+        return language.takeIf { it in supportedLanguageCodes } ?: "en"
     }
 
     fun setLanguage(activity: Activity, languageTag: String) {

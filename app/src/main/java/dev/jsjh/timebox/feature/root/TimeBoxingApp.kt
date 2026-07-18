@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -57,7 +58,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.os.ConfigurationCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.google.android.gms.ads.AdListener
@@ -65,6 +65,7 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.OnPaidEventListener
 import dev.jsjh.timebox.BuildConfig
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.ads.AdsConsentManager
@@ -84,6 +85,7 @@ import dev.jsjh.timebox.data.repository.SyncedTaskRepository
 import dev.jsjh.timebox.domain.repository.TaskRepository
 import dev.jsjh.timebox.feature.editor.TaskEditorDialog
 import dev.jsjh.timebox.feature.home.HomeScreen
+import dev.jsjh.timebox.feature.settings.AppLanguage
 import dev.jsjh.timebox.feature.settings.AppSettings
 import dev.jsjh.timebox.feature.settings.AppSettingsStore
 import dev.jsjh.timebox.feature.settings.SettingsScreen
@@ -146,7 +148,28 @@ fun TimeBoxingApp(
 
     var showMigrationDialog by remember { mutableStateOf(false) }
     var migrationCheckedFor by remember { mutableStateOf("") }
+    var migrationCheckInProgress by remember { mutableStateOf(false) }
     var migrationReloadKey by remember { mutableStateOf(0) }
+    val currentAnnouncement = CurrentAppAnnouncement.value
+    var showAppAnnouncement by remember { mutableStateOf(false) }
+    val migrationDecisionPending = authState.let { state ->
+        state is AuthState.LoggedIn &&
+            AuthRepository.hadGuestSessionBeforeLogin &&
+            (migrationCheckedFor != state.userId || migrationCheckInProgress)
+    }
+
+    LaunchedEffect(authState, showMigrationDialog, migrationDecisionPending) {
+        val authReady = authState is AuthState.Guest || authState is AuthState.LoggedIn
+        if (
+            authReady &&
+            !showMigrationDialog &&
+            !migrationDecisionPending &&
+            AppAnnouncementStore.markShownIfEligible(context, currentAnnouncement)
+        ) {
+            TimeBoxAnalytics.announcementShown(currentAnnouncement.id)
+            showAppAnnouncement = true
+        }
+    }
 
     when (val state = authState) {
         AuthState.Loading -> Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D0D)))
@@ -169,9 +192,11 @@ fun TimeBoxingApp(
         is AuthState.LoggedIn -> {
             LaunchedEffect(state.userId) {
                 if (AuthRepository.hadGuestSessionBeforeLogin && migrationCheckedFor != state.userId) {
-                    migrationCheckedFor = state.userId
+                    migrationCheckInProgress = true
                     val hasData = withContext(Dispatchers.IO) { TaskDatabase.hasGuestData(context) }
+                    migrationCheckedFor = state.userId
                     if (hasData) showMigrationDialog = true
+                    migrationCheckInProgress = false
                 }
             }
 
@@ -230,6 +255,19 @@ fun TimeBoxingApp(
             )
         }
     }
+
+    if (showAppAnnouncement) {
+        AppAnnouncementDialog(
+            announcement = currentAnnouncement,
+            onDismiss = { source ->
+                TimeBoxAnalytics.announcementDismissed(
+                    announcementId = currentAnnouncement.id,
+                    source = source
+                )
+                showAppAnnouncement = false
+            }
+        )
+    }
 }
 
 @Composable
@@ -263,8 +301,9 @@ private fun MainApp(
                         val seededRepository = RoomTaskRepository(
                             templateDao = templateDao,
                             dailyTaskDao = dailyTaskDao,
-                            seedLanguage = currentAppLanguage(context),
-                            seedInitialData = true
+                            tutorialSeedCopy = tutorialSeedCopy(context),
+                            seedInitialData = true,
+                            onTutorialSeeded = TimeBoxAnalytics::tutorialSeeded
                         )
                         seededRepository.initialize()
                         DurableSync.queueSeedData(userId, database)
@@ -285,18 +324,19 @@ private fun MainApp(
         onRequestBatteryOptimizationExemption()
     }
 
-    val seedLanguage = currentAppLanguage(context)
-    LaunchedEffect(isGuest, seedLanguage) {
-        TimeBoxAnalytics.setUserContext(isGuest = isGuest, language = seedLanguage)
+    val appLanguage = currentAppLanguage(context)
+    LaunchedEffect(isGuest, appLanguage) {
+        TimeBoxAnalytics.setUserContext(isGuest = isGuest, language = appLanguage)
     }
-    val repository: TaskRepository = remember(userId, isGuest, reloadKey, seedLanguage) {
+    val repository: TaskRepository = remember(userId, isGuest, reloadKey, appLanguage) {
         val shouldSeedGuest = isGuest && !TaskDatabase.exists(context, userId)
         val database = TaskDatabase.get(context, userId)
         val room = RoomTaskRepository(
             templateDao = database.taskTemplateDao(),
             dailyTaskDao = database.dailyTaskDao(),
-            seedLanguage = seedLanguage,
-            seedInitialData = shouldSeedGuest
+            tutorialSeedCopy = tutorialSeedCopy(context),
+            seedInitialData = shouldSeedGuest,
+            onTutorialSeeded = TimeBoxAnalytics::tutorialSeeded
         )
         if (isGuest) {
             room
@@ -364,6 +404,12 @@ private fun MainApp(
     }
     LaunchedEffect(widgetLaunchRequest?.nonce, appState) {
         val request = widgetLaunchRequest ?: return@LaunchedEffect
+        val destination = when {
+            request.openAddTask -> "add_task"
+            request.openSettings -> "settings"
+            else -> "todo"
+        }
+        TimeBoxAnalytics.widgetOpened(destination)
         if (request.openTodo) appState.selectTab(AppTab.TODO)
         if (request.openSettings) appState.selectTab(AppTab.SETTINGS)
         if (request.openAddTask) appState.openNewTaskEditor(date = appState.today)
@@ -407,6 +453,9 @@ private fun MainApp(
 
     fun updateReminderSettings(next: ReminderSettings) {
         val enablingNotifications = !reminderSettings.notificationsEnabled && next.notificationsEnabled
+        if (reminderSettings.notificationsEnabled != next.notificationsEnabled) {
+            TimeBoxAnalytics.notificationSettingsChanged(next.notificationsEnabled)
+        }
         reminderSettingsStore.write(next)
         reminderSettings = next
         ReminderScheduler.createChannels(context)
@@ -603,6 +652,20 @@ private fun rememberSettingsBannerAdView(): AdView? {
                     TimeBoxAnalytics.adLoadResult(TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER, loaded = true)
                 }
 
+                override fun onAdImpression() {
+                    TimeBoxAnalytics.adImpressionRecorded(
+                        placement = TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER,
+                        adFormat = "banner"
+                    )
+                }
+
+                override fun onAdClicked() {
+                    TimeBoxAnalytics.adClicked(
+                        placement = TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER,
+                        adFormat = "banner"
+                    )
+                }
+
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     TimeBoxAnalytics.adLoadResult(
                         placement = TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER,
@@ -610,6 +673,15 @@ private fun rememberSettingsBannerAdView(): AdView? {
                         errorCode = error.code
                     )
                 }
+            }
+            onPaidEventListener = OnPaidEventListener { adValue ->
+                TimeBoxAnalytics.adRevenuePaid(
+                    placement = TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER,
+                    adFormat = "banner",
+                    valueMicros = adValue.valueMicros,
+                    currencyCode = adValue.currencyCode,
+                    precisionType = adValue.precisionType
+                )
             }
         }
     }
@@ -655,8 +727,7 @@ private fun SettingsBannerAdBar(adView: AdView) {
 }
 
 private fun currentAppLanguage(context: android.content.Context): String =
-    ConfigurationCompat.getLocales(context.resources.configuration).get(0)?.language
-        ?: java.util.Locale.getDefault().language
+    AppLanguage.appliedLanguageCode(context)
 
 @Composable
 private fun MigrationDialog(onMigrate: () -> Unit, onStartFresh: () -> Unit) {
@@ -702,6 +773,73 @@ private fun MigrationDialog(onMigrate: () -> Unit, onStartFresh: () -> Unit) {
                     .padding(horizontal = 20.dp, vertical = 10.dp)
             ) {
                 Text(stringResource(R.string.migration_start_fresh), style = TextStyle(color = textMuted, fontSize = 14.sp))
+            }
+        }
+    )
+}
+
+@Composable
+private fun AppAnnouncementDialog(
+    announcement: AppAnnouncement,
+    onDismiss: (String) -> Unit
+) {
+    val cardBg = Color(0xFF1E1E1E)
+    val accent = Color(0xFF8687E7)
+    val textMuted = Color(0xFFB0B5C0)
+    AlertDialog(
+        onDismissRequest = { onDismiss("outside") },
+        containerColor = cardBg,
+        shape = RoundedCornerShape(20.dp),
+        tonalElevation = 0.dp,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(9.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(accent)
+                )
+                Spacer(modifier = Modifier.size(10.dp))
+                Text(
+                    text = stringResource(announcement.titleRes),
+                    style = TextStyle(
+                        color = Color.White,
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+            }
+        },
+        text = {
+            Text(
+                text = stringResource(announcement.messageRes),
+                style = TextStyle(
+                    color = textMuted,
+                    fontSize = 14.sp,
+                    lineHeight = 21.sp
+                )
+            )
+        },
+        confirmButton = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(accent)
+                    .clickable { onDismiss("confirm") },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = stringResource(announcement.confirmRes),
+                    style = TextStyle(
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
             }
         }
     )

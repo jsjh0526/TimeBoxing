@@ -122,9 +122,16 @@ class TimeBoxingAppState(
 
     fun toggleCompleted(taskId: String, date: LocalDate = today) {
         scope.launch {
-            val wasCompleted = repository.getTask(date, taskId)?.isCompleted
+            val currentTask = repository.getTask(date, taskId)
             repository.toggleCompleted(date, taskId)
-            if (wasCompleted != null) TimeBoxAnalytics.taskCompleted(completed = !wasCompleted)
+            if (currentTask != null) {
+                TimeBoxAnalytics.taskCompleted(
+                    completed = !currentTask.isCompleted,
+                    source = currentTask.source.name.lowercase(Locale.ROOT),
+                    isBig3 = currentTask.isBig3,
+                    isTutorial = currentTask.isTutorialSeed()
+                )
+            }
             refreshAllNow()
         }
     }
@@ -138,6 +145,11 @@ class TimeBoxingAppState(
         }
         scope.launch {
             repository.toggleBig3(today, taskId)
+            TimeBoxAnalytics.big3Changed(
+                enabled = enable,
+                source = "todo",
+                isTutorial = current.isTutorialSeed()
+            )
             refreshToday()
         }
     }
@@ -268,6 +280,7 @@ class TimeBoxingAppState(
             null
         }
         scope.launch {
+            val previousTask = draft.taskId?.let { repository.getTask(draft.date, it) }
             if (schedule != null) {
                 val replacingTaskId = draft.taskId ?: draft.templateId?.let { "$it-${draft.date}" }
                 val tasks = repository.getTasks(draft.date)
@@ -295,6 +308,22 @@ class TimeBoxingAppState(
                     source = "editor",
                     hasSchedule = schedule != null,
                     isRecurring = recurrence != null
+                )
+            }
+            val previousBig3 = previousTask?.isBig3 ?: false
+            if ((previousTask != null || draft.isBig3) && previousBig3 != draft.isBig3) {
+                TimeBoxAnalytics.big3Changed(
+                    enabled = draft.isBig3,
+                    source = "editor",
+                    isTutorial = previousTask?.isTutorialSeed() == true
+                )
+            }
+            val previousReminder = previousTask?.schedule?.reminderEnabled == true
+            val nextReminder = schedule?.reminderEnabled == true
+            if ((previousTask != null || nextReminder) && previousReminder != nextReminder) {
+                TimeBoxAnalytics.reminderChanged(
+                    enabled = nextReminder,
+                    source = "editor"
                 )
             }
             if (schedule != null) {
@@ -462,6 +491,9 @@ private fun TaskTemplate.toOtherHabitTask(date: LocalDate): DailyTask = DailyTas
     schedule = defaultSchedule,
     source = DailyTaskSource.RECURRING
 )
+
+private fun DailyTask.isTutorialSeed(): Boolean =
+    id.startsWith("seed-") || templateId == "tpl-standup"
 
 private fun TaskTemplate.toTemplateEditorDraft(date: LocalDate): TaskEditorDraft {
     val rule = recurrenceRule ?: RecurrenceRule(RecurrenceType.DAILY)
