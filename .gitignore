@@ -19,3 +19,6 @@
 .cxx
 qa-artifacts/
 local.properties
+
+# Understand Anything local analysis artifacts
+/.ua/

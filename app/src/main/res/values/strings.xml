@@ -67,6 +67,7 @@
     <string name="settings_language_hindi">हिन्दी</string>
     <string name="settings_language_filipino">Filipino</string>
     <string name="settings_language_zulu">isiZulu</string>
+    <string name="settings_language_persian">فارسی</string>
     <string name="settings_survey">Survey</string>
     <string name="settings_language_survey_title">Help choose the next language</string>
     <string name="settings_language_survey_subtitle">Tell us which language you want in TimeBox.</string>
@@ -230,6 +231,6 @@
     <string name="tutorial_open_timetable">Drag tasks into the timetable</string>
 
     <string name="announcement_current_title">TimeBox now supports more languages</string>
-    <string name="announcement_current_message">You can now use TimeBox in Spanish, Hindi, Filipino, and isiZulu. Change the language anytime in Settings.\n\nIf you\'d like TimeBox in another language, please take the language survey in Settings.</string>
+    <string name="announcement_current_message">You can now use TimeBox in Spanish, Hindi, Filipino, isiZulu, and Persian. Change the language anytime in Settings.\n\nIf you\'d like TimeBox in another language, please take the language survey in Settings.</string>
     <string name="announcement_current_confirm">Got it</string>
 </resources>

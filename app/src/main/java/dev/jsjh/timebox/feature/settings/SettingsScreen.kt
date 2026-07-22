@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -661,14 +662,18 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
         containerColor = CardBackground,
         title = { Text(stringResource(R.string.settings_language), style = TextStyle(color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                LanguageOptionRow(stringResource(R.string.settings_language_system), "") { onDismiss() }
-                LanguageOptionRow(stringResource(R.string.settings_language_english), "en") { onDismiss() }
-                LanguageOptionRow(stringResource(R.string.settings_language_korean), "ko") { onDismiss() }
-                LanguageOptionRow(stringResource(R.string.settings_language_spanish), "es") { onDismiss() }
-                LanguageOptionRow(stringResource(R.string.settings_language_hindi), "hi") { onDismiss() }
-                LanguageOptionRow(stringResource(R.string.settings_language_filipino), "fil") { onDismiss() }
-                LanguageOptionRow(stringResource(R.string.settings_language_zulu), "zu") { onDismiss() }
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                item { LanguageOptionRow(stringResource(R.string.settings_language_system), "") { onDismiss() } }
+                item { LanguageOptionRow(stringResource(R.string.settings_language_english), "en") { onDismiss() } }
+                item { LanguageOptionRow(stringResource(R.string.settings_language_korean), "ko") { onDismiss() } }
+                item { LanguageOptionRow(stringResource(R.string.settings_language_spanish), "es") { onDismiss() } }
+                item { LanguageOptionRow(stringResource(R.string.settings_language_hindi), "hi") { onDismiss() } }
+                item { LanguageOptionRow(stringResource(R.string.settings_language_filipino), "fil") { onDismiss() } }
+                item { LanguageOptionRow(stringResource(R.string.settings_language_zulu), "zu") { onDismiss() } }
+                item { LanguageOptionRow(stringResource(R.string.settings_language_persian), "fa") { onDismiss() } }
             }
         },
         confirmButton = {}
@@ -705,6 +710,7 @@ private fun currentLanguageLabel(context: Context): String {
         "hi" -> stringResource(R.string.settings_language_hindi)
         "fil" -> stringResource(R.string.settings_language_filipino)
         "zu" -> stringResource(R.string.settings_language_zulu)
+        "fa" -> stringResource(R.string.settings_language_persian)
         else -> stringResource(R.string.settings_language_system)
     }
 }

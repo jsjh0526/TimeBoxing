@@ -14,7 +14,7 @@ import java.util.Locale
 object AppLanguage {
     private const val PREFS_NAME = "app_language"
     private const val KEY_LANGUAGE_TAG = "language_tag"
-    val supportedLanguageCodes = setOf("en", "ko", "es", "hi", "fil", "zu")
+    val supportedLanguageCodes = setOf("en", "ko", "es", "hi", "fil", "zu", "fa")
 
     fun wrap(base: Context): Context {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return base

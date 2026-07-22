@@ -60,6 +60,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -68,6 +69,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.jsjh.timebox.R
@@ -836,17 +838,18 @@ private fun CalendarActionButton(text: String, variant: CalendarActionVariant, o
 private fun DateHeader(date: LocalDate, showTodayButton: Boolean, onPreviousDay: () -> Unit, onNextDay: () -> Unit, onToday: () -> Unit) {
     val configuration = LocalConfiguration.current
     val locale = ConfigurationCompat.getLocales(configuration).get(0) ?: Locale.ENGLISH
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
     Column(modifier = Modifier.fillMaxWidth().background(HeaderBackground)) {
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(GridLineHalf))
         Row(modifier = Modifier.fillMaxWidth().height(77.dp).padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            CircleArrow(direction = -1, onClick = onPreviousDay)
+            CircleArrow(direction = if (isRtl) 1 else -1, onClick = onPreviousDay)
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")), style = TextStyle(color = TextPrimary, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold))
                 Text(date.format(DateTimeFormatter.ofPattern("EEEE", locale)), style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.3.sp))
                 if (showTodayButton) TodayPill(onClick = onToday)
             }
-            CircleArrow(direction = 1, onClick = onNextDay)
+            CircleArrow(direction = if (isRtl) -1 else 1, onClick = onNextDay)
         }
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(GridLineHalf))
     }
