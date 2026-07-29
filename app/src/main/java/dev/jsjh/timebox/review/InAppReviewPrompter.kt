@@ -9,6 +9,7 @@ import com.google.android.play.core.review.ReviewManagerFactory
 import java.util.concurrent.TimeUnit
 
 object InAppReviewPrompter {
+    private const val REVIEW_FLOW_SETTLE_DELAY_MS = 500L
     private const val PREFS_NAME = "in_app_review_prompt"
     private const val KEY_LAUNCH_COUNT = "launch_count"
     private const val KEY_LAST_REVIEW_REQUEST_AT = "last_review_request_at"
@@ -48,13 +49,26 @@ object InAppReviewPrompter {
                     return@addOnSuccessListener
                 }
 
-                runCatching {
-                    reviewManager.launchReviewFlow(activity, reviewInfo)
-                }.onSuccess {
-                    prefs.edit { putLong(KEY_LAST_REVIEW_REQUEST_AT, now) }
-                }.onFailure {
-                    requestedThisProcess = false
-                }
+                val decorView = activity.window.decorView
+                val expectedWindowToken = decorView.windowToken
+                decorView.postDelayed({
+                    if (
+                        expectedWindowToken == null ||
+                        decorView.windowToken != expectedWindowToken ||
+                        !activity.isReadyForReviewFlow()
+                    ) {
+                        requestedThisProcess = false
+                        return@postDelayed
+                    }
+
+                    runCatching {
+                        reviewManager.launchReviewFlow(activity, reviewInfo)
+                    }.onSuccess {
+                        prefs.edit { putLong(KEY_LAST_REVIEW_REQUEST_AT, now) }
+                    }.onFailure {
+                        requestedThisProcess = false
+                    }
+                }, REVIEW_FLOW_SETTLE_DELAY_MS)
             }
             .addOnFailureListener {
                 requestedThisProcess = false
@@ -72,6 +86,6 @@ object InAppReviewPrompter {
         val lifecycleOwner = this as? LifecycleOwner ?: return false
         if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return false
         val decorView = window.decorView
-        return decorView.isAttachedToWindow && hasWindowFocus()
+        return decorView.isAttachedToWindow && decorView.windowToken != null && hasWindowFocus()
     }
 }

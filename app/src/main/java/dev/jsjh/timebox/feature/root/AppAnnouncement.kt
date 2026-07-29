@@ -23,7 +23,7 @@ object CurrentAppAnnouncement {
     // Change the copy resources and increment revision for every new announcement.
     val value = AppAnnouncement(
         key = "language_expansion",
-        revision = 3,
+        revision = 4,
         titleRes = R.string.announcement_current_title,
         messageRes = R.string.announcement_current_message,
         confirmRes = R.string.announcement_current_confirm

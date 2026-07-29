@@ -49,6 +49,10 @@ import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.android.gms.ads.MobileAds
 
 class MainActivity : ComponentActivity() {
+    private companion object {
+        const val EXTERNAL_FLOW_SETTLE_DELAY_MS = 800L
+    }
+
     private var keepSystemBarsVisible = false
     private var loginScreenVisible = false
     private var showSystemNavigationBar = false
@@ -63,6 +67,8 @@ class MainActivity : ComponentActivity() {
     private var appUpdateFlowInProgress = false
     private var pendingImmediateUpdateInfo: AppUpdateInfo? = null
     private var reviewRequestPending = false
+    private var windowFocusGeneration = 0
+    private var scheduledExternalFlowGeneration: Int? = null
 
     private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         TimeBoxAnalytics.notificationPermissionResult(granted)
@@ -176,30 +182,55 @@ class MainActivity : ComponentActivity() {
         scheduleExternalFlowCheck()
     }
 
+    override fun onPause() {
+        invalidateExternalFlowSchedule()
+        super.onPause()
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        invalidateExternalFlowSchedule()
         if (hasFocus) {
-            if (!keepSystemBarsVisible) hideSystemBars()
             scheduleExternalFlowCheck()
         }
     }
 
     private fun scheduleExternalFlowCheck() {
-        window.decorView.post {
-            if (!isWindowReadyForExternalFlow()) return@post
+        val generation = windowFocusGeneration
+        if (scheduledExternalFlowGeneration == generation) return
+        scheduledExternalFlowGeneration = generation
+
+        window.decorView.postDelayed({
+            if (scheduledExternalFlowGeneration == generation) {
+                scheduledExternalFlowGeneration = null
+            }
+            if (generation != windowFocusGeneration) return@postDelayed
+            if (!isWindowReadyForExternalFlow()) return@postDelayed
+
+            if (OpeningNativeAdGate.isOverlayActive()) {
+                scheduleExternalFlowCheck()
+                return@postDelayed
+            }
+
+            updateSystemBarsVisibility()
 
             pendingImmediateUpdateInfo?.let { appUpdateInfo ->
                 startImmediateUpdateSafely(appUpdateInfo)
-                return@post
+                return@postDelayed
             }
 
             if (appUpdateCheckNeeded && !appUpdateInfoRequestInFlight && !appUpdateFlowInProgress) {
                 checkForAppUpdate()
-                return@post
+                return@postDelayed
             }
 
             requestReviewIfPending()
-        }
+        }, EXTERNAL_FLOW_SETTLE_DELAY_MS)
+    }
+
+    private fun invalidateExternalFlowSchedule() {
+        windowFocusGeneration += 1
+        scheduledExternalFlowGeneration = null
     }
 
     private fun checkForAppUpdate() {
@@ -262,7 +293,7 @@ class MainActivity : ComponentActivity() {
         if (isFinishing || isDestroyed) return false
         if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return false
         val decorView = window.decorView
-        return decorView.isAttachedToWindow && hasWindowFocus()
+        return decorView.isAttachedToWindow && decorView.windowToken != null && hasWindowFocus()
     }
 
     private fun initializeMobileAdsIfNeeded() {
@@ -300,12 +331,13 @@ class MainActivity : ComponentActivity() {
 
     private fun updateSystemBarsVisibility() {
         keepSystemBarsVisible = loginScreenVisible || showSystemNavigationBar
+        if (!hasWindowFocus()) return
         if (keepSystemBarsVisible) showSystemBars() else hideSystemBars()
     }
 
     private fun hideSystemBars() {
         val decorView = window.decorView
-        if (!decorView.isAttachedToWindow) return
+        if (!decorView.isAttachedToWindow || decorView.windowToken == null || !hasWindowFocus()) return
         WindowCompat.getInsetsController(window, decorView)?.apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.navigationBars())
@@ -314,7 +346,7 @@ class MainActivity : ComponentActivity() {
 
     private fun showSystemBars() {
         val decorView = window.decorView
-        if (!decorView.isAttachedToWindow) return
+        if (!decorView.isAttachedToWindow || decorView.windowToken == null || !hasWindowFocus()) return
         WindowCompat.getInsetsController(window, decorView)?.apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
             show(WindowInsetsCompat.Type.navigationBars())

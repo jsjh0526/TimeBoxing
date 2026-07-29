@@ -674,6 +674,8 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
                 item { LanguageOptionRow(stringResource(R.string.settings_language_filipino), "fil") { onDismiss() } }
                 item { LanguageOptionRow(stringResource(R.string.settings_language_zulu), "zu") { onDismiss() } }
                 item { LanguageOptionRow(stringResource(R.string.settings_language_persian), "fa") { onDismiss() } }
+                item { LanguageOptionRow(stringResource(R.string.settings_language_shona), "sn") { onDismiss() } }
+                item { LanguageOptionRow(stringResource(R.string.settings_language_french), "fr") { onDismiss() } }
             }
         },
         confirmButton = {}
@@ -711,6 +713,8 @@ private fun currentLanguageLabel(context: Context): String {
         "fil" -> stringResource(R.string.settings_language_filipino)
         "zu" -> stringResource(R.string.settings_language_zulu)
         "fa" -> stringResource(R.string.settings_language_persian)
+        "sn" -> stringResource(R.string.settings_language_shona)
+        "fr" -> stringResource(R.string.settings_language_french)
         else -> stringResource(R.string.settings_language_system)
     }
 }

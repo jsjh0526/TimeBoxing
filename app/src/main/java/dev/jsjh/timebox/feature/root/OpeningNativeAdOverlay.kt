@@ -71,30 +71,46 @@ fun OpeningNativeAdOverlay() {
         onDispose { adToDispose?.destroy() }
     }
 
-    LaunchedEffect(shouldAttempt, canRequestAds, adUnitId) {
-        if (!shouldAttempt || !canRequestAds || adUnitId.isBlank()) return@LaunchedEffect
+    DisposableEffect(Unit) {
+        onDispose { OpeningNativeAdGate.setOverlayActive(false) }
+    }
 
-        TimeBoxAnalytics.openingAdWindowOpened()
-        OpeningNativeAdPreloader.preload(context, adUnitId)
-        val attempts = (OpeningNativeAdLoadTimeoutMs / OpeningNativeAdPollIntervalMs).toInt()
-        repeat(attempts) {
-            val ad = OpeningNativeAdPreloader.consume()
-            if (ad != null) {
-                if (closed || timedOut) {
-                    ad.destroy()
-                } else {
-                    OpeningNativeAdGate.markShown(context)
-                    nativeAd = ad
-                    visible = true
-                    TimeBoxAnalytics.openingAdShown()
-                }
-                return@LaunchedEffect
-            }
-            delay(OpeningNativeAdPollIntervalMs)
+    LaunchedEffect(shouldAttempt, canRequestAds, adUnitId) {
+        if (!shouldAttempt || !canRequestAds || adUnitId.isBlank()) {
+            OpeningNativeAdGate.setOverlayActive(false)
+            return@LaunchedEffect
         }
-        timedOut = true
-        closed = true
-        TimeBoxAnalytics.openingAdTimedOut()
+
+        OpeningNativeAdGate.setOverlayActive(true)
+        var keepOverlayActive = false
+        TimeBoxAnalytics.openingAdWindowOpened()
+        try {
+            OpeningNativeAdPreloader.preload(context, adUnitId)
+            val attempts = (OpeningNativeAdLoadTimeoutMs / OpeningNativeAdPollIntervalMs).toInt()
+            repeat(attempts) {
+                val ad = OpeningNativeAdPreloader.consume()
+                if (ad != null) {
+                    if (closed || timedOut) {
+                        ad.destroy()
+                    } else {
+                        OpeningNativeAdGate.markShown(context)
+                        nativeAd = ad
+                        visible = true
+                        keepOverlayActive = true
+                        TimeBoxAnalytics.openingAdShown()
+                    }
+                    return@LaunchedEffect
+                }
+                delay(OpeningNativeAdPollIntervalMs)
+            }
+            timedOut = true
+            closed = true
+            TimeBoxAnalytics.openingAdTimedOut()
+        } finally {
+            if (!keepOverlayActive) {
+                OpeningNativeAdGate.setOverlayActive(false)
+            }
+        }
     }
 
     val ad = nativeAd
@@ -102,6 +118,7 @@ fun OpeningNativeAdOverlay() {
 
     fun dismiss(source: String) {
         TimeBoxAnalytics.openingAdDismissed(source)
+        OpeningNativeAdGate.setOverlayActive(false)
         visible = false
         closed = true
         nativeAd = null

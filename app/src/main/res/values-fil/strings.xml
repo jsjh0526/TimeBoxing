@@ -68,6 +68,8 @@
     <string name="settings_language_filipino">Filipino</string>
     <string name="settings_language_zulu">isiZulu</string>
     <string name="settings_language_persian">فارسی</string>
+    <string name="settings_language_shona">chiShona</string>
+    <string name="settings_language_french">Français</string>
     <string name="settings_survey">Survey</string>
     <string name="settings_language_survey_title">Tumulong pumili ng susunod na wika</string>
     <string name="settings_language_survey_subtitle">Sabihin kung anong wika ang gusto mo sa TimeBox.</string>
@@ -231,6 +233,6 @@
     <string name="tutorial_open_timetable">I-drag ang mga gawain papunta sa iskedyul</string>
 
     <string name="announcement_current_title">Mas marami nang wikang sinusuportahan ang TimeBox</string>
-    <string name="announcement_current_message">Magagamit mo na ang TimeBox sa Spanish, Hindi, Filipino, isiZulu, at Persian. Maaari mong palitan ang wika anumang oras sa Mga Setting.\n\nKung gusto mo ng isa pang wika sa TimeBox, sagutan ang survey sa wika sa Mga Setting.</string>
+    <string name="announcement_current_message">Magagamit mo na ang TimeBox sa Spanish, Hindi, Filipino, isiZulu, Persian, Shona, at French. Maaari mong palitan ang wika anumang oras sa Mga Setting.\n\nKung gusto mo ng isa pang wika sa TimeBox, sagutan ang survey sa wika sa Mga Setting.</string>
     <string name="announcement_current_confirm">Sige</string>
 </resources>

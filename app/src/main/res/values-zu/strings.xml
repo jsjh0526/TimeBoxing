@@ -68,6 +68,8 @@
     <string name="settings_language_filipino">Filipino</string>
     <string name="settings_language_zulu">isiZulu</string>
     <string name="settings_language_persian">فارسی</string>
+    <string name="settings_language_shona">chiShona</string>
+    <string name="settings_language_french">Français</string>
     <string name="settings_survey">Inhlolovo</string>
     <string name="settings_language_survey_title">Siza ukukhetha ulimi olulandelayo</string>
     <string name="settings_language_survey_subtitle">Sitshele ulimi ofuna ukulubona ku-TimeBox.</string>
@@ -231,6 +233,6 @@
     <string name="tutorial_open_timetable">Hudulela imisebenzi ohlelweni lwesikhathi</string>
 
     <string name="announcement_current_title">I-TimeBox manje isekela izilimi ezengeziwe</string>
-    <string name="announcement_current_message">Manje ungasebenzisa i-TimeBox ngeSpanishi, isiHindi, isiFilipino, isiZulu nangesiPheresiya. Shintsha ulimi noma nini kokuthi Izilungiselelo.\n\nUma ufuna olunye ulimi ku-TimeBox, sicela ugcwalise inhlolovo yolimi kokuthi Izilungiselelo.</string>
+    <string name="announcement_current_message">Manje ungasebenzisa i-TimeBox ngeSpanishi, isiHindi, isiFilipino, isiZulu, isiPheresiya, isiShona nangesiFulentshi. Shintsha ulimi noma nini kokuthi Izilungiselelo.\n\nUma ufuna olunye ulimi ku-TimeBox, sicela ugcwalise inhlolovo yolimi kokuthi Izilungiselelo.</string>
     <string name="announcement_current_confirm">Kulungile</string>
 </resources>

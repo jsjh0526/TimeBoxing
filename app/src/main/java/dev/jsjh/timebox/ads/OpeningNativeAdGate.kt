@@ -13,6 +13,8 @@ object OpeningNativeAdGate {
 
     private var eligibleForCurrentLaunch = false
     private var consumedForCurrentLaunch = false
+    @Volatile
+    private var overlayActive = false
 
     fun recordLaunch(context: Context, fromWidget: Boolean) {
         val appContext = context.applicationContext
@@ -38,6 +40,12 @@ object OpeningNativeAdGate {
         consumedForCurrentLaunch = true
         return true
     }
+
+    fun setOverlayActive(active: Boolean) {
+        overlayActive = active
+    }
+
+    fun isOverlayActive(): Boolean = overlayActive
 
     fun markShown(context: Context) {
         val today = todayKey()
