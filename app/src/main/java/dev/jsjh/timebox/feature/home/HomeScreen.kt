@@ -76,6 +76,9 @@ import androidx.core.os.ConfigurationCompat
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.DailyTaskSource
+import dev.jsjh.timebox.feature.tutorial.TutorialTarget
+import dev.jsjh.timebox.feature.tutorial.TutorialTargetRegistry
+import dev.jsjh.timebox.feature.tutorial.tutorialTarget
 import dev.jsjh.timebox.ui.format.formatClock
 import dev.jsjh.timebox.ui.format.formatClockRange
 import java.time.LocalDate
@@ -108,7 +111,8 @@ fun HomeScreen(
     onMarkTaskComplete: (String) -> Unit,
     onOpenTask: (String) -> Unit,
     onAddTask: () -> Unit,
-    onNotificationsClick: () -> Unit = {}
+    onNotificationsClick: () -> Unit = {},
+    tutorialTargetRegistry: TutorialTargetRegistry? = null
 ) {
     var big3Expanded        by rememberSaveable { mutableStateOf(true) }
     var unscheduledExpanded by rememberSaveable { mutableStateOf(false) }
@@ -153,7 +157,8 @@ fun HomeScreen(
                 NowCard(
                     task = currentTask, currentMinute = currentMinute,
                     onOpenTask     = { currentTask?.let { onOpenTask(it.id) } },
-                    onMarkComplete = { currentTask?.let { onMarkTaskComplete(it.id) } }
+                    onMarkComplete = { currentTask?.let { onMarkTaskComplete(it.id) } },
+                    modifier = Modifier.tutorialTarget(tutorialTargetRegistry, TutorialTarget.HOME_NOW)
                 )
             }
             nextTask?.let { item { UpNextCard(it) } }
@@ -215,10 +220,16 @@ private fun HomeHeader(date: LocalDate, currentTime: LocalTime, completedCount: 
 }
 
 @Composable
-private fun NowCard(task: DailyTask?, currentMinute: Int, onOpenTask: () -> Unit, onMarkComplete: () -> Unit) {
+private fun NowCard(
+    task: DailyTask?,
+    currentMinute: Int,
+    onOpenTask: () -> Unit,
+    onMarkComplete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     if (task == null) {
-        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardBackground).border(0.7.dp, CardBorder, RoundedCornerShape(16.dp)).padding(horizontal = 20.dp, vertical = 20.dp)) {
+        Box(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardBackground).border(0.7.dp, CardBorder, RoundedCornerShape(16.dp)).padding(horizontal = 20.dp, vertical = 20.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 LabelWithDot(stringResource(R.string.home_now), Tertiary, Muted)
                 Text(stringResource(R.string.home_no_current_title), style = titleStyle(15.sp, FontWeight.Normal), color = Secondary)
@@ -231,7 +242,7 @@ private fun NowCard(task: DailyTask?, currentMinute: Int, onOpenTask: () -> Unit
     val schedule  = task.schedule ?: return
     val remaining = maxOf(schedule.endMinute - currentMinute, 0)
 
-    Box(modifier = Modifier.fillMaxWidth().height(204.dp).clip(RoundedCornerShape(16.dp)).background(Brush.linearGradient(listOf(Accent, AccentDark), start = Offset.Zero, end = Offset(900f, 500f))).clickable(onClick = onOpenTask)) {
+    Box(modifier = modifier.fillMaxWidth().height(204.dp).clip(RoundedCornerShape(16.dp)).background(Brush.linearGradient(listOf(Accent, AccentDark), start = Offset.Zero, end = Offset(900f, 500f))).clickable(onClick = onOpenTask)) {
         Box(modifier = Modifier.align(Alignment.TopEnd).offset(x = 52.dp, y = (-64).dp).size(128.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.05f)))
         Column(modifier = Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {

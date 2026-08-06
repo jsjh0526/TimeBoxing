@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
@@ -82,6 +83,7 @@ import dev.jsjh.timebox.data.remote.DurableSync
 import dev.jsjh.timebox.data.remote.SyncScheduler
 import dev.jsjh.timebox.data.repository.RoomTaskRepository
 import dev.jsjh.timebox.data.repository.SyncedTaskRepository
+import dev.jsjh.timebox.data.repository.createTutorialSeedData
 import dev.jsjh.timebox.domain.repository.TaskRepository
 import dev.jsjh.timebox.feature.editor.TaskEditorDialog
 import dev.jsjh.timebox.feature.home.HomeScreen
@@ -92,6 +94,18 @@ import dev.jsjh.timebox.feature.settings.SettingsScreen
 import dev.jsjh.timebox.feature.settings.effectiveToday
 import dev.jsjh.timebox.feature.timetable.TimetableScreen
 import dev.jsjh.timebox.feature.todo.TodoScreen
+import dev.jsjh.timebox.feature.tutorial.TutorialPreviewHost
+import dev.jsjh.timebox.feature.tutorial.TutorialAutoDecision
+import dev.jsjh.timebox.feature.tutorial.TutorialAutoStatus
+import dev.jsjh.timebox.feature.tutorial.TutorialLaunchSource
+import dev.jsjh.timebox.feature.tutorial.TutorialMaterializationResult
+import dev.jsjh.timebox.feature.tutorial.TutorialOnboardingStore
+import dev.jsjh.timebox.feature.tutorial.TutorialSession
+import dev.jsjh.timebox.feature.tutorial.TutorialTarget
+import dev.jsjh.timebox.feature.tutorial.TutorialTargetRegistry
+import dev.jsjh.timebox.feature.tutorial.decideAutoTutorial
+import dev.jsjh.timebox.feature.tutorial.materializeTutorialResult
+import dev.jsjh.timebox.feature.tutorial.tutorialTarget
 import dev.jsjh.timebox.notification.ReminderScheduler
 import dev.jsjh.timebox.notification.ReminderRefreshBus
 import dev.jsjh.timebox.notification.ReminderSettings
@@ -109,6 +123,11 @@ private val NavDivider = Color(0xFF2A2A2A)
 private val NavActive = Color(0xFF8687E7)
 private val NavInactive = Color(0xFF99A1AF)
 
+private data class ActiveTutorial(
+    val ownerKey: String,
+    val session: TutorialSession
+)
+
 @Composable
 fun TimeBoxingApp(
     onRequestNotificationPermission: () -> Unit = {},
@@ -125,13 +144,26 @@ fun TimeBoxingApp(
     LaunchedEffect(Unit) { AuthRepository.restoreSession(context) }
 
     val authState by AuthRepository.authState.collectAsState()
+    val tutorialOwnerKey = when (val state = authState) {
+        AuthState.Guest -> "guest"
+        is AuthState.LoggedIn -> "user:${state.userId}"
+        else -> "unavailable"
+    }
+    var activeTutorial by remember { mutableStateOf<ActiveTutorial?>(null) }
+    var tutorialGateResolvedFor by remember { mutableStateOf<String?>(null) }
+    val tutorialSession = activeTutorial
+        ?.takeIf { it.ownerKey == tutorialOwnerKey }
+        ?.session
+    val tutorialGateResolved = tutorialGateResolvedFor == tutorialOwnerKey
     val loginScreenVisible = authState is AuthState.SignedOut || authState is AuthState.Error
     val canRequestAds = AdsConsentManager.canRequestAds
 
-    LaunchedEffect(authState, canRequestAds) {
+    LaunchedEffect(authState, canRequestAds, tutorialGateResolved, tutorialSession) {
         val authReady = authState is AuthState.Guest || authState is AuthState.LoggedIn
         if (
             authReady &&
+            tutorialGateResolved &&
+            tutorialSession == null &&
             canRequestAds &&
             OpeningNativeAdGate.canPreloadForCurrentLaunch()
         ) {
@@ -158,10 +190,18 @@ fun TimeBoxingApp(
             (migrationCheckedFor != state.userId || migrationCheckInProgress)
     }
 
-    LaunchedEffect(authState, showMigrationDialog, migrationDecisionPending) {
+    LaunchedEffect(
+        authState,
+        showMigrationDialog,
+        migrationDecisionPending,
+        tutorialGateResolved,
+        tutorialSession
+    ) {
         val authReady = authState is AuthState.Guest || authState is AuthState.LoggedIn
         if (
             authReady &&
+            tutorialGateResolved &&
+            tutorialSession == null &&
             !showMigrationDialog &&
             !migrationDecisionPending &&
             AppAnnouncementStore.markShownIfEligible(context, currentAnnouncement)
@@ -186,7 +226,14 @@ fun TimeBoxingApp(
             initialShowSystemNavigationBar = initialShowSystemNavigationBar,
             onSystemNavigationBarPreferenceChange = onSystemNavigationBarPreferenceChange,
             widgetLaunchRequest = widgetLaunchRequest,
-            onWidgetLaunchRequestConsumed = onWidgetLaunchRequestConsumed
+            onWidgetLaunchRequestConsumed = onWidgetLaunchRequestConsumed,
+            tutorialSession = tutorialSession,
+            tutorialGateResolved = tutorialGateResolved,
+            autoTutorialAllowed = true,
+            onTutorialGateResolved = { tutorialGateResolvedFor = tutorialOwnerKey },
+            onTutorialSessionChange = { session ->
+                activeTutorial = session?.let { ActiveTutorial(tutorialOwnerKey, it) }
+            }
         )
 
         is AuthState.LoggedIn -> {
@@ -251,12 +298,19 @@ fun TimeBoxingApp(
                 initialShowSystemNavigationBar = initialShowSystemNavigationBar,
                 onSystemNavigationBarPreferenceChange = onSystemNavigationBarPreferenceChange,
                 widgetLaunchRequest = widgetLaunchRequest,
-                onWidgetLaunchRequestConsumed = onWidgetLaunchRequestConsumed
+                onWidgetLaunchRequestConsumed = onWidgetLaunchRequestConsumed,
+                tutorialSession = tutorialSession,
+                tutorialGateResolved = tutorialGateResolved,
+                autoTutorialAllowed = !showMigrationDialog && !migrationDecisionPending,
+                onTutorialGateResolved = { tutorialGateResolvedFor = tutorialOwnerKey },
+                onTutorialSessionChange = { session ->
+                    activeTutorial = session?.let { ActiveTutorial(tutorialOwnerKey, it) }
+                }
             )
         }
     }
 
-    if (showAppAnnouncement) {
+    if (showAppAnnouncement && tutorialSession == null) {
         AppAnnouncementDialog(
             announcement = currentAnnouncement,
             onDismiss = { source ->
@@ -281,16 +335,28 @@ private fun MainApp(
     initialShowSystemNavigationBar: Boolean,
     onSystemNavigationBarPreferenceChange: (Boolean) -> Unit,
     widgetLaunchRequest: WidgetLaunchRequest?,
-    onWidgetLaunchRequestConsumed: () -> Unit
+    onWidgetLaunchRequestConsumed: () -> Unit,
+    tutorialSession: TutorialSession?,
+    tutorialGateResolved: Boolean,
+    autoTutorialAllowed: Boolean,
+    onTutorialGateResolved: () -> Unit,
+    onTutorialSessionChange: (TutorialSession?) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val guestNeedsInitialSeed = remember(userId, isGuest, reloadKey) {
+        isGuest && !TaskDatabase.exists(context, userId)
+    }
     var restoreReady by remember(userId, isGuest, reloadKey) { mutableStateOf(isGuest) }
+    var seededThisLaunch by remember(userId, isGuest, reloadKey) {
+        mutableStateOf(guestNeedsInitialSeed)
+    }
 
     LaunchedEffect(userId, isGuest, reloadKey) {
         if (!isGuest) {
-            runCatching {
+            seededThisLaunch = runCatching {
                 withContext(Dispatchers.IO) {
+                    var seeded = false
                     val hadLocalDatabase = TaskDatabase.exists(context, userId)
                     val database = TaskDatabase.get(context, userId)
                     val templateDao = database.taskTemplateDao()
@@ -307,9 +373,11 @@ private fun MainApp(
                         )
                         seededRepository.initialize()
                         DurableSync.queueSeedData(userId, database)
+                        seeded = true
                     }
+                    seeded
                 }
-            }
+            }.getOrDefault(false)
             restoreReady = true
         }
     }
@@ -319,23 +387,17 @@ private fun MainApp(
         return
     }
 
-    LaunchedEffect(userId, reloadKey) {
-        onRequestNotificationPermission()
-        onRequestBatteryOptimizationExemption()
-    }
-
     val appLanguage = currentAppLanguage(context)
     LaunchedEffect(isGuest, appLanguage) {
         TimeBoxAnalytics.setUserContext(isGuest = isGuest, language = appLanguage)
     }
     val repository: TaskRepository = remember(userId, isGuest, reloadKey, appLanguage) {
-        val shouldSeedGuest = isGuest && !TaskDatabase.exists(context, userId)
         val database = TaskDatabase.get(context, userId)
         val room = RoomTaskRepository(
             templateDao = database.taskTemplateDao(),
             dailyTaskDao = database.dailyTaskDao(),
             tutorialSeedCopy = tutorialSeedCopy(context),
-            seedInitialData = shouldSeedGuest,
+            seedInitialData = guestNeedsInitialSeed,
             onTutorialSeeded = TimeBoxAnalytics::tutorialSeeded
         )
         if (isGuest) {
@@ -364,6 +426,69 @@ private fun MainApp(
     val appToday = effectiveToday(appSettings.dayStartHour, nowForDayBoundary)
     val currentTime = nowForDayBoundary.toLocalTime()
     val appState = rememberTimeBoxingAppState(repository, appToday)
+    val tutorialStore = remember(context) { TutorialOnboardingStore(context) }
+    var tutorialEligibilityHandled by remember(userId, reloadKey) { mutableStateOf(false) }
+    var startupRequestsDispatched by remember(userId, reloadKey) { mutableStateOf(false) }
+
+    LaunchedEffect(
+        userId,
+        reloadKey,
+        restoreReady,
+        autoTutorialAllowed,
+        tutorialGateResolved,
+        tutorialEligibilityHandled,
+        seededThisLaunch,
+        repository,
+        appToday
+    ) {
+        if (
+            !restoreReady ||
+            !autoTutorialAllowed ||
+            tutorialGateResolved ||
+            tutorialEligibilityHandled
+        ) return@LaunchedEffect
+
+        if (seededThisLaunch) {
+            runCatching { repository.getTasks(appToday) }
+        }
+        val status = tutorialStore.readStatus()
+        val decision = decideAutoTutorial(status, seededThisLaunch)
+        tutorialEligibilityHandled = true
+        when (decision) {
+            TutorialAutoDecision.START_FRESH -> {
+                tutorialStore.markInProgress()
+                onTutorialSessionChange(
+                    TutorialSession(source = TutorialLaunchSource.AUTO_NEW)
+                )
+            }
+
+            TutorialAutoDecision.RESTART -> onTutorialSessionChange(
+                TutorialSession(
+                    source = TutorialLaunchSource.AUTO_NEW,
+                    isRestart = true
+                )
+            )
+
+            TutorialAutoDecision.DO_NOT_START -> {
+                if (status == TutorialAutoStatus.NEW) {
+                    tutorialStore.markIneligible()
+                }
+            }
+        }
+        onTutorialGateResolved()
+    }
+
+    LaunchedEffect(userId, reloadKey, tutorialGateResolved, tutorialSession) {
+        if (
+            !tutorialGateResolved ||
+            tutorialSession != null ||
+            startupRequestsDispatched
+        ) return@LaunchedEffect
+        startupRequestsDispatched = true
+        onRequestNotificationPermission()
+        onRequestBatteryOptimizationExemption()
+    }
+
     LaunchedEffect(appState.currentTab) {
         TimeBoxAnalytics.screenViewed(appState.currentTab.name.lowercase())
     }
@@ -564,6 +689,11 @@ private fun MainApp(
                         scope.launch {
                             SyncManager.refreshRemoteStatus(userId = uid)
                         }
+                    },
+                    onOpenTutorial = {
+                        onTutorialSessionChange(
+                            TutorialSession(source = TutorialLaunchSource.SETTINGS)
+                        )
                     }
                 )
             }
@@ -592,7 +722,55 @@ private fun MainApp(
             Big3LimitNotice()
         }
 
-        OpeningNativeAdOverlay()
+        if (tutorialGateResolved && tutorialSession == null) {
+            OpeningNativeAdOverlay()
+        }
+
+        if (tutorialSession != null) {
+            val previewSeedData = remember(appState.today, appLanguage) {
+                createTutorialSeedData(
+                    copy = tutorialSeedCopy(context),
+                    anchorDate = appState.today
+                )
+            }
+            TutorialPreviewHost(
+                seedData = previewSeedData,
+                date = appState.today,
+                source = tutorialSession.source,
+                isRestart = tutorialSession.isRestart,
+                onSkip = {
+                    if (tutorialSession.source == TutorialLaunchSource.AUTO_NEW) {
+                        tutorialStore.markSkipped()
+                    }
+                    onTutorialSessionChange(null)
+                },
+                onComplete = { completion ->
+                    when (
+                        materializeTutorialResult(
+                            repository = repository,
+                            date = appState.today,
+                            source = tutorialSession.source,
+                            result = completion
+                        )
+                    ) {
+                        TutorialMaterializationResult.SUCCESS -> {
+                            TimeBoxAnalytics.tutorialMaterializationResult(success = true)
+                            tutorialStore.markCompleted()
+                            appState.refreshAll()
+                            true
+                        }
+
+                        TutorialMaterializationResult.FAILED -> {
+                            TimeBoxAnalytics.tutorialMaterializationResult(success = false)
+                            false
+                        }
+
+                        TutorialMaterializationResult.NOT_REQUIRED -> true
+                    }
+                },
+                onExit = { onTutorialSessionChange(null) }
+            )
+        }
     }
 }
 
@@ -846,7 +1024,11 @@ private fun AppAnnouncementDialog(
 }
 
 @Composable
-private fun AppBottomBar(currentTab: AppTab, onTabSelected: (AppTab) -> Unit) {
+internal fun AppBottomBar(
+    currentTab: AppTab,
+    onTabSelected: (AppTab) -> Unit,
+    tutorialTargetRegistry: TutorialTargetRegistry? = null
+) {
     Box(modifier = Modifier.fillMaxWidth().background(NavBackground)) {
         Box(modifier = Modifier.fillMaxWidth().background(NavBackground).navigationBarsPadding()) {
             Row(
@@ -854,10 +1036,17 @@ private fun AppBottomBar(currentTab: AppTab, onTabSelected: (AppTab) -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AppTab.entries.forEach { tab ->
+                    val tutorialTarget = when (tab) {
+                        AppTab.TIMETABLE -> TutorialTarget.TIMETABLE_TAB
+                        AppTab.HOME -> TutorialTarget.HOME_TAB
+                        else -> null
+                    }
                     BottomBarItem(
                         tab = tab,
                         selected = currentTab == tab,
                         modifier = Modifier.weight(1f),
+                        tutorialTargetRegistry = tutorialTargetRegistry,
+                        tutorialTarget = tutorialTarget,
                         onClick = { onTabSelected(tab) }
                     )
                 }
@@ -868,21 +1057,50 @@ private fun AppBottomBar(currentTab: AppTab, onTabSelected: (AppTab) -> Unit) {
 }
 
 @Composable
-private fun BottomBarItem(tab: AppTab, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun BottomBarItem(
+    tab: AppTab,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    tutorialTargetRegistry: TutorialTargetRegistry? = null,
+    tutorialTarget: TutorialTarget? = null,
+    onClick: () -> Unit
+) {
     val color = if (selected) NavActive else NavInactive
-    Column(
+    Box(
         modifier = modifier
             .fillMaxHeight()
             .clickable(onClick = onClick)
-            .padding(top = 12.dp, bottom = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        TabIcon(tab = tab, color = color)
-        Text(
-            text = stringResource(tab.labelRes),
-            style = TextStyle(color = color, fontSize = 11.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium)
-        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .width(72.dp)
+                .height(68.dp)
+                .then(
+                    if (tutorialTarget != null) {
+                        Modifier.tutorialTarget(tutorialTargetRegistry, tutorialTarget)
+                    } else {
+                        Modifier
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TabIcon(tab = tab, color = color)
+                Text(
+                    text = stringResource(tab.labelRes),
+                    style = TextStyle(
+                        color = color,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+            }
+        }
     }
 }
 

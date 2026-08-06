@@ -22,8 +22,7 @@ class StringResourceParityTest {
 
     @Test
     fun `localized strings match default keys and placeholders`() {
-        val resourceRoot = sequenceOf(Path.of("src/main/res"), Path.of("app/src/main/res"))
-            .first { Files.isDirectory(it) }
+        val resourceRoot = resourceRoot()
         val defaultStrings = readStrings(resourceRoot.resolve("values/strings.xml"))
 
         localeDirectories.forEach { directory ->
@@ -41,6 +40,31 @@ class StringResourceParityTest {
             }
         }
     }
+
+    @Test
+    fun `tutorial copy is localized for every supported locale`() {
+        val resourceRoot = resourceRoot()
+        val defaultStrings = readStrings(resourceRoot.resolve("values/strings.xml"))
+        val tutorialKeys = defaultStrings.keys.filter { name ->
+            name.startsWith("tutorial_") || name.startsWith("settings_tutorial_")
+        }
+
+        assertTrue("No tutorial strings found in default resources", tutorialKeys.isNotEmpty())
+        localeDirectories.forEach { directory ->
+            val localizedStrings = readStrings(resourceRoot.resolve("$directory/strings.xml"))
+            val copiedEnglishKeys = tutorialKeys.filter { name ->
+                localizedStrings[name] == defaultStrings[name]
+            }
+            assertTrue(
+                "English tutorial copy remains in $directory: $copiedEnglishKeys",
+                copiedEnglishKeys.isEmpty()
+            )
+        }
+    }
+
+    private fun resourceRoot(): Path =
+        sequenceOf(Path.of("src/main/res"), Path.of("app/src/main/res"))
+            .first { Files.isDirectory(it) }
 
     private fun readStrings(path: Path): Map<String, String> {
         val document = DocumentBuilderFactory.newInstance()

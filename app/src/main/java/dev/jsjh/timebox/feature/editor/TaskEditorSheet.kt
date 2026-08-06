@@ -1,6 +1,7 @@
 package dev.jsjh.timebox.feature.editor
 
 import android.view.WindowManager
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -42,6 +44,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +53,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -69,10 +74,16 @@ import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.DailyTaskSource
 import dev.jsjh.timebox.domain.model.RecurrenceRule
 import dev.jsjh.timebox.domain.model.RecurrenceType
+import dev.jsjh.timebox.feature.tutorial.TutorialTarget
+import dev.jsjh.timebox.feature.tutorial.TutorialTargetRegistry
+import dev.jsjh.timebox.feature.tutorial.tutorialTarget
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 
 private val Overlay      = Color(0xCC000000)
 private val Panel        = Color(0xFF1E1E1E)
@@ -148,19 +159,67 @@ fun TaskEditorDialog(
     onDismiss: () -> Unit,
     onDelete: (() -> Unit)?,
     onSave: () -> Unit,
-    onChange: (TaskEditorDraft) -> Unit
+    onChange: (TaskEditorDraft) -> Unit,
+    tutorialTargetRegistry: TutorialTargetRegistry? = null,
+    tutorialFocusTarget: TutorialTarget? = null,
+    tutorialHeader: (@Composable () -> Unit)? = null,
+    tutorialOverlay: (@Composable () -> Unit)? = null
 ) {
     val bodyScroll = rememberScrollState()
+    var tutorialContentBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+
+    LaunchedEffect(tutorialFocusTarget) {
+        val focusTarget = tutorialFocusTarget ?: return@LaunchedEffect
+        val (initialTarget, initialViewport, initialMaxScroll) = snapshotFlow {
+            Triple(
+                tutorialTargetRegistry?.get(focusTarget),
+                tutorialContentBounds,
+                bodyScroll.maxValue
+            )
+        }.first { (target, viewport, maxScroll) ->
+            target != null && viewport != null && maxScroll > 0
+        }
+        val target = initialTarget ?: return@LaunchedEffect
+        val viewport = initialViewport ?: return@LaunchedEffect
+        val destination = (
+            bodyScroll.value + target.center.y - viewport.center.y
+        ).roundToInt().coerceIn(0, initialMaxScroll)
+        bodyScroll.animateScrollTo(destination, animationSpec = tween(durationMillis = 220))
+
+        // Snap only the small post-layout remainder so large editor cards stay fully centered.
+        delay(16)
+        val settledTarget = tutorialTargetRegistry?.get(focusTarget) ?: return@LaunchedEffect
+        val settledViewport = tutorialContentBounds ?: return@LaunchedEffect
+        val residual = settledTarget.center.y - settledViewport.center.y
+        if (kotlin.math.abs(residual) > 2f) {
+            bodyScroll.scrollTo(
+                (bodyScroll.value + residual).roundToInt().coerceIn(0, bodyScroll.maxValue)
+            )
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
         SideEffect { dialogWindow?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING) }
 
-        Box(modifier = Modifier.fillMaxSize().background(Overlay).imePadding()) {
-            Column(
-                modifier = Modifier.align(Alignment.Center).fillMaxWidth().heightIn(max = 720.dp).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Overlay)
+                .imePadding()
+                .then(if (tutorialHeader != null) Modifier.statusBarsPadding() else Modifier)
+        ) {
+            tutorialHeader?.invoke()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .onGloballyPositioned { tutorialContentBounds = it.boundsInRoot() }
             ) {
+                Column(
+                    modifier = Modifier.align(Alignment.Center).fillMaxWidth().heightIn(max = 720.dp).padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
                 Column(
                     modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(20.dp))
                         .background(Panel).border(0.7.dp, Border, RoundedCornerShape(20.dp))
@@ -202,7 +261,16 @@ fun TaskEditorDialog(
                         TagEditor(draft = draft, onChange = onChange)
 
                         // Recurring Habit
-                        SettingSection(title = stringResource(R.string.editor_recurring_habit), enabled = draft.recurringEnabled, onToggle = { onChange(draft.copy(recurringEnabled = it)) }, icon = { RecurringIcon(Accent, Modifier.size(18.dp)) }) {
+                        SettingSection(
+                            title = stringResource(R.string.editor_recurring_habit),
+                            enabled = draft.recurringEnabled,
+                            onToggle = { onChange(draft.copy(recurringEnabled = it)) },
+                            icon = { RecurringIcon(Accent, Modifier.size(18.dp)) },
+                            modifier = Modifier.tutorialTarget(
+                                tutorialTargetRegistry,
+                                TutorialTarget.RECURRING_HABIT
+                            )
+                        ) {
                             val isWeekdaysPreset = draft.recurrenceType == RecurrenceType.WEEKDAYS
                             val isWeekendPreset  = draft.recurrenceType == RecurrenceType.CUSTOM && draft.repeatDays == weekendDays()
                             val isCustomPreset   = draft.recurrenceType == RecurrenceType.CUSTOM && !isWeekendPreset
@@ -240,7 +308,11 @@ fun TaskEditorDialog(
                                     )
                                 )
                             },
-                            icon = { ClockIcon(Success, Modifier.size(18.dp)) }
+                            icon = { ClockIcon(Success, Modifier.size(18.dp)) },
+                            modifier = Modifier.tutorialTarget(
+                                tutorialTargetRegistry,
+                                TutorialTarget.TIME_BLOCK
+                            )
                         ) {
                             val startMin = parseTime(draft.startText)
 
@@ -295,6 +367,10 @@ fun TaskEditorDialog(
                         }
                     }
                 }
+
+                }
+
+                tutorialOverlay?.invoke()
             }
         }
     }
@@ -450,8 +526,15 @@ private fun TagEditor(draft: TaskEditorDraft, onChange: (TaskEditorDraft) -> Uni
 }
 
 @Composable
-private fun SettingSection(title: String, enabled: Boolean, onToggle: (Boolean) -> Unit, icon: @Composable () -> Unit, content: @Composable () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(CardSurface).border(0.7.dp, Border, RoundedCornerShape(18.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+private fun SettingSection(
+    title: String,
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    icon: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Column(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(CardSurface).border(0.7.dp, Border, RoundedCornerShape(18.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 icon(); Spacer(Modifier.width(10.dp))

@@ -121,7 +121,8 @@ fun SettingsScreen(
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
     onSyncNow: () -> Unit,
-    onRefreshStatus: (String) -> Unit = {}
+    onRefreshStatus: (String) -> Unit = {},
+    onOpenTutorial: () -> Unit = {}
 ) {
     val authState by AuthRepository.authState.collectAsState()
     val syncState by SyncManager.state.collectAsState()
@@ -234,14 +235,23 @@ fun SettingsScreen(
                     onClick = { languageDialogVisible = true }
                 )
                 ToggleRow(
-                    stringResource(R.string.settings_system_nav),
-                    stringResource(R.string.settings_system_nav_subtitle),
-                    appSettings.showSystemNavigationBar,
-                    { onAppSettingsChange(appSettings.copy(showSystemNavigationBar = it)) }
+                    title = stringResource(R.string.settings_system_nav),
+                    subtitle = null,
+                    checked = appSettings.showSystemNavigationBar,
+                    onToggle = { onAppSettingsChange(appSettings.copy(showSystemNavigationBar = it)) }
                 )
                 DayStartSelector(
                     selectedHour = appSettings.dayStartHour,
                     onSelect = { hour -> onAppSettingsChange(appSettings.copy(dayStartHour = hour)) }
+                )
+                SettingsRowDivider()
+                SettingsMenuRow(
+                    title = stringResource(R.string.settings_tutorial_title),
+                    subtitle = null,
+                    icon = SettingsIcon.Display,
+                    showChevron = true,
+                    showDivider = false,
+                    onClick = onOpenTutorial
                 )
             }
         }
@@ -751,12 +761,14 @@ private fun SectionCard(title: String, icon: @Composable () -> Unit, content: @C
 }
 
 @Composable
-private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onToggle: (Boolean) -> Unit, showDivider: Boolean = true, enabled: Boolean = true) {
+private fun ToggleRow(title: String, subtitle: String?, checked: Boolean, onToggle: (Boolean) -> Unit, showDivider: Boolean = true, enabled: Boolean = true) {
     Column {
         Row(modifier = Modifier.fillMaxWidth().clickable(enabled = enabled) { onToggle(!checked) }.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(title, style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium))
-                Text(subtitle, style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp))
+                subtitle?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp))
+                }
             }
             TogglePill(checked, enabled, onToggle)
         }
@@ -792,6 +804,13 @@ private fun DayStartSelector(selectedHour: Int, onSelect: (Int) -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun SettingsRowDivider() {
+    Spacer(modifier = Modifier.height(14.dp))
+    Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(CardBorder))
+    Spacer(modifier = Modifier.height(14.dp))
 }
 
 @Composable
@@ -842,14 +861,17 @@ private fun AccountSummary(name: String?, email: String) {
 @Composable
 private fun SettingsMenuRow(
     title: String,
-    subtitle: String,
+    subtitle: String?,
     icon: SettingsIcon,
     showDivider: Boolean = true,
     showChevron: Boolean = false,
     onClick: (() -> Unit)? = null
 ) {
     Column {
-        val rowModifier = Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 4.dp, vertical = 2.dp)
+        val rowModifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 16.dp, vertical = 2.dp)
 
         Row(modifier = rowModifier, verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF2A2A2A)), contentAlignment = Alignment.Center) {
@@ -858,7 +880,9 @@ private fun SettingsMenuRow(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(title, style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium), maxLines = 1)
-                Text(subtitle, style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp), maxLines = 1)
+                subtitle?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp), maxLines = 1)
+                }
             }
             if (showChevron && onClick != null) {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(20.dp))

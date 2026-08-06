@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -45,6 +46,7 @@ import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -58,10 +60,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -79,6 +83,10 @@ import dev.jsjh.timebox.domain.model.DailyTaskSource
 import dev.jsjh.timebox.domain.model.RecurrenceRule
 import dev.jsjh.timebox.domain.model.RecurrenceType
 import dev.jsjh.timebox.domain.model.occursOn
+import dev.jsjh.timebox.feature.tutorial.TutorialTarget
+import dev.jsjh.timebox.feature.tutorial.TutorialTargetRegistry
+import dev.jsjh.timebox.feature.tutorial.TutorialTaskIds
+import dev.jsjh.timebox.feature.tutorial.tutorialTarget
 import dev.jsjh.timebox.ui.format.formatClockRange
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -130,12 +138,17 @@ fun TodoScreen(
     onToggleComplete: (String) -> Unit,
     onOpenTask: (String) -> Unit,
     // Move a task to its final index after drag ends.
-    onReorderTask: (String, Int) -> Unit
+    onReorderTask: (String, Int) -> Unit,
+    tutorialTargetRegistry: TutorialTargetRegistry? = null,
+    tutorialFocusTarget: TutorialTarget? = null
 ) {
     var otherHabitsExpanded by remember { mutableStateOf(false) }
     var yesterdayExpanded by remember { mutableStateOf(false) }
     // Disable LazyColumn scrolling while any section is being dragged.
     var globalDragging by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    var listViewportBounds by remember { mutableStateOf<Rect?>(null) }
 
     val big3 = tasks.filter { it.isBig3 }
     val brainDump = tasks.filter { !it.isBig3 && it.source != DailyTaskSource.RECURRING }
@@ -146,8 +159,31 @@ fun TodoScreen(
         }
     }
 
+    val brainDumpItemIndex = 10 + if (yesterdayIncompleteTasks.isNotEmpty()) 2 else 0
+    LaunchedEffect(tutorialFocusTarget, brainDumpItemIndex, listViewportBounds) {
+        when (tutorialFocusTarget) {
+            TutorialTarget.BRAIN_DUMP_INPUT -> listState.animateScrollToItem(0)
+            TutorialTarget.MARK_BIG3 -> {
+                val viewport = listViewportBounds ?: return@LaunchedEffect
+                val targetCenterWithinItemPx = with(density) { (CARD_MIN_H / 2).toPx() }
+                val desiredItemTopPx = (
+                    viewport.height * 0.46f - targetCenterWithinItemPx
+                ).coerceAtLeast(0f)
+                listState.animateScrollToItem(
+                    index = brainDumpItemIndex,
+                    scrollOffset = -desiredItemTopPx.roundToInt()
+                )
+            }
+            else -> Unit
+        }
+    }
+
     LazyColumn(
-        modifier = modifier.fillMaxSize().background(ScreenBackground),
+        modifier = modifier
+            .fillMaxSize()
+            .background(ScreenBackground)
+            .onGloballyPositioned { listViewportBounds = it.boundsInRoot() },
+        state = listState,
         userScrollEnabled = !globalDragging,
         contentPadding = PaddingValues(start = SCREEN_PAD, end = SCREEN_PAD, top = 8.dp, bottom = 120.dp)
     ) {
@@ -158,7 +194,16 @@ fun TodoScreen(
             )
         }
         item { Spacer(Modifier.height(HEADER_GAP)) }
-        item { InputRow(onQuickAddTask = onQuickAddTask, onOpenAddTaskEditor = onOpenAddTaskEditor) }
+        item {
+            InputRow(
+                onQuickAddTask = onQuickAddTask,
+                onOpenAddTaskEditor = onOpenAddTaskEditor,
+                modifier = Modifier.tutorialTarget(
+                    tutorialTargetRegistry,
+                    TutorialTarget.BRAIN_DUMP_INPUT
+                )
+            )
+        }
         if (yesterdayIncompleteTasks.isNotEmpty()) {
             item { Spacer(Modifier.height(HEADER_GAP)) }
             item {
@@ -189,7 +234,8 @@ fun TodoScreen(
                 onToggleComplete = onToggleComplete,
                 onOpenTask = onOpenTask,
                 onSetDragging = { globalDragging = it },
-                onReorder = onReorderTask
+                onReorder = onReorderTask,
+                tutorialTargetRegistry = tutorialTargetRegistry
             )
         }
 
@@ -207,7 +253,8 @@ fun TodoScreen(
                 onToggleComplete = onToggleComplete,
                 onOpenTask = onOpenTask,
                 onSetDragging = { globalDragging = it },
-                onReorder = onReorderTask
+                onReorder = onReorderTask,
+                tutorialTargetRegistry = tutorialTargetRegistry
             )
         }
 
@@ -225,7 +272,8 @@ fun TodoScreen(
                 onToggleComplete = onToggleComplete,
                 onOpenTask = onOpenTask,
                 onSetDragging = { globalDragging = it },
-                onReorder = onReorderTask
+                onReorder = onReorderTask,
+                tutorialTargetRegistry = tutorialTargetRegistry
             )
         }
 
@@ -276,7 +324,8 @@ private fun DraggableSection(
     onToggleComplete: (String) -> Unit,
     onOpenTask: (String) -> Unit,
     onSetDragging: (Boolean) -> Unit,
-    onReorder: (taskId: String, toIndex: Int) -> Unit
+    onReorder: (taskId: String, toIndex: Int) -> Unit,
+    tutorialTargetRegistry: TutorialTargetRegistry?
 ) {
     val density = LocalDensity.current
     val fallbackHeightPx = with(density) { CARD_MIN_H.toPx() }
@@ -385,7 +434,8 @@ private fun DraggableSection(
                             draggingFrom = -1
                             dragTotalY = 0f
                             latestOnSetDragging(false)
-                        }
+                        },
+                        tutorialTargetRegistry = tutorialTargetRegistry
                     )
                 }
             }
@@ -419,12 +469,20 @@ private fun InsertionIndicator(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun InputRow(onQuickAddTask: (String) -> Unit, onOpenAddTaskEditor: (String) -> Unit) {
+private fun InputRow(
+    onQuickAddTask: (String) -> Unit,
+    onOpenAddTaskEditor: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     var input by remember { mutableStateOf("") }
     fun consume(action: (String) -> Unit) {
         val t = input.trim(); if (t.isNotEmpty()) { action(t); input = "" }
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Box(
             modifier = Modifier.weight(1f).height(56.dp)
                 .clip(RoundedCornerShape(14.dp)).background(CardBackground).padding(horizontal = 16.dp),
@@ -608,7 +666,8 @@ private fun TaskCard(
     onOpenTask: (String) -> Unit,
     onDragStart: () -> Unit,
     onDrag: (Float) -> Unit,
-    onDragEnd: () -> Unit
+    onDragEnd: () -> Unit,
+    tutorialTargetRegistry: TutorialTargetRegistry?
 ) {
     val context = LocalContext.current
     val isRecurring = task.source == DailyTaskSource.RECURRING
@@ -653,7 +712,21 @@ private fun TaskCard(
             Spacer(Modifier.width(6.dp))
             CompletionCircle(completed = task.isCompleted, onClick = { onToggleComplete(task.id) })
             Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .then(
+                        if (task.id == TutorialTaskIds.OPEN_EDITOR) {
+                            Modifier.tutorialTarget(
+                                tutorialTargetRegistry,
+                                TutorialTarget.OPEN_EDITOR_TASK
+                            )
+                        } else {
+                            Modifier
+                        }
+                    ),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 Text(
                     text = task.title,
                     style = TextStyle(
@@ -680,7 +753,15 @@ private fun TaskCard(
                 }
             }
             Spacer(Modifier.width(8.dp))
-            Big3Toggle(selected = task.isBig3, onClick = { onToggleBig3(task.id) })
+            Big3Toggle(
+                selected = task.isBig3,
+                onClick = { onToggleBig3(task.id) },
+                modifier = if (task.id == TutorialTaskIds.MARK_BIG3) {
+                    Modifier.tutorialTarget(tutorialTargetRegistry, TutorialTarget.MARK_BIG3)
+                } else {
+                    Modifier
+                }
+            )
         }
     }
 }
@@ -776,17 +857,17 @@ private fun DragHandle(
 // Small UI components
 
 @Composable
-private fun Big3Toggle(selected: Boolean, onClick: () -> Unit) {
+private fun Big3Toggle(selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Icon(
         imageVector = if (selected) Icons.Filled.Star else Icons.Outlined.StarBorder,
         contentDescription = null,
         tint = if (selected) Priority else TextSecondary,
-        modifier = Modifier.size(20.dp).clickable(onClick = onClick)
+        modifier = modifier.size(20.dp).clickable(onClick = onClick)
     )
 }
 
 @Composable
-private fun CompletionCircle(completed: Boolean, onClick: () -> Unit) {
+private fun CompletionCircle(completed: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val fillColor by animateColorAsState(
         targetValue = if (completed) Accent else Color.Transparent,
         animationSpec = tween(durationMillis = 160),
@@ -799,7 +880,7 @@ private fun CompletionCircle(completed: Boolean, onClick: () -> Unit) {
     )
 
     Box(
-        modifier = Modifier.size(24.dp).clip(CircleShape)
+        modifier = modifier.size(24.dp).clip(CircleShape)
             .background(fillColor)
             .border(1.5.dp, borderColor, CircleShape)
             .clickable(onClick = onClick),

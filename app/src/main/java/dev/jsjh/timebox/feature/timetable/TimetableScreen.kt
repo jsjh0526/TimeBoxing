@@ -77,6 +77,10 @@ import androidx.compose.ui.zIndex
 import androidx.core.os.ConfigurationCompat
 import dev.jsjh.timebox.domain.model.DailyTask
 import dev.jsjh.timebox.domain.model.ScheduleBlock
+import dev.jsjh.timebox.feature.tutorial.TutorialTarget
+import dev.jsjh.timebox.feature.tutorial.TutorialTargetRegistry
+import dev.jsjh.timebox.feature.tutorial.TutorialTaskIds
+import dev.jsjh.timebox.feature.tutorial.tutorialTarget
 import dev.jsjh.timebox.ui.format.formatClock
 import dev.jsjh.timebox.ui.format.formatClockRange
 import java.time.DayOfWeek
@@ -109,6 +113,7 @@ private val CollapsedTrayHeight              = 46.dp
 private val ExpandedTrayHeight               = 222.dp
 private val ReadOnlyNoticeHeight             = 36.dp
 private val BlockHorizontalSpacing           = 8.dp
+
 private val CurrentLineInset                 = 0.dp
 private val CurrentLineHorizontalNudge       = (-0.7).dp
 private const val AxisWidth                  = 52
@@ -152,7 +157,9 @@ fun TimetableScreen(
     onToggleComplete: (String) -> Unit,
     onMoveToUnscheduled: (String) -> Unit,
     onUpdateSchedule: (String, ScheduleBlock) -> Unit,
-    onAddTask: () -> Unit
+    onAddTask: () -> Unit,
+    tutorialTargetRegistry: TutorialTargetRegistry? = null,
+    tutorialFocusTarget: TutorialTarget? = null
 ) {
     val density = LocalDensity.current
     val currentMinute = currentTime.hour * 60 + currentTime.minute
@@ -161,7 +168,9 @@ fun TimetableScreen(
     val layouts = remember(scheduled) { buildLayouts(scheduled) }
     val scrollState = rememberScrollState()
     val readOnly = !showCurrentTime
-    var trayExpanded by rememberSaveable { mutableStateOf(false) }
+    var trayExpanded by rememberSaveable(tutorialTargetRegistry) {
+        mutableStateOf(tutorialTargetRegistry != null)
+    }
     var viewportHeightPx by remember { mutableStateOf(0f) }
     var viewportTopInRootPx by remember { mutableStateOf(0f) }
     var trayHeightPx by remember { mutableStateOf(0f) }
@@ -233,6 +242,15 @@ fun TimetableScreen(
             val expandedTrayMaxHeight = minOf(ExpandedTrayHeight, maxHeight * 0.5f)
             val trayBottomPadding = if (trayHeightPx > 0f) with(density) { trayHeightPx.toDp() } else CollapsedTrayHeight
             val initialScrollHour = if (showCurrentTime) maxOf((currentMinute / 60) - 2, 0) else 13
+            val tutorialBlockStartMinute = currentMinute
+                .coerceIn(0, (24 * 60) - 1)
+                .let { it - it.mod(SnapMinutes) }
+                .coerceAtMost((24 * 60) - DefaultDropDurationMinutes)
+            val initialScrollMinute = if (tutorialTargetRegistry != null) {
+                (tutorialBlockStartMinute - 30).coerceAtLeast(0)
+            } else {
+                initialScrollHour * 60
+            }
             val pixelsPerHour = with(density) { hourHeight.toPx() }
             val edgeZonePx = with(density) { 56.dp.toPx() }
             val maxAutoScrollStepPx = with(density) { 22.dp.toPx() }
@@ -270,9 +288,11 @@ fun TimetableScreen(
             }
 
             LaunchedEffect(date, showCurrentTime, hourHeight) {
-                val scrollKey = "$date-$showCurrentTime"
+                val scrollKey = "$date-$showCurrentTime-${tutorialTargetRegistry != null}"
                 if (scrollInitializedFor != scrollKey) {
-                    val initialScrollPx = with(density) { (hourHeight * initialScrollHour.toFloat()).roundToPx() }
+                    val initialScrollPx = with(density) {
+                        (hourHeight * (initialScrollMinute / 60f)).roundToPx()
+                    }
                     scrollState.scrollTo(initialScrollPx)
                     scrollInitializedFor = scrollKey
                 }
@@ -323,7 +343,8 @@ fun TimetableScreen(
                     onOpenTask = onOpenTask,
                     onToggleComplete = onToggleComplete,
                     onMoveToUnscheduled = onMoveToUnscheduled,
-                    onUpdateSchedule = onUpdateSchedule
+                    onUpdateSchedule = onUpdateSchedule,
+                    tutorialTargetRegistry = tutorialTargetRegistry
                 )
             }
             BottomTray(
@@ -339,7 +360,8 @@ fun TimetableScreen(
                 onAddTask = onAddTask,
                 onDragStart = { task, pointerYInRoot -> updateTrayDrag(task, pointerYInRoot) },
                 onDrag = { task, pointerYInRoot -> updateTrayDrag(task, pointerYInRoot) },
-                onDragEnd = { taskId -> finishTrayDrag(taskId) }
+                onDragEnd = { taskId -> finishTrayDrag(taskId) },
+                tutorialTargetRegistry = tutorialTargetRegistry
             )
         }
     }
@@ -360,7 +382,8 @@ private fun TimetableGrid(
     onOpenTask: (String) -> Unit,
     onToggleComplete: (String) -> Unit,
     onMoveToUnscheduled: (String) -> Unit,
-    onUpdateSchedule: (String, ScheduleBlock) -> Unit
+    onUpdateSchedule: (String, ScheduleBlock) -> Unit,
+    tutorialTargetRegistry: TutorialTargetRegistry?
 ) {
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth().height(hourHeight * 24f).background(PanelBackground)
@@ -456,7 +479,23 @@ private fun TimetableGrid(
                     val width = (contentWidth - spacing * (renderedColumns + 1)) / renderedColumns
                     val left  = AxisWidth.dp + spacing + (width + spacing) * block.column
 
-                    Box(modifier = Modifier.padding(start = left, top = top).width(width).height(height).zIndex(if (session != null) 10f else 0f)) {
+                    Box(
+                        modifier = Modifier
+                            .padding(start = left, top = top)
+                            .width(width)
+                            .height(height)
+                            .zIndex(if (session != null) 10f else 0f)
+                            .then(
+                                if (block.task.id == TutorialTaskIds.SCHEDULE) {
+                                    Modifier.tutorialTarget(
+                                        tutorialTargetRegistry,
+                                        TutorialTarget.TIMETABLE_PLACED_BLOCK
+                                    )
+                                } else {
+                                    Modifier
+                                }
+                            )
+                    ) {
                         ScheduledCard(
                             task = block.task, schedule = renderedSchedule, gestureSchedule = originalSchedule,
                             isOverlapping = block.columnCount > 1,
@@ -1071,7 +1110,10 @@ private fun ScheduledCard(
             }
             else -> {
                 Box(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp)) {
-                    val showTagRow = durationMinutes > 45 && task.tags.isNotEmpty()
+                    // Short cards cannot fit a tag row and the bottom time row without crowding.
+                    val showTagRow = durationMinutes > 45 &&
+                        task.tags.isNotEmpty() &&
+                        (!showFullTimeRow || cardH >= 84.dp)
                     val wrapTitle = durationMinutes >= 90 && width >= 180.dp
                     var titleLineCount by remember(task.id, width, durationMinutes, wrapTitle) { mutableStateOf(1) }
                     val titleActuallyWrapped = wrapTitle && titleLineCount > 1
@@ -1213,7 +1255,8 @@ private fun CompletionStub(
 private fun BottomTray(
     tasks: List<DailyTask>, expanded: Boolean, readOnly: Boolean, maxExpandedHeight: Dp,
     modifier: Modifier = Modifier, onToggle: () -> Unit, onOpenTask: (String) -> Unit, onAddTask: () -> Unit,
-    onDragStart: (DailyTask, Float) -> Unit, onDrag: (DailyTask, Float) -> Unit, onDragEnd: (String) -> Unit
+    onDragStart: (DailyTask, Float) -> Unit, onDrag: (DailyTask, Float) -> Unit, onDragEnd: (String) -> Unit,
+    tutorialTargetRegistry: TutorialTargetRegistry?
 ) {
     val trayScroll = rememberScrollState()
     Column(modifier = modifier.fillMaxWidth().then(if (expanded) Modifier.heightIn(max = maxExpandedHeight) else Modifier).background(Color(0xFF1E1E1E)).animateContentSize()) {
@@ -1240,6 +1283,13 @@ private fun BottomTray(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .then(
+                                    if (task.id == TutorialTaskIds.SCHEDULE) {
+                                        Modifier.tutorialTarget(tutorialTargetRegistry, TutorialTarget.TIMETABLE_TASK)
+                                    } else {
+                                        Modifier
+                                    }
+                                )
                                 .onGloballyPositioned { itemTopInRootPx = it.positionInRoot().y }
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (completed) Color(0xFF242424) else Color(0xFF2A2A2A))

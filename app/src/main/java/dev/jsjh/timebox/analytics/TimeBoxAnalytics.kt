@@ -199,6 +199,47 @@ object TimeBoxAnalytics {
         "language" to language
     )
 
+    fun tutorialStarted(source: String, isRestart: Boolean) = log(
+        "tutorial_started",
+        "source" to source,
+        "is_restart" to isRestart
+    )
+
+    fun tutorialStepViewed(step: String, phase: String, stepIndex: Int, source: String) = log(
+        "tutorial_step_viewed",
+        "step" to step,
+        "phase" to phase,
+        "step_index" to stepIndex.toLong(),
+        "source" to source
+    )
+
+    fun tutorialStepCompleted(step: String, phase: String, stepIndex: Int, source: String) = log(
+        "tutorial_step_completed",
+        "step" to step,
+        "phase" to phase,
+        "step_index" to stepIndex.toLong(),
+        "source" to source
+    )
+
+    fun tutorialSkipped(step: String, phase: String, stepIndex: Int, source: String) = log(
+        "tutorial_skipped",
+        "step" to step,
+        "phase" to phase,
+        "step_index" to stepIndex.toLong(),
+        "source" to source
+    )
+
+    fun tutorialCompleted(source: String, materialized: Boolean) = log(
+        "tutorial_completed",
+        "source" to source,
+        "materialized" to materialized
+    )
+
+    fun tutorialMaterializationResult(success: Boolean) = log(
+        "tutorial_materialization_result",
+        "result" to if (success) "success" else "failed"
+    )
+
     fun announcementShown(announcementId: String) = log(
         "announcement_shown",
         "announcement_id" to announcementId

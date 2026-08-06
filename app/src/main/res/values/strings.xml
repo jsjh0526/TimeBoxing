@@ -232,7 +232,43 @@
     <string name="tutorial_enable_alert">Tap to turn on alerts and set a time</string>
     <string name="tutorial_open_timetable">Drag tasks into the timetable</string>
 
-    <string name="announcement_current_title">TimeBox now supports more languages</string>
-    <string name="announcement_current_message">You can now use TimeBox in Spanish, Hindi, Filipino, isiZulu, Persian, Shona, and French. Change the language anytime in Settings.\n\nIf you\'d like TimeBox in another language, please take the language survey in Settings.</string>
+    <string name="announcement_current_title">Try the new TimeBox tutorial</string>
+    <string name="announcement_current_message">Experience the core TimeBox flow step by step: Brain Dump, choose your Big 3, schedule tasks, and focus on NOW.\n\nYou can replay the tutorial anytime in Settings.\n\nIf you\'d like TimeBox in another language, please take the language survey in Settings.</string>
     <string name="announcement_current_confirm">Got it</string>
+
+    <string name="settings_tutorial_title">Tutorial again</string>
+    <string name="settings_tutorial_subtitle">Experience Brain Dump, Big 3, and time blocking again</string>
+    <string name="tutorial_skip">Skip</string>
+    <string name="tutorial_exit_title">Exit the tutorial?</string>
+    <string name="tutorial_exit_message">You can restart it anytime from Settings.</string>
+    <string name="tutorial_exit_confirm">Exit</string>
+    <string name="tutorial_continue">Keep going</string>
+    <string name="tutorial_complete_title">Your first timebox is ready</string>
+    <string name="tutorial_complete_body">Brain Dump · Big 3 · Schedule · Focus</string>
+    <string name="tutorial_save_failed_title">Could not save your tutorial result</string>
+    <string name="tutorial_save_failed_body">Check your local storage and try again.</string>
+    <string name="tutorial_retry">Try again</string>
+    <string name="tutorial_tap_anywhere">Tap anywhere to continue</string>
+    <string name="tutorial_tap_highlighted">Tap the highlighted area to continue</string>
+    <string name="tutorial_preparing">Getting the screen ready</string>
+    <string name="tutorial_brain_dump_step_title">Start with a Brain Dump</string>
+    <string name="tutorial_brain_dump_step_body">Write down everything on your mind first without stopping to judge or organize it.</string>
+    <string name="tutorial_big3_step_title">Choose today\'s Big 3</string>
+    <string name="tutorial_big3_step_body">Tap the star on the example task to choose the third priority for today.</string>
+    <string name="tutorial_open_task_step_title">Open a task</string>
+    <string name="tutorial_open_task_step_body">Tap the task body to see its detailed settings.</string>
+    <string name="tutorial_recurring_step_title">Turn repeated work into a habit</string>
+    <string name="tutorial_recurring_step_body">Recurring Habit automatically creates the task on the days you choose.</string>
+    <string name="tutorial_time_block_step_title">Give the task a time</string>
+    <string name="tutorial_time_block_step_body">Time Block sets the start, end, and reminder. Tap anywhere when you are ready.</string>
+    <string name="tutorial_schedule_open_title">Put the task on your timetable</string>
+    <string name="tutorial_schedule_open_body">Open the timetable to decide when you will do the work.</string>
+    <string name="tutorial_schedule_pick_title">Place the task in time</string>
+    <string name="tutorial_schedule_pick_body">Tap the example task here. In the real app, long-press and drag a card to place it.</string>
+    <string name="tutorial_schedule_placed_title">Scheduled on your timetable</string>
+    <string name="tutorial_schedule_placed_body">It now appears as a real 60-minute block. In the app, long-press and drag the card to move it to the time you want.</string>
+    <string name="tutorial_open_home_step_title">Return to Home</string>
+    <string name="tutorial_open_home_step_body">Home brings your current task and the next schedule together.</string>
+    <string name="tutorial_now_step_title">Focus on one thing now</string>
+    <string name="tutorial_now_step_body">Once the plan is done, focus only on the task shown in NOW.</string>
 </resources>
