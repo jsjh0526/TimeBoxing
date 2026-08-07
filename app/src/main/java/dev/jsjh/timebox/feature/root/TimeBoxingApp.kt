@@ -597,15 +597,41 @@ private fun MainApp(
         }
     }
 
-    val settingsBannerAdView = rememberSettingsBannerAdView()
+    var todoBannerRequested by remember { mutableStateOf(appState.currentTab == AppTab.TODO) }
+    LaunchedEffect(appState.currentTab, tutorialSession) {
+        if (tutorialSession == null && appState.currentTab == AppTab.TODO) {
+            todoBannerRequested = true
+        }
+    }
+    val todoBannerAdView = if (todoBannerRequested) {
+        rememberBannerAdView(
+            adUnitId = BuildConfig.ADMOB_TODO_BANNER_AD_UNIT_ID,
+            placement = TimeBoxAnalytics.PLACEMENT_TODO_BANNER
+        )
+    } else {
+        null
+    }
+    val settingsBannerAdView = rememberBannerAdView(
+        adUnitId = BuildConfig.ADMOB_SETTINGS_BANNER_AD_UNIT_ID,
+        placement = TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             bottomBar = {
                 Column(modifier = Modifier.fillMaxWidth().background(NavBackground)) {
-                    if (appState.currentTab == AppTab.SETTINGS && settingsBannerAdView != null) {
-                        SettingsBannerAdBar(settingsBannerAdView)
+                    val visibleBanner = if (tutorialSession == null) {
+                        when (appState.currentTab) {
+                            AppTab.TODO -> todoBannerAdView
+                            AppTab.SETTINGS -> settingsBannerAdView
+                            else -> null
+                        }
+                    } else {
+                        null
+                    }
+                    if (visibleBanner != null) {
+                        BannerAdBar(visibleBanner)
                     }
                     AppBottomBar(
                         currentTab = appState.currentTab,
@@ -811,13 +837,15 @@ private fun Big3LimitNotice() {
 }
 
 @Composable
-private fun rememberSettingsBannerAdView(): AdView? {
+private fun rememberBannerAdView(
+    adUnitId: String,
+    placement: String
+): AdView? {
     val context = LocalContext.current
-    val adUnitId = BuildConfig.ADMOB_SETTINGS_BANNER_AD_UNIT_ID
     val canRequestAds = AdsConsentManager.canRequestAds
     if (adUnitId.isBlank()) return null
 
-    val adView = remember(adUnitId) {
+    val adView = remember(adUnitId, placement) {
         AdView(context).apply {
             setAdSize(AdSize.BANNER)
             this.adUnitId = adUnitId
@@ -827,26 +855,26 @@ private fun rememberSettingsBannerAdView(): AdView? {
             )
             adListener = object : AdListener() {
                 override fun onAdLoaded() {
-                    TimeBoxAnalytics.adLoadResult(TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER, loaded = true)
+                    TimeBoxAnalytics.adLoadResult(placement, loaded = true)
                 }
 
                 override fun onAdImpression() {
                     TimeBoxAnalytics.adImpressionRecorded(
-                        placement = TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER,
+                        placement = placement,
                         adFormat = "banner"
                     )
                 }
 
                 override fun onAdClicked() {
                     TimeBoxAnalytics.adClicked(
-                        placement = TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER,
+                        placement = placement,
                         adFormat = "banner"
                     )
                 }
 
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     TimeBoxAnalytics.adLoadResult(
-                        placement = TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER,
+                        placement = placement,
                         loaded = false,
                         errorCode = error.code
                     )
@@ -854,7 +882,7 @@ private fun rememberSettingsBannerAdView(): AdView? {
             }
             onPaidEventListener = OnPaidEventListener { adValue ->
                 TimeBoxAnalytics.adRevenuePaid(
-                    placement = TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER,
+                    placement = placement,
                     adFormat = "banner",
                     valueMicros = adValue.valueMicros,
                     currencyCode = adValue.currencyCode,
@@ -878,7 +906,7 @@ private fun rememberSettingsBannerAdView(): AdView? {
 }
 
 @Composable
-private fun SettingsBannerAdBar(adView: AdView) {
+private fun BannerAdBar(adView: AdView) {
     Column(
         modifier = Modifier
             .fillMaxWidth()

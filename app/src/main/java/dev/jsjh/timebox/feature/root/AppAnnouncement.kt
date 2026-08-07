@@ -26,7 +26,8 @@ object CurrentAppAnnouncement {
         revision = 1,
         titleRes = R.string.announcement_current_title,
         messageRes = R.string.announcement_current_message,
-        confirmRes = R.string.announcement_current_confirm
+        confirmRes = R.string.announcement_current_confirm,
+        updatedInstallOnly = false
     )
 }
 

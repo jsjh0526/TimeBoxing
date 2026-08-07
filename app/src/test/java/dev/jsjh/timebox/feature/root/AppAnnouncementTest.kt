@@ -6,6 +6,11 @@ import org.junit.Test
 
 class AppAnnouncementTest {
     @Test
+    fun `current announcement includes new installations`() {
+        assertFalse(CurrentAppAnnouncement.value.updatedInstallOnly)
+    }
+
+    @Test
     fun `new installations do not see the update announcement`() {
         assertFalse(
             isAppAnnouncementEligible(

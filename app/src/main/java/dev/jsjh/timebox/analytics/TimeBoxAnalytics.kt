@@ -10,6 +10,7 @@ import java.time.temporal.ChronoUnit
 object TimeBoxAnalytics {
     const val PLACEMENT_OPENING = "opening"
     const val PLACEMENT_SETTINGS_BANNER = "settings_banner"
+    const val PLACEMENT_TODO_BANNER = "todo_banner"
     const val PLACEMENT_SUPPORT_REWARDED = "support_rewarded"
     const val PLACEMENT_WIDGET_REWARDED = "widget_rewarded"
 
