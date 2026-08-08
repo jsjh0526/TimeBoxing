@@ -476,12 +476,12 @@ private fun WidgetAccessCard() {
     val activity = context.findActivity()
     val adUnitId = BuildConfig.ADMOB_WIDGET_REWARDED_AD_UNIT_ID
     val loadingMessage = stringResource(R.string.settings_support_ad_loading)
-    val notReadyMessage = stringResource(R.string.settings_support_ad_not_ready)
     val unavailableMessage = stringResource(R.string.settings_support_ad_unavailable)
     val unlockedMessage = stringResource(R.string.settings_widget_unlocked_toast)
 
     var rewardedAd by remember { mutableStateOf<RewardedAd?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    var showWhenLoaded by remember { mutableStateOf(false) }
     var refreshKey by remember { mutableStateOf(0) }
     val remainingMillis by androidx.compose.runtime.produceState(
         initialValue = WidgetAccessStore.remainingMillis(context),
@@ -521,6 +521,10 @@ private fun WidgetAccessCard() {
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     rewardedAd = null
                     isLoading = false
+                    if (showWhenLoaded) {
+                        showWhenLoaded = false
+                        Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
+                    }
                     TimeBoxAnalytics.adLoadResult(
                         placement = TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED,
                         loaded = false,
@@ -535,7 +539,63 @@ private fun WidgetAccessCard() {
         loadAd()
     }
 
-    val buttonEnabled = adUnitId.isNotBlank() && AdsConsentManager.canRequestAds && canExtend
+    LaunchedEffect(showWhenLoaded, rewardedAd, activity) {
+        if (!showWhenLoaded) return@LaunchedEffect
+
+        val ad = rewardedAd ?: return@LaunchedEffect
+        val hostActivity = activity
+        if (hostActivity == null) {
+            showWhenLoaded = false
+            Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
+            return@LaunchedEffect
+        }
+
+        showWhenLoaded = false
+        rewardedAd = null
+        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+            override fun onAdShowedFullScreenContent() {
+                TimeBoxAnalytics.rewardedAdShown(TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED)
+            }
+
+            override fun onAdImpression() {
+                TimeBoxAnalytics.adImpressionRecorded(
+                    placement = TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED,
+                    adFormat = "rewarded"
+                )
+            }
+
+            override fun onAdClicked() {
+                TimeBoxAnalytics.adClicked(
+                    placement = TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED,
+                    adFormat = "rewarded"
+                )
+            }
+
+            override fun onAdDismissedFullScreenContent() {
+                TimeBoxAnalytics.rewardedAdDismissed(TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED)
+                loadAd()
+            }
+
+            override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                TimeBoxAnalytics.rewardedAdShowFailed(
+                    placement = TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED,
+                    errorCode = adError.code
+                )
+                Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
+                loadAd()
+            }
+        }
+        ad.show(hostActivity) {
+            TimeBoxAnalytics.rewardedAdEarned(TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED)
+            WidgetAccessStore.extendByReward(context)
+            TimeBoxAnalytics.widgetAccessExtended()
+            refreshKey++
+            TodoWidgetUpdater.requestUpdate(context)
+            Toast.makeText(context, unlockedMessage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val buttonEnabled = adUnitId.isNotBlank() && AdsConsentManager.canRequestAds && canExtend && !showWhenLoaded
     val buttonLabel = when {
         !canExtend -> stringResource(R.string.settings_widget_unlock_maxed)
         isUnlocked -> stringResource(R.string.settings_widget_unlock_extend)
@@ -579,61 +639,14 @@ private fun WidgetAccessCard() {
             enabled = buttonEnabled,
             icon = { MaterialSettingsIcon(SettingsIcon.Widget, buttonIconColor, 18) },
             onClick = {
-                val ad = rewardedAd
                 if (activity == null) {
                     Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
                     return@ActionButton
                 }
-                if (ad == null) {
-                    if (isLoading) {
-                        Toast.makeText(context, loadingMessage, Toast.LENGTH_SHORT).show()
-                        return@ActionButton
-                    }
+                showWhenLoaded = true
+                if (rewardedAd == null) {
                     loadAd()
-                    Toast.makeText(context, notReadyMessage, Toast.LENGTH_SHORT).show()
-                    return@ActionButton
-                }
-                rewardedAd = null
-                ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-                    override fun onAdShowedFullScreenContent() {
-                        TimeBoxAnalytics.rewardedAdShown(TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED)
-                    }
-
-                    override fun onAdImpression() {
-                        TimeBoxAnalytics.adImpressionRecorded(
-                            placement = TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED,
-                            adFormat = "rewarded"
-                        )
-                    }
-
-                    override fun onAdClicked() {
-                        TimeBoxAnalytics.adClicked(
-                            placement = TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED,
-                            adFormat = "rewarded"
-                        )
-                    }
-
-                    override fun onAdDismissedFullScreenContent() {
-                        TimeBoxAnalytics.rewardedAdDismissed(TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED)
-                        loadAd()
-                    }
-
-                    override fun onAdFailedToShowFullScreenContent(adError: AdError) {
-                        TimeBoxAnalytics.rewardedAdShowFailed(
-                            placement = TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED,
-                            errorCode = adError.code
-                        )
-                        Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
-                        loadAd()
-                    }
-                }
-                ad.show(activity) {
-                    TimeBoxAnalytics.rewardedAdEarned(TimeBoxAnalytics.PLACEMENT_WIDGET_REWARDED)
-                    WidgetAccessStore.extendByReward(context)
-                    TimeBoxAnalytics.widgetAccessExtended()
-                    refreshKey++
-                    TodoWidgetUpdater.requestUpdate(context)
-                    Toast.makeText(context, unlockedMessage, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, loadingMessage, Toast.LENGTH_SHORT).show()
                 }
             }
         )

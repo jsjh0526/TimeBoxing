@@ -39,6 +39,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -919,15 +920,17 @@ private fun BannerAdBar(adView: AdView) {
                 .height(50.dp),
             contentAlignment = Alignment.Center
         ) {
-            AndroidView(
-                factory = {
-                    (adView.parent as? ViewGroup)?.removeView(adView)
-                    adView
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            )
+            key(adView) {
+                AndroidView(
+                    factory = {
+                        (adView.parent as? ViewGroup)?.removeView(adView)
+                        adView
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                )
+            }
         }
     }
 }
