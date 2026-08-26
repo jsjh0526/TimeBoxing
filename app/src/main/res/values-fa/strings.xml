@@ -70,6 +70,7 @@
     <string name="settings_language_persian">فارسی</string>
     <string name="settings_language_shona">chiShona</string>
     <string name="settings_language_french">Français</string>
+    <string name="settings_language_german">Deutsch</string>
     <string name="settings_survey">نظرسنجی</string>
     <string name="settings_language_survey_title">برای انتخاب زبان بعدی کمک کنید</string>
     <string name="settings_language_survey_subtitle">به ما بگویید TimeBox را به چه زبانی می‌خواهید.</string>

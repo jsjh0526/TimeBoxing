@@ -1,13 +1,15 @@
 package dev.jsjh.timebox.feature.root
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppAnnouncementTest {
     @Test
-    fun `current announcement includes new installations`() {
-        assertFalse(CurrentAppAnnouncement.value.updatedInstallOnly)
+    fun `current announcement targets updated installations up to two times`() {
+        assertTrue(CurrentAppAnnouncement.value.updatedInstallOnly)
+        assertEquals(2, CurrentAppAnnouncement.value.maxDisplayCount)
     }
 
     @Test
@@ -16,35 +18,35 @@ class AppAnnouncementTest {
             isAppAnnouncementEligible(
                 audienceEligible = false,
                 displayCount = 0,
-                maxDisplayCount = 3,
+                maxDisplayCount = 2,
                 shownThisProcess = false
             )
         )
     }
 
     @Test
-    fun `updated installations see the announcement up to three times`() {
+    fun `updated installations see the announcement up to two times`() {
         assertTrue(
             isAppAnnouncementEligible(
                 audienceEligible = true,
                 displayCount = 0,
-                maxDisplayCount = 3,
+                maxDisplayCount = 2,
                 shownThisProcess = false
             )
         )
         assertTrue(
             isAppAnnouncementEligible(
                 audienceEligible = true,
-                displayCount = 2,
-                maxDisplayCount = 3,
+                displayCount = 1,
+                maxDisplayCount = 2,
                 shownThisProcess = false
             )
         )
         assertFalse(
             isAppAnnouncementEligible(
                 audienceEligible = true,
-                displayCount = 3,
-                maxDisplayCount = 3,
+                displayCount = 2,
+                maxDisplayCount = 2,
                 shownThisProcess = false
             )
         )
@@ -56,7 +58,7 @@ class AppAnnouncementTest {
             isAppAnnouncementEligible(
                 audienceEligible = true,
                 displayCount = 1,
-                maxDisplayCount = 3,
+                maxDisplayCount = 2,
                 shownThisProcess = true
             )
         )

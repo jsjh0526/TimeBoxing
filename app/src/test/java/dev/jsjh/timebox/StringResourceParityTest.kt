@@ -17,7 +17,8 @@ class StringResourceParityTest {
         "values-zu",
         "values-fa",
         "values-sn",
-        "values-fr"
+        "values-fr",
+        "values-de"
     )
 
     @Test

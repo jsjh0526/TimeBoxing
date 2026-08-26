@@ -13,7 +13,7 @@ data class AppAnnouncement(
     @param:StringRes val titleRes: Int,
     @param:StringRes val messageRes: Int,
     @param:StringRes val confirmRes: Int,
-    val maxDisplayCount: Int = 3,
+    val maxDisplayCount: Int = 2,
     val updatedInstallOnly: Boolean = true
 ) {
     val id: String = "${key}_v$revision"
@@ -26,8 +26,7 @@ object CurrentAppAnnouncement {
         revision = 1,
         titleRes = R.string.announcement_current_title,
         messageRes = R.string.announcement_current_message,
-        confirmRes = R.string.announcement_current_confirm,
-        updatedInstallOnly = false
+        confirmRes = R.string.announcement_current_confirm
     )
 }
 

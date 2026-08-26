@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.jsjh.timebox.data.local.database.TaskDatabase
 import dev.jsjh.timebox.data.local.entity.DailyTaskEntity
+import dev.jsjh.timebox.data.local.entity.SyncShadowEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -16,6 +17,63 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SnapshotMergerTest {
+
+    @Test
+    fun finishFromSnapshot_acceptsDeleteWhenRemoteRowIsAlreadyAbsent() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val userId = "absent_delete_test"
+        context.deleteDatabase("timeboxing_${userId}.db")
+        val database = TaskDatabase.get(context, userId)
+        val task = DailyTaskEntity(
+            id = "local-only-task",
+            templateId = null,
+            dateIso = "2026-08-08",
+            title = "Deleted before upload",
+            note = null,
+            tagsSerialized = "",
+            isBig3 = false,
+            isCompleted = false,
+            startMinute = null,
+            endMinute = null,
+            reminderEnabled = false,
+            source = "ONE_OFF"
+        )
+
+        val failure = withContext(Dispatchers.IO) {
+            val processor = SyncOutboxProcessor(
+                userId = userId,
+                templateDao = database.taskTemplateDao(),
+                dailyTaskDao = database.dailyTaskDao(),
+                outboxDao = database.syncOutboxDao(),
+                shadowDao = database.syncShadowDao()
+            )
+            database.syncShadowDao().upsert(
+                SyncShadowEntity(
+                    entityType = TASK,
+                    entityId = task.id,
+                    remoteUpdatedAt = "2026-08-07T00:00:00Z",
+                    remoteDeletedAt = null
+                )
+            )
+            processor.queueTaskDelete(task)
+            val entry = checkNotNull(database.syncOutboxDao().get("$TASK:${task.id}"))
+            processor.finishFromSnapshot(
+                entry = entry,
+                snapshot = RemoteSyncSnapshot(
+                    templatesById = emptyMap(),
+                    tasksById = emptyMap()
+                )
+            )
+        }
+
+        assertNull(failure)
+        assertEquals(0, withContext(Dispatchers.IO) { database.syncOutboxDao().count() })
+        assertNull(
+            withContext(Dispatchers.IO) {
+                database.syncShadowDao().get(TASK, task.id)
+            }
+        )
+    }
 
     @Test
     fun merge_preservesPendingLocalEditWhileApplyingOtherRemoteRows() = runBlocking {

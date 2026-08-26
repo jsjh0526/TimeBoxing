@@ -163,7 +163,14 @@ class SyncOutboxProcessor(
 
         if (sent.isNotEmpty()) {
             runCatching { SupabaseSync.fetchSnapshot(userId) }
-                .onSuccess { snapshot -> sent.forEach { finishFromSnapshot(it, snapshot) } }
+                .onSuccess { snapshot ->
+                    sent.forEach { entry ->
+                        val verificationFailure = finishFromSnapshot(entry, snapshot)
+                        if (firstFailure == null && verificationFailure != null) {
+                            firstFailure = verificationFailure
+                        }
+                    }
+                }
                 .onFailure { error ->
                     if (firstFailure == null) firstFailure = error
                     sent.forEach { scheduleRetry(it, error) }
@@ -193,31 +200,55 @@ class SyncOutboxProcessor(
         }
     }
 
-    private fun finishFromSnapshot(entry: SyncOutboxEntity, snapshot: RemoteSyncSnapshot) {
+    internal fun finishFromSnapshot(entry: SyncOutboxEntity, snapshot: RemoteSyncSnapshot): Throwable? {
         val remote = when (entry.entityType) {
             TASK -> snapshot.tasksById[entry.entityId]
             TEMPLATE -> snapshot.templatesById[entry.entityId]
             else -> null
         } ?: run {
-            scheduleRetry(entry, IllegalStateException("Sync verification failed for ${entry.queueKey}"))
-            return
+            if (entry.operationType == DELETE) {
+                outboxDao.deleteGeneration(entry.queueKey, entry.generation)
+                shadowDao.delete(entry.entityType, entry.entityId)
+                return null
+            }
+            return verificationFailure(entry, "Sync verification failed for ${entry.queueKey}")
         }
         val updatedAt = when (remote) {
             is RemoteTask -> remote.updatedAt
             is RemoteTemplate -> remote.updatedAt
             else -> null
         } ?: run {
-            scheduleRetry(entry, IllegalStateException("Sync verification failed: updated_at missing for ${entry.queueKey}"))
-            return
+            return verificationFailure(
+                entry,
+                "Sync verification failed: updated_at missing for ${entry.queueKey}"
+            )
         }
         val deletedAt = when (remote) {
             is RemoteTask -> remote.deletedAt
             is RemoteTemplate -> remote.deletedAt
             else -> null
         }
+        val operationApplied = when (entry.operationType) {
+            UPSERT -> deletedAt == null
+            DELETE -> deletedAt != null
+            else -> false
+        }
+        if (!operationApplied) {
+            return verificationFailure(
+                entry,
+                "Sync verification failed: ${entry.operationType} not applied for ${entry.queueKey}"
+            )
+        }
         shadowDao.upsert(SyncShadowEntity(entry.entityType, entry.entityId, updatedAt, deletedAt))
         outboxDao.deleteGeneration(entry.queueKey, entry.generation)
         outboxDao.advanceReplacementBase(entry.queueKey, entry.generation, updatedAt)
+        return null
+    }
+
+    private fun verificationFailure(entry: SyncOutboxEntity, message: String): Throwable {
+        val error = IllegalStateException(message)
+        scheduleRetry(entry, error)
+        return error
     }
 
     private fun queue(
