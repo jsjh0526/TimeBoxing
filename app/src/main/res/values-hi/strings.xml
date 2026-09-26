@@ -197,7 +197,11 @@
     <string name="calendar_stats_title">%1$s के आँकड़े</string>
     <string name="calendar_completed_count">पूरे किए गए कार्य</string>
     <string name="calendar_today">आज</string>
-    <string name="calendar_readonly">पिछले और आने वाले दिन केवल देखने के लिए हैं।</string>
+    <string name="calendar_readonly">मौजूदा कार्य केवल देखे जा सकते हैं।</string>
+    <string name="calendar_open">कैलेंडर खोलें</string>
+    <string name="calendar_week_summary">इस सप्ताह: %1$d/%2$d पूरे</string>
+    <string name="calendar_week_loading">इस सप्ताह का विवरण लोड हो रहा है...</string>
+    <string name="calendar_week_unavailable">साप्ताहिक सारांश उपलब्ध नहीं है</string>
     <string name="timetable_big3_badge">Big 3</string>
     <string name="timetable_now">अभी</string>
     <string name="timetable_unscheduled">समय तय नहीं</string>

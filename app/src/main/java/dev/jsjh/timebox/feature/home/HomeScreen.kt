@@ -128,18 +128,22 @@ fun HomeScreen(
         minute = currentMinute,
         dayStartMinute = dayStartMinute
     )
-    val scheduled   = tasks.filter { it.schedule != null }.sortedBy { it.schedule!!.startMinute }
+    val scheduled = tasks
+        .filter { it.schedule != null }
+        .sortedBy { appDayMinute(it.schedule!!.startMinute, dayStartMinute) }
     val unscheduled = tasks.filter { it.schedule == null && it.source != DailyTaskSource.RECURRING }
     val currentTask = scheduled.firstOrNull { task ->
         val schedule = task.schedule ?: return@firstOrNull false
         val start = appDayMinute(schedule.startMinute, dayStartMinute)
-        val end = appDayMinute(schedule.endMinute, dayStartMinute)
+        val end = appDayEndMinute(schedule, dayStartMinute)
         currentComparableMinute in start until end
     }
-    val nextTask = scheduled.firstOrNull { task ->
-        val schedule = task.schedule ?: return@firstOrNull false
-        appDayMinute(schedule.startMinute, dayStartMinute) > currentComparableMinute
-    }
+    val nextTask = scheduled
+        .filter { task ->
+            val schedule = task.schedule ?: return@filter false
+            appDayMinute(schedule.startMinute, dayStartMinute) > currentComparableMinute
+        }
+        .minByOrNull { task -> appDayMinute(task.schedule!!.startMinute, dayStartMinute) }
     val big3        = tasks.filter { it.isBig3 }.take(3)
     val upcoming    = scheduled.filter { task ->
         val start = appDayMinute(task.schedule!!.startMinute, dayStartMinute)
@@ -509,24 +513,26 @@ private fun NotificationPanel(
     onOpenTask: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val dayStartMinute = dayStartHour.coerceIn(0, 6) * 60
     val alertTasks = tasks
         .filter { it.schedule?.reminderEnabled == true }
-        .sortedBy { it.schedule!!.startMinute }
+        .sortedBy { appDayMinute(it.schedule!!.startMinute, dayStartMinute) }
     var pastExpanded by rememberSaveable { mutableStateOf(false) }
-    val dayStartMinute = dayStartHour.coerceIn(0, 6) * 60
     val currentComparableMinute = appDayMinute(currentMinute, dayStartMinute)
     val (pastAlerts, activeAndUpcomingAlerts) = alertTasks.partition { task ->
         val schedule = task.schedule ?: return@partition false
-        appDayMinute(schedule.endMinute, dayStartMinute) <= currentComparableMinute
+        appDayEndMinute(schedule, dayStartMinute) <= currentComparableMinute
     }
-    val nextAlert = alertTasks.firstOrNull { task ->
-        val schedule = task.schedule ?: return@firstOrNull false
-        !task.isCompleted && appDayMinute(schedule.startMinute, dayStartMinute) >= currentComparableMinute
-    }
+    val nextAlert = alertTasks
+        .filter { task ->
+            val schedule = task.schedule ?: return@filter false
+            !task.isCompleted && appDayMinute(schedule.startMinute, dayStartMinute) >= currentComparableMinute
+        }
+        .minByOrNull { task -> appDayMinute(task.schedule!!.startMinute, dayStartMinute) }
     val activeAlert = alertTasks.firstOrNull { task ->
         val schedule = task.schedule ?: return@firstOrNull false
         val start = appDayMinute(schedule.startMinute, dayStartMinute)
-        val end = appDayMinute(schedule.endMinute, dayStartMinute)
+        val end = appDayEndMinute(schedule, dayStartMinute)
         currentComparableMinute in start until end
     }
     val summary = when {
@@ -872,8 +878,3 @@ private fun titleStyle(size: TextUnit, weight: FontWeight): TextStyle =
 
 private fun bodyStyle(size: TextUnit, color: Color, weight: FontWeight = FontWeight.Normal): TextStyle =
     TextStyle(color = color, fontSize = size, lineHeight = size * 1.5f, fontWeight = weight)
-
-private fun appDayMinute(minute: Int, dayStartMinute: Int): Int {
-    if (dayStartMinute <= 0) return minute
-    return if (minute < dayStartMinute) minute + (24 * 60) else minute
-}

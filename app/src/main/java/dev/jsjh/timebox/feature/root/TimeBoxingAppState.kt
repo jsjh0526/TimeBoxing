@@ -51,6 +51,8 @@ class TimeBoxingAppState(
         private set
     var selectedDateTasks by mutableStateOf<List<DailyTask>>(emptyList())
         private set
+    var calendarStatsRevision by mutableStateOf(0)
+        private set
     var editorDraft by mutableStateOf<TaskEditorDraft?>(null)
         private set
 
@@ -371,6 +373,7 @@ class TimeBoxingAppState(
 
     private suspend fun refreshSelectedDate() {
         selectedDateTasks = repository.getTasks(selectedDate)
+        calendarStatsRevision++
     }
 
     private suspend fun refreshTemplateCache(date: LocalDate) {

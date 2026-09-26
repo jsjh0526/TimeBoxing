@@ -11,6 +11,7 @@ interface TaskRepository {
     suspend fun getTasks(dates: Collection<LocalDate>): Map<LocalDate, List<DailyTask>> {
         return dates.distinct().associateWith { getTasks(it) }
     }
+    suspend fun getReminderCandidates(): List<DailyTask>
     suspend fun getTaskCompletionCounts(dates: Collection<LocalDate>): Map<LocalDate, Pair<Int, Int>> {
         return getTasks(dates).mapValues { (_, tasks) ->
             val visibleTasks = tasks.filter { it.title.isNotBlank() }

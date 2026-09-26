@@ -30,8 +30,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,7 +64,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -89,6 +94,7 @@ import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -150,6 +156,7 @@ fun TimetableScreen(
     onNextDay: () -> Unit,
     onToday: () -> Unit,
     today: LocalDate,
+    calendarToday: LocalDate,
     calendarStatsForDates: suspend (List<LocalDate>) -> Map<LocalDate, Pair<Int, Int>>,
     onSelectDate: (LocalDate) -> Unit,
     onAddTaskForDate: (LocalDate) -> Unit,
@@ -158,6 +165,7 @@ fun TimetableScreen(
     onMoveToUnscheduled: (String) -> Unit,
     onUpdateSchedule: (String, ScheduleBlock) -> Unit,
     onAddTask: () -> Unit,
+    calendarStatsRefreshKey: Any? = tasks,
     tutorialTargetRegistry: TutorialTargetRegistry? = null,
     tutorialFocusTarget: TutorialTarget? = null
 ) {
@@ -209,7 +217,8 @@ fun TimetableScreen(
             CalendarPanel(
                 focusedDate = calendarFocusedDate,
                 today = today,
-                statsRefreshKey = tasks,
+                calendarToday = calendarToday,
+                statsRefreshKey = calendarStatsRefreshKey,
                 calendarStatsForDates = calendarStatsForDates,
                 onFocusedDateChange = { focusCalendarDate(it) },
                 onFocusedMonthChange = { moveCalendarMonth(it) },
@@ -234,7 +243,22 @@ fun TimetableScreen(
             )
             return@Column
         }
-        DateHeader(date = date, showTodayButton = !showCurrentTime, onPreviousDay = onPreviousDay, onNextDay = onNextDay, onToday = onToday)
+        DateHeader(
+            date = date,
+            showTodayButton = !showCurrentTime,
+            onPreviousDay = onPreviousDay,
+            onNextDay = onNextDay,
+            onToday = onToday,
+            onOpenCalendar = {
+                focusCalendarDate(date)
+                calendarVisible = true
+            }
+        )
+        if (date.isAfter(today)) {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                AddTaskForDateButton(onClick = { onAddTaskForDate(date) })
+            }
+        }
         if (readOnly) ReadOnlyNotice()
         BoxWithConstraints(modifier = Modifier.weight(1f).background(PanelBackground)) {
             val heightForScale = maxHeight + if (readOnly) ReadOnlyNoticeHeight else 0.dp
@@ -593,6 +617,7 @@ private fun CalendarHeaderButton(onClick: () -> Unit) {
 private fun CalendarPanel(
     focusedDate: LocalDate,
     today: LocalDate,
+    calendarToday: LocalDate,
     statsRefreshKey: Any?,
     calendarStatsForDates: suspend (List<LocalDate>) -> Map<LocalDate, Pair<Int, Int>>,
     onFocusedDateChange: (LocalDate) -> Unit,
@@ -606,50 +631,71 @@ private fun CalendarPanel(
     val scrollState = rememberScrollState()
     val month = YearMonth.from(focusedDate)
     val visibleDates = remember(month) { calendarGridDates(month) }
-    val statsByDate by produceState(
-        initialValue = emptyMap<LocalDate, Pair<Int, Int>>(),
-        visibleDates,
+    val weekDates = remember(calendarToday) { calendarWeekDates(calendarToday) }
+    val queryDates = remember(visibleDates, weekDates) { (visibleDates + weekDates).distinct() }
+    val loadedStats by produceState<Map<LocalDate, Pair<Int, Int>>?>(
+        initialValue = null,
+        queryDates,
         statsRefreshKey
     ) {
-        value = calendarStatsForDates(visibleDates)
+        value = null
+        value = try {
+            calendarStatsForDates(queryDates)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
+    val statsByDate = loadedStats.orEmpty()
+    val weekCounts = weeklyCompletionCounts(weekDates, statsByDate)
+    val weekSummary = when {
+        loadedStats == null -> stringResource(R.string.calendar_week_loading)
+        weekCounts == null -> stringResource(R.string.calendar_week_unavailable)
+        else -> stringResource(R.string.calendar_week_summary, weekCounts.first, weekCounts.second)
     }
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(PanelBackground)
-            .verticalScroll(scrollState)
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        modifier = modifier.fillMaxWidth().background(PanelBackground)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().height(32.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CalendarCloseButton(onClick = onClose)
-        }
-        CalendarMonthCard(
-            focusedDate = focusedDate,
-            today = today,
-            visibleDates = visibleDates,
-            statsByDate = statsByDate,
-            onFocusedDateChange = onFocusedDateChange,
-            onFocusedMonthChange = onFocusedMonthChange
-        )
-        CalendarStatsCard(date = focusedDate, stats = statsByDate[focusedDate] ?: (0 to 0))
-        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (!focusedDate.isBefore(today)) {
-                CalendarActionButton(
-                    text = stringResource(R.string.calendar_add_for_date),
-                    variant = CalendarActionVariant.Outline,
-                    onClick = { onAddTaskForDate(focusedDate) }
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = focusedDate.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")),
+                    modifier = Modifier.weight(1f),
+                    style = TextStyle(color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 )
+                CalendarCloseButton(onClick = onClose)
             }
+            if (!focusedDate.isBefore(today)) {
+                AddTaskForDateButton(onClick = { onAddTaskForDate(focusedDate) })
+            }
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .testTag("calendar_content")
+                .verticalScroll(scrollState)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            CalendarMonthCard(
+                focusedDate = focusedDate,
+                today = today,
+                visibleDates = visibleDates,
+                statsByDate = statsByDate,
+                weekSummary = weekSummary,
+                onFocusedDateChange = onFocusedDateChange,
+                onFocusedMonthChange = onFocusedMonthChange
+            )
+            CalendarStatsCard(date = focusedDate, stats = statsByDate[focusedDate] ?: (0 to 0))
             CalendarActionButton(
                 text = stringResource(R.string.calendar_open_date),
-                variant = CalendarActionVariant.Primary,
+                variant = CalendarActionVariant.Outline,
                 onClick = { onOpenTimeline(focusedDate) }
             )
             CalendarActionButton(
@@ -657,8 +703,8 @@ private fun CalendarPanel(
                 variant = CalendarActionVariant.Neutral,
                 onClick = onReturnToday
             )
+            Spacer(Modifier.height(8.dp))
         }
-        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -668,6 +714,7 @@ private fun CalendarMonthCard(
     today: LocalDate,
     visibleDates: List<LocalDate>,
     statsByDate: Map<LocalDate, Pair<Int, Int>>,
+    weekSummary: String,
     onFocusedDateChange: (LocalDate) -> Unit,
     onFocusedMonthChange: (Long) -> Unit
 ) {
@@ -679,7 +726,7 @@ private fun CalendarMonthCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(462.dp)
+            .heightIn(min = 462.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF1E1E1E))
             .border(0.7.dp, Divider, RoundedCornerShape(16.dp))
@@ -696,6 +743,11 @@ private fun CalendarMonthCard(
                 CircleArrow(direction = 1, onClick = { onFocusedMonthChange(1) })
             }
         }
+        Text(
+            text = weekSummary,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
+            style = TextStyle(color = Accent, fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Center)
+        )
         Row(modifier = Modifier.fillMaxWidth().height(36.dp)) {
             (0..6).map { offset ->
                 DayOfWeek.SUNDAY.plus(offset.toLong())
@@ -836,7 +888,22 @@ private fun CalendarStatsCard(date: LocalDate, stats: Pair<Int, Int>) {
 private enum class CalendarActionVariant { Outline, Primary, Neutral }
 
 @Composable
-private fun CalendarActionButton(text: String, variant: CalendarActionVariant, onClick: () -> Unit) {
+private fun AddTaskForDateButton(onClick: () -> Unit) {
+    CalendarActionButton(
+        text = stringResource(R.string.calendar_add_for_date),
+        variant = CalendarActionVariant.Primary,
+        onClick = onClick,
+        showAddIcon = true
+    )
+}
+
+@Composable
+private fun CalendarActionButton(
+    text: String,
+    variant: CalendarActionVariant,
+    onClick: () -> Unit,
+    showAddIcon: Boolean = false
+) {
     val shape = RoundedCornerShape(14.dp)
     val background = when (variant) {
         CalendarActionVariant.Outline -> Accent.copy(alpha = 0.10f)
@@ -857,35 +924,58 @@ private fun CalendarActionButton(text: String, variant: CalendarActionVariant, o
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (variant == CalendarActionVariant.Neutral) 48.dp else 52.dp)
+            .heightIn(min = if (variant == CalendarActionVariant.Neutral) 48.dp else 52.dp)
             .clip(shape)
             .background(background)
             .then(borderModifier)
-            .clickable(onClick = onClick),
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (variant == CalendarActionVariant.Outline) {
-            Text("+", style = TextStyle(color = Accent, fontSize = 19.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium))
-            Spacer(Modifier.width(14.dp))
+        if (showAddIcon) {
+            Icon(Icons.Default.Add, contentDescription = null, tint = textColor, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
         }
-        Text(text, style = TextStyle(color = textColor, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold))
+        Text(
+            text,
+            modifier = Modifier.weight(1f),
+            style = TextStyle(color = textColor, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        )
     }
 }
 
 @Composable
-private fun DateHeader(date: LocalDate, showTodayButton: Boolean, onPreviousDay: () -> Unit, onNextDay: () -> Unit, onToday: () -> Unit) {
+private fun DateHeader(
+    date: LocalDate,
+    showTodayButton: Boolean,
+    onPreviousDay: () -> Unit,
+    onNextDay: () -> Unit,
+    onToday: () -> Unit,
+    onOpenCalendar: () -> Unit
+) {
     val configuration = LocalConfiguration.current
     val locale = ConfigurationCompat.getLocales(configuration).get(0) ?: Locale.ENGLISH
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
     Column(modifier = Modifier.fillMaxWidth().background(HeaderBackground)) {
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(GridLineHalf))
-        Row(modifier = Modifier.fillMaxWidth().height(77.dp).padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.fillMaxWidth().heightIn(min = 77.dp).padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             CircleArrow(direction = if (isRtl) 1 else -1, onClick = onPreviousDay)
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")), style = TextStyle(color = TextPrimary, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold))
-                Text(date.format(DateTimeFormatter.ofPattern("EEEE", locale)), style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.3.sp))
+            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(
+                    modifier = Modifier
+                        .testTag("timetable_date_picker")
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(role = Role.Button, onClickLabel = stringResource(R.string.calendar_open), onClick = onOpenCalendar)
+                        .heightIn(min = 48.dp)
+                        .padding(horizontal = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
+                ) {
+                    Text(date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")), style = TextStyle(color = TextPrimary, fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center))
+                    Text(date.format(DateTimeFormatter.ofPattern("EEEE", locale)), style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center))
+                }
                 if (showTodayButton) TodayPill(onClick = onToday)
             }
             CircleArrow(direction = if (isRtl) -1 else 1, onClick = onNextDay)
@@ -906,7 +996,7 @@ private fun TodayPill(onClick: () -> Unit) {
 
 @Composable
 private fun ReadOnlyNotice() {
-    Row(modifier = Modifier.fillMaxWidth().height(ReadOnlyNoticeHeight).background(Color(0xFF191919)).padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = Modifier.fillMaxWidth().heightIn(min = ReadOnlyNoticeHeight).background(Color(0xFF191919)).padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(TextSecondary))
         Spacer(modifier = Modifier.width(8.dp))
         Text(stringResource(R.string.calendar_readonly), style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp))

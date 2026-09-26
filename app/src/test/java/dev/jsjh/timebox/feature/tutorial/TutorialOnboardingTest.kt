@@ -107,6 +107,8 @@ class TutorialOnboardingTest {
 
         override suspend fun getTasks(date: LocalDate): List<DailyTask> = tasks.values.toList()
 
+        override suspend fun getReminderCandidates(): List<DailyTask> = emptyList()
+
         override suspend fun getTask(date: LocalDate, taskId: String): DailyTask? = tasks[taskId]
 
         override suspend fun getTemplate(templateId: String): TaskTemplate? = null

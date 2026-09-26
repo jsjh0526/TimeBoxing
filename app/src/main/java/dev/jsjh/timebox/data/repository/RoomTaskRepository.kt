@@ -41,6 +41,10 @@ class RoomTaskRepository(
         getTasksBlocking(dates)
     }
 
+    override suspend fun getReminderCandidates(): List<DailyTask> = io {
+        dailyTaskDao.getReminderCandidates().map { it.toDomain() }
+    }
+
     override suspend fun getTaskCompletionCounts(dates: Collection<LocalDate>): Map<LocalDate, Pair<Int, Int>> = io {
         getTaskCompletionCountsBlocking(dates)
     }

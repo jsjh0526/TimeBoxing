@@ -70,8 +70,9 @@ object ReminderScheduler {
         val prefs = scheduledPrefs(context)
         val existing = prefs.getStringSet(KEY_SCHEDULED, emptySet()).orEmpty()
         val datePrefix = "$date|"
+        val nowMillis = System.currentTimeMillis()
         val desired = tasks
-            .filter { shouldSchedule(it, settings, dayStartHour) }
+            .filter { shouldScheduleReminder(it, settings, dayStartHour, nowMillis) }
             .map { reminderKey(it.date, it.id) }
             .toSet()
 
@@ -80,7 +81,7 @@ object ReminderScheduler {
             .forEach { cancelKey(context, it) }
 
         tasks.forEach { task ->
-            if (shouldSchedule(task, settings, dayStartHour)) {
+            if (shouldScheduleReminder(task, settings, dayStartHour, nowMillis)) {
                 schedule(context, task, dayStartHour)
             } else {
                 cancelKey(context, reminderKey(task.date, task.id))
@@ -91,6 +92,31 @@ object ReminderScheduler {
         next.addAll(desired)
         prefs.edit {
             putStringSet(KEY_SCHEDULED, next)
+        }
+    }
+
+    fun syncAllTasks(
+        context: Context,
+        tasks: List<DailyTask>,
+        settings: ReminderSettings,
+        dayStartHour: Int = 0
+    ) {
+        createChannels(context)
+        val prefs = scheduledPrefs(context)
+        val existing = prefs.getStringSet(KEY_SCHEDULED, emptySet()).orEmpty()
+        val nowMillis = System.currentTimeMillis()
+        val desiredTasks = tasks.filter { task ->
+            shouldScheduleReminder(task, settings, dayStartHour, nowMillis)
+        }
+        val desired = desiredTasks.mapTo(mutableSetOf()) { task -> reminderKey(task.date, task.id) }
+
+        existing
+            .filter { it !in desired }
+            .forEach { cancelKey(context, it) }
+        desiredTasks.forEach { task -> schedule(context, task, dayStartHour) }
+
+        prefs.edit {
+            putStringSet(KEY_SCHEDULED, desired)
         }
     }
 
@@ -117,7 +143,11 @@ object ReminderScheduler {
     @SuppressLint("ScheduleExactAlarm")
     private fun schedule(context: Context, task: DailyTask, dayStartHour: Int) {
         val schedule = task.schedule ?: return
-        val triggerAtMillis = triggerAtMillis(task, dayStartHour) ?: return
+        val triggerAtMillis = reminderTriggerAtMillis(
+            date = task.date,
+            startMinute = schedule.startMinute,
+            dayStartHour = dayStartHour
+        )
 
         val key = reminderKey(task.date, task.id)
         cancelKey(context, key)
@@ -141,23 +171,6 @@ object ReminderScheduler {
         } catch (_: SecurityException) {
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
         }
-    }
-
-    private fun shouldSchedule(task: DailyTask, settings: ReminderSettings, dayStartHour: Int): Boolean {
-        val schedule = task.schedule ?: return false
-        return settings.notificationsEnabled &&
-            schedule.reminderEnabled &&
-            !task.isCompleted &&
-            (triggerAtMillis(task, dayStartHour) ?: 0L) > System.currentTimeMillis()
-    }
-
-    private fun triggerAtMillis(task: DailyTask, dayStartHour: Int): Long? {
-        val schedule = task.schedule ?: return null
-        return reminderTriggerAtMillis(
-            date = task.date,
-            startMinute = schedule.startMinute,
-            dayStartHour = dayStartHour
-        )
     }
 
     private fun cancelKey(context: Context, key: String) {
@@ -225,6 +238,25 @@ object ReminderScheduler {
 
     private fun legacyReminderRequestCode(key: String): Int = key.hashCode()
 
+}
+
+internal fun shouldScheduleReminder(
+    task: DailyTask,
+    settings: ReminderSettings,
+    dayStartHour: Int,
+    nowMillis: Long,
+    zoneId: ZoneId = ZoneId.systemDefault()
+): Boolean {
+    val schedule = task.schedule ?: return false
+    return settings.notificationsEnabled &&
+        schedule.reminderEnabled &&
+        !task.isCompleted &&
+        reminderTriggerAtMillis(
+            date = task.date,
+            startMinute = schedule.startMinute,
+            dayStartHour = dayStartHour,
+            zoneId = zoneId
+        ) > nowMillis
 }
 
 internal fun reminderTriggerAtMillis(

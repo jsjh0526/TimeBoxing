@@ -197,7 +197,11 @@
     <string name="calendar_stats_title">Izibalo zika-%1$s</string>
     <string name="calendar_completed_count">Imisebenzi eqediwe</string>
     <string name="calendar_today">Namuhla</string>
-    <string name="calendar_readonly">Izinsuku ezedlule nezizayo ezokubukwa kuphela.</string>
+    <string name="calendar_readonly">Imisebenzi ekhona ingabukwa kuphela.</string>
+    <string name="calendar_open">Vula ikhalenda</string>
+    <string name="calendar_week_summary">Kuleli sonto: %1$d/%2$d kuqediwe</string>
+    <string name="calendar_week_loading">Kulayishwa leli sonto...</string>
+    <string name="calendar_week_unavailable">Isifinyezo seviki asitholakali</string>
     <string name="timetable_big3_badge">Big 3</string>
     <string name="timetable_now">Manje</string>
     <string name="timetable_unscheduled">Akuhleliwe</string>

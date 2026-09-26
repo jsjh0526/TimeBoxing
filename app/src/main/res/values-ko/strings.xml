@@ -191,13 +191,17 @@
 
     <string name="timetable_title">시간표</string>
     <string name="calendar_month_pattern">yyyy년 M월</string>
-    <string name="calendar_add_for_date">이 날짜에 할일 추가</string>
+    <string name="calendar_add_for_date">이 날짜에 할 일 추가</string>
     <string name="calendar_open_date">이 날짜 타임라인 보기</string>
     <string name="calendar_return_today">오늘로 돌아가기</string>
     <string name="calendar_stats_title">%1$s 통계</string>
     <string name="calendar_completed_count">완료한 할일</string>
     <string name="calendar_today">Today</string>
-    <string name="calendar_readonly">과거와 미래 날짜는 보기 전용이에요.</string>
+    <string name="calendar_readonly">기존 할 일은 보기 전용이에요.</string>
+    <string name="calendar_open">달력 열기</string>
+    <string name="calendar_week_summary">이번 주 %1$d/%2$d 완료</string>
+    <string name="calendar_week_loading">이번 주 집계 중...</string>
+    <string name="calendar_week_unavailable">주간 요약을 불러오지 못했어요</string>
     <string name="timetable_big3_badge">Big 3</string>
     <string name="timetable_now">Now</string>
     <string name="timetable_unscheduled">Unscheduled</string>

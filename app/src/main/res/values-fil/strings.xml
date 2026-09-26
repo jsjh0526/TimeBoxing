@@ -197,7 +197,11 @@
     <string name="calendar_stats_title">Mga estadistika ng %1$s</string>
     <string name="calendar_completed_count">Mga natapos na gawain</string>
     <string name="calendar_today">Ngayon</string>
-    <string name="calendar_readonly">Maaari lamang tingnan ang nakaraan at susunod na mga araw.</string>
+    <string name="calendar_readonly">Maaari lamang tingnan ang mga kasalukuyang gawain.</string>
+    <string name="calendar_open">Buksan ang kalendaryo</string>
+    <string name="calendar_week_summary">Ngayong linggo: %1$d/%2$d tapos</string>
+    <string name="calendar_week_loading">Naglo-load ang linggong ito...</string>
+    <string name="calendar_week_unavailable">Hindi available ang lingguhang buod</string>
     <string name="timetable_big3_badge">Big 3</string>
     <string name="timetable_now">Ngayon</string>
     <string name="timetable_unscheduled">Walang oras</string>

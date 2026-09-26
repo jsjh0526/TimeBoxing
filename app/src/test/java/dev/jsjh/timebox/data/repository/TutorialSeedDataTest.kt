@@ -129,7 +129,7 @@ class TutorialSeedDataTest {
     }
 }
 
-private class FakeTaskTemplateDao : TaskTemplateDao {
+internal class FakeTaskTemplateDao : TaskTemplateDao {
     private val entities = linkedMapOf<String, TaskTemplateEntity>()
 
     override fun getAll(): List<TaskTemplateEntity> = entities.values.toList()
@@ -146,7 +146,7 @@ private class FakeTaskTemplateDao : TaskTemplateDao {
     override fun count(): Int = entities.size
 }
 
-private class FakeDailyTaskDao : DailyTaskDao {
+internal class FakeDailyTaskDao : DailyTaskDao {
     private val entities = linkedMapOf<String, DailyTaskEntity>()
 
     override fun getByDate(dateIso: String): List<DailyTaskEntity> =
@@ -159,6 +159,12 @@ private class FakeDailyTaskDao : DailyTaskDao {
         entities[taskId]?.takeIf { it.dateIso == dateIso }
 
     override fun getAll(): List<DailyTaskEntity> = entities.values.toList()
+    override fun getReminderCandidates(): List<DailyTaskEntity> = entities.values.filter { task ->
+        !task.isCompleted &&
+            task.reminderEnabled &&
+            task.startMinute != null &&
+            task.endMinute != null
+    }
     override fun getByTemplateId(templateId: String): List<DailyTaskEntity> =
         entities.values.filter { it.templateId == templateId }
 

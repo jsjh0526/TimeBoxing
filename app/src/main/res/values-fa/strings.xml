@@ -197,7 +197,11 @@
     <string name="calendar_stats_title">آمار %1$s</string>
     <string name="calendar_completed_count">کارهای تکمیل‌شده</string>
     <string name="calendar_today">امروز</string>
-    <string name="calendar_readonly">روزهای گذشته و آینده فقط قابل مشاهده‌اند.</string>
+    <string name="calendar_readonly">کارهای موجود فقط قابل مشاهده‌اند.</string>
+    <string name="calendar_open">باز کردن تقویم</string>
+    <string name="calendar_week_summary">این هفته: %1$d از %2$d انجام شد</string>
+    <string name="calendar_week_loading">در حال بارگذاری این هفته...</string>
+    <string name="calendar_week_unavailable">خلاصه هفتگی در دسترس نیست</string>
     <string name="timetable_big3_badge">Big 3</string>
     <string name="timetable_now">اکنون</string>
     <string name="timetable_unscheduled">بدون زمان‌بندی</string>

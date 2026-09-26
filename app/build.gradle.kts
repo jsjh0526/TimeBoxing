@@ -31,8 +31,8 @@ android {
         applicationId = "dev.jsjh.timebox"
         minSdk = 28
         targetSdk = 36
-        versionCode = 37
-        versionName = "1.3.6"
+        versionCode = 39
+        versionName = "1.3.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
         buildConfigField("String", "ADMOB_SETTINGS_BANNER_AD_UNIT_ID", "\"ca-app-pub-3940256099942544/9214589741\"")
@@ -85,6 +85,11 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+    // Run the same calendar interaction tests on a device and in local JVM checks.
+    sourceSets.getByName("testDebug").kotlin.directories.add("src/androidTest/java/dev/jsjh/timebox/feature/timetable")
     androidResources {
         generateLocaleConfig = true
         localeFilters += listOf("en", "ko", "es", "hi", "fil", "zu", "fa", "sn", "fr", "de")
@@ -138,6 +143,9 @@ dependencies {
     implementation(libs.firebase.analytics)
 
     testImplementation(libs.junit)
+    testImplementation(libs.androidx.junit)
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation("org.robolectric:robolectric:4.16")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

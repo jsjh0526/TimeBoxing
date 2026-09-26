@@ -20,6 +20,18 @@ interface DailyTaskDao {
     @Query("SELECT * FROM daily_tasks ORDER BY dateIso")
     fun getAll(): List<DailyTaskEntity>
 
+    @Query(
+        """
+        SELECT * FROM daily_tasks
+        WHERE isCompleted = 0
+          AND reminderEnabled = 1
+          AND startMinute IS NOT NULL
+          AND endMinute IS NOT NULL
+        ORDER BY dateIso, startMinute, title
+        """
+    )
+    fun getReminderCandidates(): List<DailyTaskEntity>
+
     @Query("SELECT * FROM daily_tasks WHERE templateId = :templateId")
     fun getByTemplateId(templateId: String): List<DailyTaskEntity>
 

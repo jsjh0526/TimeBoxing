@@ -230,6 +230,7 @@ fun TutorialPreviewHost(
                         onNextDay = {},
                         onToday = {},
                         today = date,
+                        calendarToday = date,
                         calendarStatsForDates = { emptyMap() },
                         onSelectDate = {},
                         onAddTaskForDate = {},

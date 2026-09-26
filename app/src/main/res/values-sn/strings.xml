@@ -197,7 +197,11 @@
     <string name="calendar_stats_title">Zviverengero zve%1$s</string>
     <string name="calendar_completed_count">Mabasa akapedzwa</string>
     <string name="calendar_today">Nhasi</string>
-    <string name="calendar_readonly">Mazuva apfuura neanouya anongoonekwa chete.</string>
+    <string name="calendar_readonly">Mabasa aripo anongoonekwa chete.</string>
+    <string name="calendar_open">Vhura karenda</string>
+    <string name="calendar_week_summary">Vhiki rino: %1$d/%2$d zvapera</string>
+    <string name="calendar_week_loading">Zviri kurodha vhiki rino...</string>
+    <string name="calendar_week_unavailable">Pfupiso yevhiki haisi kuwanikwa</string>
     <string name="timetable_big3_badge">Big 3</string>
     <string name="timetable_now">Zvino</string>
     <string name="timetable_unscheduled">Kusarongwa</string>

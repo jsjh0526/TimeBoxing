@@ -197,7 +197,11 @@
     <string name="calendar_stats_title">%1$s stats</string>
     <string name="calendar_completed_count">Completed tasks</string>
     <string name="calendar_today">Today</string>
-    <string name="calendar_readonly">Past and future days are view only.</string>
+    <string name="calendar_readonly">Existing tasks are view only.</string>
+    <string name="calendar_open">Open calendar</string>
+    <string name="calendar_week_summary">This week: %1$d/%2$d complete</string>
+    <string name="calendar_week_loading">Loading this week...</string>
+    <string name="calendar_week_unavailable">Weekly summary unavailable</string>
     <string name="timetable_big3_badge">Big 3</string>
     <string name="timetable_now">Now</string>
     <string name="timetable_unscheduled">Unscheduled</string>

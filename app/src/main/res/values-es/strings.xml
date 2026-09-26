@@ -197,7 +197,11 @@
     <string name="calendar_stats_title">Estadísticas de %1$s</string>
     <string name="calendar_completed_count">Tareas completadas</string>
     <string name="calendar_today">Hoy</string>
-    <string name="calendar_readonly">Los días anteriores y futuros son solo de lectura.</string>
+    <string name="calendar_readonly">Las tareas existentes son solo de lectura.</string>
+    <string name="calendar_open">Abrir calendario</string>
+    <string name="calendar_week_summary">Esta semana: %1$d/%2$d completadas</string>
+    <string name="calendar_week_loading">Cargando esta semana...</string>
+    <string name="calendar_week_unavailable">Resumen semanal no disponible</string>
     <string name="timetable_big3_badge">Big 3</string>
     <string name="timetable_now">Ahora</string>
     <string name="timetable_unscheduled">Sin programar</string>

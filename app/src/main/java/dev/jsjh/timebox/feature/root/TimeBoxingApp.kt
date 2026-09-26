@@ -589,6 +589,22 @@ private fun MainApp(
         if (enablingNotifications) onRequestNotificationPermission()
     }
 
+    LaunchedEffect(userId, repository, reminderSettings, appSettings.dayStartHour) {
+        if (!reminderSettings.notificationsEnabled) {
+            ReminderScheduler.cancelAll(context)
+            return@LaunchedEffect
+        }
+        runCatching {
+            val candidates = repository.getReminderCandidates()
+            ReminderScheduler.syncAllTasks(
+                context = context,
+                tasks = candidates,
+                settings = reminderSettings,
+                dayStartHour = appSettings.dayStartHour
+            )
+        }
+    }
+
     LaunchedEffect(appState.today, appState.todayTasks, reminderSettings) {
         ReminderScheduler.syncTasks(context, appState.today, appState.todayTasks, reminderSettings, appSettings.dayStartHour)
     }
@@ -683,6 +699,8 @@ private fun MainApp(
                     onNextDay = { appState.moveSelectedDateBy(1) },
                     onToday = { appState.selectDate(appToday) },
                     today = appToday,
+                    calendarToday = nowForDayBoundary.toLocalDate(),
+                    calendarStatsRefreshKey = appState to appState.calendarStatsRevision,
                     calendarStatsForDates = { dates ->
                         withContext(Dispatchers.IO) { appState.completionCounts(dates) }
                     },
