@@ -2,6 +2,7 @@ package dev.jsjh.timebox.data.repository
 
 import dev.jsjh.timebox.data.local.dao.DailyTaskDao
 import dev.jsjh.timebox.data.local.dao.TaskTemplateDao
+import dev.jsjh.timebox.data.local.pastIncompleteTasks
 import dev.jsjh.timebox.data.local.entity.DailyTaskEntity
 import dev.jsjh.timebox.data.local.entity.TaskTemplateEntity
 import dev.jsjh.timebox.domain.model.DailyTask
@@ -89,8 +90,12 @@ class RoomTaskRepository(
         deleteTaskBlocking(date, taskId)
     }
 
-    override suspend fun carryOverIncompleteTasks(fromDate: LocalDate, toDate: LocalDate): Int = io {
-        carryOverIncompleteTasksBlocking(fromDate, toDate)
+    override suspend fun getPastIncompleteTasks(beforeDate: LocalDate): List<DailyTask> = io {
+        pastIncompleteTasks(dailyTaskDao.getOneOffTasks(), beforeDate.toString()).map { it.toDomain() }
+    }
+
+    override suspend fun carryOverPastIncompleteTasks(toDate: LocalDate, confirmedTaskIds: List<String>): Int = io {
+        dailyTaskDao.carryOverPastIncompleteTasks(toDate.toString(), confirmedTaskIds).moved.size
     }
 
     private suspend fun <T> io(block: () -> T): T = withContext(Dispatchers.IO) {
@@ -277,45 +282,11 @@ class RoomTaskRepository(
         }
         ensureDate(date)
         val existing = getTaskBlocking(date, taskId) ?: return
-        dailyTaskDao.deleteById(date.toString(), taskId)
-        carryOverSourceId(existing, date)?.let { sourceId ->
-            dailyTaskDao.deleteById(date.minusDays(1).toString(), sourceId)
-        }
+        dailyTaskDao.deleteWithCarryOverPredecessors(date.toString(), taskId)
         if (existing.templateId != null) {
             templateDao.deleteById(existing.templateId)
             dailyTaskDao.deleteByTemplateId(existing.templateId)
         }
-    }
-
-    internal fun carryOverIncompleteTasksBlocking(fromDate: LocalDate, toDate: LocalDate): Int {
-        ensureDate(fromDate)
-        ensureDate(toDate)
-        syncRecurringForDate(fromDate)
-        syncRecurringForDate(toDate)
-
-        val carried = dailyTaskDao.getByDate(fromDate.toString())
-            .map { it.toDomain() }
-            .filter { task ->
-                task.source != DailyTaskSource.RECURRING &&
-                    !task.isCompleted &&
-                    task.title.isNotBlank()
-            }
-            .map { task ->
-                task.copy(
-                    id = "carry-${task.id}-$toDate",
-                    templateId = null,
-                    date = toDate,
-                    isBig3 = false,
-                    isCompleted = false,
-                    schedule = null,
-                    source = DailyTaskSource.CARRY_OVER
-                )
-            }
-
-        if (carried.isNotEmpty()) {
-            dailyTaskDao.upsertAll(carried.map { it.toEntity() })
-        }
-        return carried.size
     }
 
     private fun seedIfNeeded() {
@@ -349,16 +320,6 @@ class RoomTaskRepository(
                     task.templateId in seedTemplateIds ||
                     seedTemplateIds.any { templateId -> task.id.startsWith("$templateId-") }
             }
-    }
-
-    private fun carryOverSourceId(task: DailyTask, toDate: LocalDate): String? {
-        if (task.source != DailyTaskSource.CARRY_OVER && !task.id.startsWith("carry-")) return null
-        val suffix = "-$toDate"
-        return task.id
-            .takeIf { it.startsWith("carry-") && it.endsWith(suffix) }
-            ?.removePrefix("carry-")
-            ?.removeSuffix(suffix)
-            ?.takeIf { it.isNotBlank() }
     }
 
     private fun ensureDate(date: LocalDate) {

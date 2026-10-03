@@ -159,6 +159,9 @@ internal class FakeDailyTaskDao : DailyTaskDao {
         entities[taskId]?.takeIf { it.dateIso == dateIso }
 
     override fun getAll(): List<DailyTaskEntity> = entities.values.toList()
+    override fun getOneOffTasks(): List<DailyTaskEntity> = entities.values.filter {
+        it.source != "RECURRING" && it.templateId == null
+    }
     override fun getReminderCandidates(): List<DailyTaskEntity> = entities.values.filter { task ->
         !task.isCompleted &&
             task.reminderEnabled &&

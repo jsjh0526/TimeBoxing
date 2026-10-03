@@ -154,7 +154,11 @@
     <string name="todo_hint_braindump_empty">Ayikho imisebenzi okwamanje. Engeza owodwa ngenhla!</string>
     <string name="todo_hint_habits_empty">Ayikho imikhuba ephindaphindayo yanamuhla.</string>
     <string name="todo_input_placeholder">Engeza umsebenzi omusha…</string>
-    <string name="todo_yesterday_leftover">OKUSELE IZOLO</string>
+    <string name="todo_past_incomplete">IMISEBENZI YANGAPHAMBILI ENGAKAQEDWA</string>
+    <string name="todo_carry_over_title">Hambisa imisebenzi engaqediwe</string>
+    <string name="todo_carry_over_message">Hambisa imisebenzi engu-%1$d engaqediwe kunamuhla? Izikhathi ezihleliwe nesimo se-Big 3 kuzosuswa. Imikhuba ephindaphindayo ayifakiwe.</string>
+    <string name="todo_carry_over_progress">Kuyahanjiswa...</string>
+    <string name="todo_carry_over_failed">Imisebenzi ayikwazanga ukuhanjiswa. Zama futhi.</string>
     <string name="todo_move_all_today">Hambisa konke kunamuhla</string>
     <string name="todo_big3">I-BIG 3 YANAMUHLA</string>
     <string name="todo_brain_dump">YONKE IMISEBENZI</string>

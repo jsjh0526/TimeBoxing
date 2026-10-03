@@ -154,7 +154,11 @@
     <string name="todo_hint_braindump_empty">Wala pang gawain. Magdagdag sa itaas!</string>
     <string name="todo_hint_habits_empty">Walang umuulit na gawi para ngayong araw.</string>
     <string name="todo_input_placeholder">Magdagdag ng bagong gawain…</string>
-    <string name="todo_yesterday_leftover">NATIRA KAHAPON</string>
+    <string name="todo_past_incomplete">MGA NAKARAANG HINDI TAPOS</string>
+    <string name="todo_carry_over_title">Ilipat ang mga hindi tapos</string>
+    <string name="todo_carry_over_message">Ilipat ang %1$d hindi tapos na gawain sa araw na ito? Aalisin ang mga time block at Big 3 status nila. Hindi kasama ang mga paulit-ulit na habit.</string>
+    <string name="todo_carry_over_progress">Inililipat...</string>
+    <string name="todo_carry_over_failed">Hindi nailipat ang mga gawain. Subukan muli.</string>
     <string name="todo_move_all_today">Ilipat lahat sa araw na ito</string>
     <string name="todo_big3">BIG 3 NGAYON</string>
     <string name="todo_brain_dump">LAHAT NG GAWAIN</string>

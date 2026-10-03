@@ -4,6 +4,10 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
+import dev.jsjh.timebox.data.local.TaskCarryOverChanges
+import dev.jsjh.timebox.data.local.carryOverPredecessors
+import dev.jsjh.timebox.data.local.planTaskCarryOver
 import dev.jsjh.timebox.data.local.entity.DailyTaskEntity
 
 @Dao
@@ -19,6 +23,25 @@ interface DailyTaskDao {
 
     @Query("SELECT * FROM daily_tasks ORDER BY dateIso")
     fun getAll(): List<DailyTaskEntity>
+
+    @Query("SELECT * FROM daily_tasks WHERE source != 'RECURRING' AND templateId IS NULL ORDER BY dateIso, id")
+    fun getOneOffTasks(): List<DailyTaskEntity>
+
+    @Transaction
+    fun carryOverPastIncompleteTasks(toDateIso: String, confirmedTaskIds: List<String>): TaskCarryOverChanges {
+        val changes = planTaskCarryOver(getOneOffTasks(), toDateIso, confirmedTaskIds.toSet())
+        changes.deleted.map { it.id }.chunked(900).forEach(::deleteByIds)
+        if (changes.moved.isNotEmpty()) upsertAll(changes.moved)
+        return changes
+    }
+
+    @Transaction
+    fun deleteWithCarryOverPredecessors(dateIso: String, taskId: String): List<DailyTaskEntity> {
+        val task = getById(dateIso, taskId) ?: return emptyList()
+        val deleted = listOf(task) + carryOverPredecessors(task, getOneOffTasks())
+        deleted.map { it.id }.chunked(900).forEach(::deleteByIds)
+        return deleted
+    }
 
     @Query(
         """

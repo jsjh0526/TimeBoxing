@@ -8,7 +8,6 @@ import dev.jsjh.timebox.data.local.entity.DailyTaskEntity
 import dev.jsjh.timebox.data.local.entity.TaskTemplateEntity
 import dev.jsjh.timebox.data.remote.SyncOutboxProcessor
 import dev.jsjh.timebox.domain.model.DailyTask
-import dev.jsjh.timebox.domain.model.DailyTaskSource
 import dev.jsjh.timebox.domain.model.ScheduleBlock
 import dev.jsjh.timebox.domain.model.TaskEditInput
 import dev.jsjh.timebox.domain.repository.TaskRepository
@@ -112,24 +111,19 @@ class SyncedTaskRepository(
                 template?.let(outbox::queueTemplateDelete)
                 tasks.forEach(outbox::queueTaskDelete)
             } else {
-                val existing = local.getTaskBlocking(date, taskId)
-                val existingEntity = dailyTaskDao.getById(date.toString(), taskId)
-                val source = existing?.let { carryOverSourceEntity(it, date) }
-                local.deleteTaskBlocking(date, taskId)
-                existingEntity?.let(outbox::queueTaskDelete)
-                source?.let(outbox::queueTaskDelete)
+                dailyTaskDao.deleteWithCarryOverPredecessors(date.toString(), taskId)
+                    .forEach(outbox::queueTaskDelete)
             }
         }
     }
 
-    override suspend fun carryOverIncompleteTasks(fromDate: LocalDate, toDate: LocalDate): Int {
+    override suspend fun carryOverPastIncompleteTasks(toDate: LocalDate, confirmedTaskIds: List<String>): Int {
         var count = 0
         database.withTransaction {
-            val beforeIds = dailyTaskDao.getByDate(toDate.toString()).mapTo(mutableSetOf()) { it.id }
-            count = local.carryOverIncompleteTasksBlocking(fromDate, toDate)
-            dailyTaskDao.getByDate(toDate.toString())
-                .filter { it.id !in beforeIds && it.source == DailyTaskSource.CARRY_OVER.name }
-                .forEach(outbox::queueTaskUpsert)
+            val changes = dailyTaskDao.carryOverPastIncompleteTasks(toDate.toString(), confirmedTaskIds)
+            changes.deleted.forEach(outbox::queueTaskDelete)
+            changes.moved.forEach(outbox::queueTaskUpsert)
+            count = changes.moved.size
         }
         return count
     }
@@ -151,15 +145,4 @@ class SyncedTaskRepository(
         afterTasks.forEach(outbox::queueTaskUpsert)
     }
 
-    private fun carryOverSourceEntity(task: DailyTask, toDate: LocalDate): DailyTaskEntity? {
-        if (task.source != DailyTaskSource.CARRY_OVER && !task.id.startsWith("carry-")) return null
-        val suffix = "-$toDate"
-        val sourceId = task.id
-            .takeIf { it.startsWith("carry-") && it.endsWith(suffix) }
-            ?.removePrefix("carry-")
-            ?.removeSuffix(suffix)
-            ?.takeIf { it.isNotBlank() }
-            ?: return null
-        return dailyTaskDao.getById(toDate.minusDays(1).toString(), sourceId)
-    }
 }

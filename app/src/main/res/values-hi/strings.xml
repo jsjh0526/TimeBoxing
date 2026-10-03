@@ -154,7 +154,11 @@
     <string name="todo_hint_braindump_empty">अभी कोई कार्य नहीं है। ऊपर से एक जोड़ें!</string>
     <string name="todo_hint_habits_empty">आज के लिए कोई दोहराई जाने वाली आदत नहीं है।</string>
     <string name="todo_input_placeholder">नया कार्य जोड़ें…</string>
-    <string name="todo_yesterday_leftover">पिछले दिन के अधूरे कार्य</string>
+    <string name="todo_past_incomplete">पिछले अधूरे कार्य</string>
+    <string name="todo_carry_over_title">अधूरे कार्य आज पर लाएँ</string>
+    <string name="todo_carry_over_message">क्या %1$d अधूरे कार्य आज पर लाएँ? उनके समय ब्लॉक और Big 3 स्थिति हट जाएँगे। दोहराने वाली आदतें शामिल नहीं हैं।</string>
+    <string name="todo_carry_over_progress">स्थानांतरित हो रहा है...</string>
+    <string name="todo_carry_over_failed">कार्य स्थानांतरित नहीं हो सके। फिर से कोशिश करें।</string>
     <string name="todo_move_all_today">सभी को आज पर ले जाएँ</string>
     <string name="todo_big3">आज के BIG 3</string>
     <string name="todo_brain_dump">सभी कार्य</string>

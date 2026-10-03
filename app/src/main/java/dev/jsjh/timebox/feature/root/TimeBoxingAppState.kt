@@ -1,5 +1,6 @@
 package dev.jsjh.timebox.feature.root
 
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -26,6 +27,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 internal const val MaxConcurrentTimeBlocks = 5
@@ -60,7 +62,13 @@ class TimeBoxingAppState(
         private set
     var otherHabits by mutableStateOf<List<DailyTask>>(emptyList())
         private set
-    var yesterdayIncompleteTasks by mutableStateOf<List<DailyTask>>(emptyList())
+    var pastIncompleteTasks by mutableStateOf<List<DailyTask>>(emptyList())
+        private set
+    var carryOverInProgress by mutableStateOf(false)
+        private set
+    var carryOverFailed by mutableStateOf(false)
+        private set
+    var reminderScheduleRevision by mutableStateOf(0)
         private set
     var scheduleLimitMessage by mutableStateOf<String?>(null)
         private set
@@ -216,20 +224,37 @@ class TimeBoxingAppState(
         todayTodoTasks = applyAllSectionOrders(today, todayTasks)
     }
 
-    fun carryOverYesterdayIncompleteTasks() {
-        val yesterday = today.minusDays(1)
+    fun carryOverPastIncompleteTasks(confirmedTaskIds: List<String>) {
+        if (carryOverInProgress || confirmedTaskIds.isEmpty()) return
+        val targetDate = today
+        carryOverInProgress = true
+        carryOverFailed = false
         scope.launch {
-            val count = repository.carryOverIncompleteTasks(fromDate = yesterday, toDate = today)
-            if (count > 0) TimeBoxAnalytics.tasksCarriedOver(count)
-            refreshAllNow()
+            try {
+                val count = repository.carryOverPastIncompleteTasks(targetDate, confirmedTaskIds)
+                if (count > 0) {
+                    reminderScheduleRevision++
+                    TimeBoxAnalytics.tasksCarriedOver(count)
+                }
+                refreshAllNow()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Log.e("TimeBoxingAppState", "Could not carry over unfinished tasks", error)
+                carryOverFailed = true
+            } finally {
+                carryOverInProgress = false
+            }
         }
     }
 
-    fun dismissYesterdayTask(taskId: String) {
-        val yesterday = today.minusDays(1)
+    fun dismissPastTask(taskId: String) {
+        if (carryOverInProgress) return
+        val task = pastIncompleteTasks.firstOrNull { it.id == taskId } ?: return
         scope.launch {
-            repository.deleteTask(yesterday, taskId)
-            refreshYesterdayIncomplete()
+            repository.deleteTask(task.date, taskId)
+            reminderScheduleRevision++
+            refreshAllNow()
         }
     }
 
@@ -368,7 +393,7 @@ class TimeBoxingAppState(
         syncSectionOrders(today, fresh)
         todayTodoTasks = applyAllSectionOrders(today, fresh)
         refreshTemplateCache(today)
-        refreshYesterdayIncomplete()
+        refreshPastIncomplete()
     }
 
     private suspend fun refreshSelectedDate() {
@@ -386,15 +411,8 @@ class TimeBoxingAppState(
             .map { it.toOtherHabitTask(date) }
     }
 
-    private suspend fun refreshYesterdayIncomplete() {
-        val yesterday = today.minusDays(1)
-        val carriedTodayIds = repository.getTasks(today)
-            .filter { task -> task.source == DailyTaskSource.CARRY_OVER || task.id.startsWith("carry-") }
-            .map { task -> task.id }
-            .toSet()
-        yesterdayIncompleteTasks = repository.getTasks(yesterday)
-            .filter { task -> !task.isCompleted && task.source != DailyTaskSource.RECURRING }
-            .filter { task -> "carry-${task.id}-$today" !in carriedTodayIds }
+    private suspend fun refreshPastIncomplete() {
+        pastIncompleteTasks = repository.getPastIncompleteTasks(today)
     }
 
     private fun canPlaceSchedule(

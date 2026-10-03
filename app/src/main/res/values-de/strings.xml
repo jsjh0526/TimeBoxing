@@ -154,7 +154,11 @@
     <string name="todo_hint_braindump_empty">Noch keine Aufgaben. Füge oben eine hinzu!</string>
     <string name="todo_hint_habits_empty">Heute gibt es keine wiederkehrenden Gewohnheiten.</string>
     <string name="todo_input_placeholder">Neue Aufgabe hinzufügen...</string>
-    <string name="todo_yesterday_leftover">VON GESTERN ÜBRIG</string>
+    <string name="todo_past_incomplete">FRÜHERE UNERLEDIGTE AUFGABEN</string>
+    <string name="todo_carry_over_title">Unerledigte Aufgaben verschieben</string>
+    <string name="todo_carry_over_message">%1$d unerledigte Aufgaben auf heute verschieben? Ihre Zeitblöcke und ihr Big-3-Status werden entfernt. Wiederkehrende Gewohnheiten sind ausgeschlossen.</string>
+    <string name="todo_carry_over_progress">Wird verschoben...</string>
+    <string name="todo_carry_over_failed">Aufgaben konnten nicht verschoben werden. Bitte erneut versuchen.</string>
     <string name="todo_move_all_today">Alle auf heute verschieben</string>
     <string name="todo_big3">HEUTIGES BIG 3</string>
     <string name="todo_brain_dump">BRAIN DUMP</string>

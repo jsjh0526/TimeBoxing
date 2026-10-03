@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,7 +45,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,6 +71,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -128,12 +132,14 @@ fun TodoScreen(
     tasks: List<DailyTask>,
     date: LocalDate,
     otherHabits: List<DailyTask> = emptyList(),
-    yesterdayIncompleteTasks: List<DailyTask> = emptyList(),
+    pastIncompleteTasks: List<DailyTask> = emptyList(),
+    carryOverInProgress: Boolean = false,
+    carryOverFailed: Boolean = false,
     recurrenceByTemplateId: Map<String, RecurrenceRule?> = emptyMap(),
     onQuickAddTask: (String) -> Unit,
     onOpenAddTaskEditor: (String) -> Unit,
-    onCarryOverYesterday: () -> Unit,
-    onDismissYesterdayTask: (String) -> Unit = {},
+    onCarryOverPastTasks: (List<String>) -> Unit,
+    onDismissPastTask: (String) -> Unit = {},
     onToggleBig3: (String) -> Unit,
     onToggleComplete: (String) -> Unit,
     onOpenTask: (String) -> Unit,
@@ -143,7 +149,8 @@ fun TodoScreen(
     tutorialFocusTarget: TutorialTarget? = null
 ) {
     var otherHabitsExpanded by remember { mutableStateOf(false) }
-    var yesterdayExpanded by remember { mutableStateOf(false) }
+    var pastTasksExpanded by remember { mutableStateOf(false) }
+    var carryOverConfirmation by remember(date) { mutableStateOf<List<String>?>(null) }
     // Disable LazyColumn scrolling while any section is being dragged.
     var globalDragging by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -159,7 +166,7 @@ fun TodoScreen(
         }
     }
 
-    val brainDumpItemIndex = 10 + if (yesterdayIncompleteTasks.isNotEmpty()) 2 else 0
+    val brainDumpItemIndex = 10 + if (pastIncompleteTasks.isNotEmpty()) 2 else 0
     LaunchedEffect(tutorialFocusTarget, brainDumpItemIndex, listViewportBounds) {
         when (tutorialFocusTarget) {
             TutorialTarget.BRAIN_DUMP_INPUT -> listState.animateScrollToItem(0)
@@ -204,17 +211,18 @@ fun TodoScreen(
                 )
             )
         }
-        if (yesterdayIncompleteTasks.isNotEmpty()) {
+        if (pastIncompleteTasks.isNotEmpty()) {
             item { Spacer(Modifier.height(HEADER_GAP)) }
             item {
-                YesterdayIncompleteSection(
-                    tasks = yesterdayIncompleteTasks,
-                    expanded = yesterdayExpanded,
-                    onToggle = { yesterdayExpanded = !yesterdayExpanded },
-                    onDismissTask = onDismissYesterdayTask,
+                PastIncompleteSection(
+                    tasks = pastIncompleteTasks,
+                    expanded = pastTasksExpanded,
+                    busy = carryOverInProgress,
+                    failed = carryOverFailed,
+                    onToggle = { pastTasksExpanded = !pastTasksExpanded },
+                    onDismissTask = onDismissPastTask,
                     onCarryOver = {
-                        onCarryOverYesterday()
-                        yesterdayExpanded = false
+                        carryOverConfirmation = pastIncompleteTasks.map { it.id }
                     }
                 )
             }
@@ -310,6 +318,46 @@ fun TodoScreen(
                 }
             }
         }
+    }
+    carryOverConfirmation?.let { confirmedIds ->
+        val title = stringResource(R.string.todo_carry_over_title)
+        val message = stringResource(R.string.todo_carry_over_message, confirmedIds.size)
+        val confirmLabel = stringResource(R.string.todo_move_all_today)
+        val cancelLabel = stringResource(R.string.editor_cancel)
+        AlertDialog(
+            onDismissRequest = { carryOverConfirmation = null },
+            containerColor = CardBackground,
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Text(title, color = TextPrimary)
+            },
+            text = {
+                Text(
+                    message,
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    modifier = Modifier.testTag("carry_over_confirm"),
+                    enabled = !carryOverInProgress,
+                    onClick = {
+                        carryOverConfirmation = null
+                        onCarryOverPastTasks(confirmedIds)
+                    }
+                ) {
+                    Text(confirmLabel, color = Accent)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    modifier = Modifier.testTag("carry_over_cancel"),
+                    onClick = { carryOverConfirmation = null }
+                ) {
+                    Text(cancelLabel, color = TextSecondary)
+                }
+            }
+        )
     }
 }
 
@@ -512,9 +560,11 @@ private fun InputRow(
 }
 
 @Composable
-private fun YesterdayIncompleteSection(
+private fun PastIncompleteSection(
     tasks: List<DailyTask>,
     expanded: Boolean,
+    busy: Boolean,
+    failed: Boolean,
     onToggle: () -> Unit,
     onDismissTask: (String) -> Unit,
     onCarryOver: () -> Unit
@@ -529,18 +579,20 @@ private fun YesterdayIncompleteSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .heightIn(min = 48.dp)
+                .testTag("past_tasks_header")
                 .clickable(onClick = onToggle)
                 .padding(horizontal = 14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(Accent))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    stringResource(R.string.todo_yesterday_leftover),
-                    style = TextStyle(color = Accent, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.4.sp)
+                    stringResource(R.string.todo_past_incomplete),
+                    modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+                    style = TextStyle(color = Accent, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold)
                 )
                 Spacer(Modifier.width(8.dp))
                 CountPill(tasks.size)
@@ -555,20 +607,34 @@ private fun YesterdayIncompleteSection(
             Column {
                 Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(Divider))
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    tasks.forEach { task ->
-                        YesterdayTaskPreview(task, onDismiss = { onDismissTask(task.id) })
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp).testTag("past_tasks_list"),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(tasks, key = { it.id }) { task ->
+                            PastTaskPreview(task, enabled = !busy, onDismiss = { onDismissTask(task.id) })
+                        }
+                    }
+                    if (failed) {
+                        Text(
+                            stringResource(R.string.todo_carry_over_failed),
+                            color = Color(0xFFFF7575),
+                            fontSize = 13.sp
+                        )
                     }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp)
+                            .heightIn(min = 44.dp)
+                            .testTag("past_tasks_move")
                             .clip(RoundedCornerShape(10.dp))
                             .background(Accent)
-                            .clickable(onClick = onCarryOver),
+                            .clickable(enabled = !busy, onClick = onCarryOver)
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            stringResource(R.string.todo_move_all_today),
+                            stringResource(if (busy) R.string.todo_carry_over_progress else R.string.todo_move_all_today),
                             style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
                         )
                     }
@@ -579,7 +645,7 @@ private fun YesterdayIncompleteSection(
 }
 
 @Composable
-private fun YesterdayTaskPreview(task: DailyTask, onDismiss: () -> Unit) {
+private fun PastTaskPreview(task: DailyTask, enabled: Boolean, onDismiss: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -597,6 +663,10 @@ private fun YesterdayTaskPreview(task: DailyTask, onDismiss: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            Text(
+                task.date.toString(),
+                style = TextStyle(color = TextSecondary, fontSize = 11.sp, lineHeight = 15.sp)
+            )
             if (task.tags.isNotEmpty()) {
                 Text(
                     task.tags.take(3).joinToString("  ") { "#$it" },
@@ -613,7 +683,7 @@ private fun YesterdayTaskPreview(task: DailyTask, onDismiss: () -> Unit) {
                 .size(26.dp)
                 .clip(CircleShape)
                 .background(Color.White.copy(alpha = 0.07f))
-                .clickable(onClick = onDismiss),
+                .clickable(enabled = enabled, onClick = onDismiss),
             contentAlignment = Alignment.Center
         ) {
             Icon(

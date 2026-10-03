@@ -154,7 +154,11 @@
     <string name="todo_hint_braindump_empty">هنوز کاری ندارید. از بالا یکی اضافه کنید!</string>
     <string name="todo_hint_habits_empty">برای امروز عادت تکرارشونده‌ای وجود ندارد.</string>
     <string name="todo_input_placeholder">افزودن کار جدید...</string>
-    <string name="todo_yesterday_leftover">باقی‌ماندهٔ دیروز</string>
+    <string name="todo_past_incomplete">کارهای ناتمام گذشته</string>
+    <string name="todo_carry_over_title">انتقال کارهای ناتمام</string>
+    <string name="todo_carry_over_message">%1$d کار ناتمام به امروز منتقل شود؟ زمان‌بندی و وضعیت Big 3 آن‌ها پاک می‌شود. عادت‌های تکرارشونده شامل نمی‌شوند.</string>
+    <string name="todo_carry_over_progress">در حال انتقال...</string>
+    <string name="todo_carry_over_failed">انتقال کارها انجام نشد. دوباره تلاش کنید.</string>
     <string name="todo_move_all_today">انتقال همه به امروز</string>
     <string name="todo_big3">BIG 3 امروز</string>
     <string name="todo_brain_dump">تخلیهٔ ذهن</string>

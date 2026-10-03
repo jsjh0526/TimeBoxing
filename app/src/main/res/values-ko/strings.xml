@@ -154,7 +154,11 @@
     <string name="todo_hint_braindump_empty">아직 할일이 없어요</string>
     <string name="todo_hint_habits_empty">오늘 반복 습관이 없어요</string>
     <string name="todo_input_placeholder">새 할일 추가...</string>
-    <string name="todo_yesterday_leftover">YESTERDAY LEFTOVER</string>
+    <string name="todo_past_incomplete">지난 미완료 할 일</string>
+    <string name="todo_carry_over_title">지난 할 일 이월</string>
+    <string name="todo_carry_over_message">미완료 %1$d개를 오늘로 옮길까요? 이전 시간 배정과 Big 3 지정은 해제돼요. 반복 습관은 제외됩니다.</string>
+    <string name="todo_carry_over_progress">옮기는 중...</string>
+    <string name="todo_carry_over_failed">할 일을 옮기지 못했어요. 다시 시도해 주세요.</string>
     <string name="todo_move_all_today">오늘로 모두 옮기기</string>
     <string name="todo_big3">TODAY\'S BIG 3</string>
     <string name="todo_brain_dump">BRAIN DUMP</string>

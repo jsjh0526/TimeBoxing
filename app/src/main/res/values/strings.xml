@@ -154,7 +154,11 @@
     <string name="todo_hint_braindump_empty">No tasks yet. Add one above!</string>
     <string name="todo_hint_habits_empty">No recurring habits for today.</string>
     <string name="todo_input_placeholder">Add a new task...</string>
-    <string name="todo_yesterday_leftover">YESTERDAY LEFTOVER</string>
+    <string name="todo_past_incomplete">PAST UNFINISHED TASKS</string>
+    <string name="todo_carry_over_title">Move unfinished tasks</string>
+    <string name="todo_carry_over_message">Move %1$d unfinished tasks to today? Their time blocks and Big 3 status will be cleared. Recurring habits are excluded.</string>
+    <string name="todo_carry_over_progress">Moving...</string>
+    <string name="todo_carry_over_failed">Could not move tasks. Please try again.</string>
     <string name="todo_move_all_today">Move all to today</string>
     <string name="todo_big3">TODAY\'S BIG 3</string>
     <string name="todo_brain_dump">BRAIN DUMP</string>

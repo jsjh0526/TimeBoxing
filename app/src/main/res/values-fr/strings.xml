@@ -154,7 +154,11 @@
     <string name="todo_hint_braindump_empty">Aucune tâche. Ajoutez-en une ci-dessus !</string>
     <string name="todo_hint_habits_empty">Aucune habitude récurrente aujourd’hui.</string>
     <string name="todo_input_placeholder">Ajouter une nouvelle tâche…</string>
-    <string name="todo_yesterday_leftover">RESTE D’HIER</string>
+    <string name="todo_past_incomplete">TÂCHES ANTÉRIEURES INACHEVÉES</string>
+    <string name="todo_carry_over_title">Déplacer les tâches inachevées</string>
+    <string name="todo_carry_over_message">Déplacer %1$d tâches inachevées à aujourd’hui ? Leurs blocs de temps et leur statut Big 3 seront effacés. Les habitudes récurrentes sont exclues.</string>
+    <string name="todo_carry_over_progress">Déplacement...</string>
+    <string name="todo_carry_over_failed">Impossible de déplacer les tâches. Réessayez.</string>
     <string name="todo_move_all_today">Tout déplacer à aujourd’hui</string>
     <string name="todo_big3">BIG 3 DU JOUR</string>
     <string name="todo_brain_dump">VIDE-TÊTE</string>

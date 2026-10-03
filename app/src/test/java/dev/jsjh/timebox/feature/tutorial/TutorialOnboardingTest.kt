@@ -134,6 +134,8 @@ class TutorialOnboardingTest {
 
         override suspend fun deleteTask(date: LocalDate, taskId: String) = Unit
 
-        override suspend fun carryOverIncompleteTasks(fromDate: LocalDate, toDate: LocalDate): Int = 0
+        override suspend fun getPastIncompleteTasks(beforeDate: LocalDate): List<DailyTask> = emptyList()
+
+        override suspend fun carryOverPastIncompleteTasks(toDate: LocalDate, confirmedTaskIds: List<String>): Int = 0
     }
 }

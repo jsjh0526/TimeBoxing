@@ -154,7 +154,11 @@
     <string name="todo_hint_braindump_empty">Hapana mabasa parizvino. Wedzera imwe pamusoro!</string>
     <string name="todo_hint_habits_empty">Hapana maitiro anodzokororwa nhasi.</string>
     <string name="todo_input_placeholder">Wedzera rimwe basa...</string>
-    <string name="todo_yesterday_leftover">ZVAKASARA NEZURO</string>
+    <string name="todo_past_incomplete">MABASA EKARE ASINA KUPERA</string>
+    <string name="todo_carry_over_title">Fambisa mabasa asina kupera</string>
+    <string name="todo_carry_over_message">Fambisa mabasa %1$d asina kupera kunhasi? Nguva dzakarongwa uye mamiriro eBig 3 zvichabviswa. Tsika dzinodzokororwa hadzina kubatanidzwa.</string>
+    <string name="todo_carry_over_progress">Zviri kufambiswa...</string>
+    <string name="todo_carry_over_failed">Mabasa haana kufambiswa. Edza zvakare.</string>
     <string name="todo_move_all_today">Fambisa zvese kunhasi</string>
     <string name="todo_big3">BIG 3 YANHASI</string>
     <string name="todo_brain_dump">PFUNGWA DZOSE</string>

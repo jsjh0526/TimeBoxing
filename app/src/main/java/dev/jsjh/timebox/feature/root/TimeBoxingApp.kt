@@ -589,7 +589,7 @@ private fun MainApp(
         if (enablingNotifications) onRequestNotificationPermission()
     }
 
-    LaunchedEffect(userId, repository, reminderSettings, appSettings.dayStartHour) {
+    LaunchedEffect(userId, repository, reminderSettings, appSettings.dayStartHour, appState.reminderScheduleRevision) {
         if (!reminderSettings.notificationsEnabled) {
             ReminderScheduler.cancelAll(context)
             return@LaunchedEffect
@@ -679,11 +679,13 @@ private fun MainApp(
                     date = appState.today,
                     recurrenceByTemplateId = appState.recurrenceByTemplateId,
                     otherHabits = appState.otherHabits,
-                    yesterdayIncompleteTasks = appState.yesterdayIncompleteTasks,
+                    pastIncompleteTasks = appState.pastIncompleteTasks,
+                    carryOverInProgress = appState.carryOverInProgress,
+                    carryOverFailed = appState.carryOverFailed,
                     onQuickAddTask = { appState.quickAddTask(it, appState.today) },
                     onOpenAddTaskEditor = { appState.openNewTaskEditor(date = appState.today, initialTitle = it) },
-                    onCarryOverYesterday = appState::carryOverYesterdayIncompleteTasks,
-                    onDismissYesterdayTask = appState::dismissYesterdayTask,
+                    onCarryOverPastTasks = appState::carryOverPastIncompleteTasks,
+                    onDismissPastTask = appState::dismissPastTask,
                     onToggleBig3 = appState::toggleBig3,
                     onToggleComplete = { appState.toggleCompleted(it, appState.today) },
                     onOpenTask = { appState.openTaskEditor(it, appState.today) },

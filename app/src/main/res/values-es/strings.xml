@@ -154,7 +154,11 @@
     <string name="todo_hint_braindump_empty">Aún no hay tareas. ¡Añade una arriba!</string>
     <string name="todo_hint_habits_empty">No hay hábitos recurrentes para hoy.</string>
     <string name="todo_input_placeholder">Añadir una tarea nueva…</string>
-    <string name="todo_yesterday_leftover">PENDIENTES DE AYER</string>
+    <string name="todo_past_incomplete">TAREAS PENDIENTES ANTERIORES</string>
+    <string name="todo_carry_over_title">Mover tareas pendientes</string>
+    <string name="todo_carry_over_message">¿Mover %1$d tareas pendientes a hoy? Se quitarán sus bloques de tiempo y su estado Big 3. Los hábitos recurrentes no se incluyen.</string>
+    <string name="todo_carry_over_progress">Moviendo...</string>
+    <string name="todo_carry_over_failed">No se pudieron mover las tareas. Inténtalo de nuevo.</string>
     <string name="todo_move_all_today">Mover todo a hoy</string>
     <string name="todo_big3">BIG 3 DE HOY</string>
     <string name="todo_brain_dump">LISTA DE IDEAS</string>
