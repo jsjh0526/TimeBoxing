@@ -164,6 +164,7 @@
     <string name="todo_brain_dump">YONKE IMISEBENZI</string>
     <string name="todo_today_habits">IMIKHUBA YANAMUHLA</string>
     <string name="todo_other_habits">EMINYE IMIKHUBA</string>
+    <string name="todo_completed">OKUQEDIWE</string>
     <string name="recurrence_daily">Nsuku zonke</string>
     <string name="recurrence_weekdays">Izinsuku zomsebenzi</string>
     <string name="recurrence_weekend">Impelasonto</string>

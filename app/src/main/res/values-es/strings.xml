@@ -164,6 +164,7 @@
     <string name="todo_brain_dump">LISTA DE IDEAS</string>
     <string name="todo_today_habits">HÁBITOS DE HOY</string>
     <string name="todo_other_habits">OTROS HÁBITOS</string>
+    <string name="todo_completed">COMPLETADAS</string>
     <string name="recurrence_daily">Todos los días</string>
     <string name="recurrence_weekdays">Días laborables</string>
     <string name="recurrence_weekend">Fin de semana</string>

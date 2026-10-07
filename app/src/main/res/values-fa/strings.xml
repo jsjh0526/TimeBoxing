@@ -164,6 +164,7 @@
     <string name="todo_brain_dump">تخلیهٔ ذهن</string>
     <string name="todo_today_habits">عادت‌های امروز</string>
     <string name="todo_other_habits">عادت‌های دیگر</string>
+    <string name="todo_completed">کارهای انجام‌شده</string>
     <string name="recurrence_daily">هر روز</string>
     <string name="recurrence_weekdays">روزهای کاری</string>
     <string name="recurrence_weekend">آخر هفته</string>

@@ -164,6 +164,7 @@
     <string name="todo_brain_dump">LAHAT NG GAWAIN</string>
     <string name="todo_today_habits">MGA GAWI NGAYON</string>
     <string name="todo_other_habits">IBA PANG GAWI</string>
+    <string name="todo_completed">MGA NATAPOS</string>
     <string name="recurrence_daily">Araw-araw</string>
     <string name="recurrence_weekdays">Mga weekday</string>
     <string name="recurrence_weekend">Weekend</string>

@@ -95,6 +95,7 @@ import dev.jsjh.timebox.feature.settings.SettingsScreen
 import dev.jsjh.timebox.feature.settings.effectiveToday
 import dev.jsjh.timebox.feature.timetable.TimetableScreen
 import dev.jsjh.timebox.feature.todo.TodoScreen
+import dev.jsjh.timebox.feature.todo.TodoTaskOrderStore
 import dev.jsjh.timebox.feature.tutorial.TutorialPreviewHost
 import dev.jsjh.timebox.feature.tutorial.TutorialAutoDecision
 import dev.jsjh.timebox.feature.tutorial.TutorialAutoStatus
@@ -426,7 +427,10 @@ private fun MainApp(
     }
     val appToday = effectiveToday(appSettings.dayStartHour, nowForDayBoundary)
     val currentTime = nowForDayBoundary.toLocalTime()
-    val appState = rememberTimeBoxingAppState(repository, appToday)
+    val todoOrderStore = remember(context, userId) {
+        TodoTaskOrderStore(context, userId)
+    }
+    val appState = rememberTimeBoxingAppState(repository, appToday, todoOrderStore)
     val tutorialStore = remember(context) { TutorialOnboardingStore(context) }
     var tutorialEligibilityHandled by remember(userId, reloadKey) { mutableStateOf(false) }
     var startupRequestsDispatched by remember(userId, reloadKey) { mutableStateOf(false) }

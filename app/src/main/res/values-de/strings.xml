@@ -164,6 +164,7 @@
     <string name="todo_brain_dump">BRAIN DUMP</string>
     <string name="todo_today_habits">HEUTIGE GEWOHNHEITEN</string>
     <string name="todo_other_habits">WEITERE GEWOHNHEITEN</string>
+    <string name="todo_completed">ERLEDIGT</string>
     <string name="recurrence_daily">Jeden Tag</string>
     <string name="recurrence_weekdays">Wochentage</string>
     <string name="recurrence_weekend">Wochenende</string>

@@ -164,6 +164,7 @@
     <string name="todo_brain_dump">VIDE-TÊTE</string>
     <string name="todo_today_habits">HABITUDES DU JOUR</string>
     <string name="todo_other_habits">AUTRES HABITUDES</string>
+    <string name="todo_completed">TERMINÉES</string>
     <string name="recurrence_daily">Tous les jours</string>
     <string name="recurrence_weekdays">Jours de semaine</string>
     <string name="recurrence_weekend">Week-end</string>

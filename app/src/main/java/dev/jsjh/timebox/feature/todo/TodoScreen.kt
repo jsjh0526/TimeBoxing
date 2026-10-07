@@ -49,6 +49,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -150,6 +151,7 @@ fun TodoScreen(
 ) {
     var otherHabitsExpanded by remember { mutableStateOf(false) }
     var pastTasksExpanded by remember { mutableStateOf(false) }
+    var completedExpanded by remember(date) { mutableStateOf(false) }
     var carryOverConfirmation by remember(date) { mutableStateOf<List<String>?>(null) }
     // Disable LazyColumn scrolling while any section is being dragged.
     var globalDragging by remember { mutableStateOf(false) }
@@ -158,7 +160,12 @@ fun TodoScreen(
     var listViewportBounds by remember { mutableStateOf<Rect?>(null) }
 
     val big3 = tasks.filter { it.isBig3 }
-    val brainDump = tasks.filter { !it.isBig3 && it.source != DailyTaskSource.RECURRING }
+    val brainDumpTasks = tasks.filter { !it.isBig3 && it.source != DailyTaskSource.RECURRING }
+    val brainDump = brainDumpTasks.filterNot { it.isCompleted }
+    val completed = brainDumpTasks.filter { it.isCompleted }
+    LaunchedEffect(completed.isEmpty()) {
+        if (completed.isEmpty()) completedExpanded = false
+    }
     val recurring = tasks.filter { task ->
         task.source == DailyTaskSource.RECURRING && !task.isBig3 && run {
             val rule = task.templateId?.let { tid -> recurrenceByTemplateId[tid] }
@@ -187,6 +194,7 @@ fun TodoScreen(
 
     LazyColumn(
         modifier = modifier
+            .testTag("todo_list")
             .fillMaxSize()
             .background(ScreenBackground)
             .onGloballyPositioned { listViewportBounds = it.boundsInRoot() },
@@ -266,6 +274,40 @@ fun TodoScreen(
             )
         }
 
+        if (completed.isNotEmpty()) {
+            item(key = "completed_header") {
+                Spacer(Modifier.height(HEADER_GAP))
+                CollapsibleSectionHeader(
+                    title = stringResource(R.string.todo_completed),
+                    count = completed.size,
+                    expanded = completedExpanded,
+                    onToggle = { if (!globalDragging) completedExpanded = !completedExpanded },
+                    modifier = Modifier.testTag("completed_tasks_header")
+                )
+            }
+            if (completedExpanded) {
+                items(completed, key = { "completed-${it.id}" }) { task ->
+                    Box(Modifier.padding(top = ITEM_GAP)) {
+                        TaskCard(
+                            task = task,
+                            bordered = false,
+                            isDragging = false,
+                            recurrenceRule = null,
+                            onToggleBig3 = if (globalDragging) ({}) else onToggleBig3,
+                            onToggleComplete = if (globalDragging) ({}) else onToggleComplete,
+                            onOpenTask = if (globalDragging) ({}) else onOpenTask,
+                            onDragStart = {},
+                            onDrag = {},
+                            onDragEnd = {},
+                            onDragCancel = {},
+                            tutorialTargetRegistry = null,
+                            dragEnabled = false
+                        )
+                    }
+                }
+            }
+        }
+
         // RECURRING HABITS
         item { Spacer(Modifier.height(SECTION_GAP)) }
         item { SectionHeader(stringResource(R.string.todo_today_habits), RecurringSection, recurring.size) }
@@ -289,7 +331,8 @@ fun TodoScreen(
         if (otherHabits.isNotEmpty()) {
             item { Spacer(Modifier.height(HEADER_GAP)) }
             item {
-                OtherHabitsHeader(
+                CollapsibleSectionHeader(
+                    title = stringResource(R.string.todo_other_habits),
                     count = otherHabits.size, expanded = otherHabitsExpanded,
                     onToggle = { otherHabitsExpanded = !otherHabitsExpanded }
                 )
@@ -381,8 +424,10 @@ private fun DraggableSection(
     val dragShadowPx = with(density) { 24.dp.toPx() }
     val measuredHeights = remember(tasks.map { it.id }) { mutableStateMapOf<String, Int>() }
 
-    var draggingFrom by remember { mutableStateOf(-1) }
+    var draggingIndex by remember { mutableStateOf(-1) }
+    var dragTasksSnapshot by remember { mutableStateOf<List<DailyTask>?>(null) }
     var dragTotalY by remember { mutableStateOf(0f) }
+    val draggingFrom = if (dragTasksSnapshot == tasks) draggingIndex else -1
 
     val cardHeights = tasks.map { task -> (measuredHeights[task.id]?.toFloat() ?: fallbackHeightPx) }
     val cardTops = buildList(tasks.size) {
@@ -423,6 +468,25 @@ private fun DraggableSection(
     // 理쒖떊 ?쒕옒洹?肄쒕갚 李몄“瑜??좎??⑸땲??
     val latestOnSetDragging by rememberUpdatedState(onSetDragging)
     val latestOnReorder by rememberUpdatedState(onReorder)
+    val latestTasks by rememberUpdatedState(tasks)
+    LaunchedEffect(tasks) {
+        if (draggingIndex >= 0 && dragTasksSnapshot != tasks) {
+            draggingIndex = -1
+            dragTasksSnapshot = null
+            dragTotalY = 0f
+            latestOnSetDragging(false)
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            if (draggingIndex >= 0) {
+                draggingIndex = -1
+                dragTasksSnapshot = null
+                dragTotalY = 0f
+                latestOnSetDragging(false)
+            }
+        }
+    }
     Box(modifier = Modifier.fillMaxWidth()) {
         Column {
             tasks.forEachIndexed { index, task ->
@@ -468,18 +532,26 @@ private fun DraggableSection(
                         onToggleComplete = if (interactionsEnabled) onToggleComplete else ({ }),
                         onOpenTask = if (interactionsEnabled) onOpenTask else ({ }),
                         onDragStart = {
-                            draggingFrom = index
+                            dragTasksSnapshot = tasks
+                            draggingIndex = index
                             dragTotalY = 0f
                             latestOnSetDragging(true)
                         },
                         onDrag = { delta -> dragTotalY += delta },
                         onDragEnd = {
                             val from = draggingFrom
-                            if (from >= 0) {
+                            if (from in tasks.indices && dragTasksSnapshot == latestTasks) {
                                 val to = targetIndex
-                                if (from != to) latestOnReorder(tasks[from].id, to)
+                                if (to in tasks.indices && from != to) latestOnReorder(tasks[from].id, to)
                             }
-                            draggingFrom = -1
+                            draggingIndex = -1
+                            dragTasksSnapshot = null
+                            dragTotalY = 0f
+                            latestOnSetDragging(false)
+                        },
+                        onDragCancel = {
+                            draggingIndex = -1
+                            dragTasksSnapshot = null
                             dragTotalY = 0f
                             latestOnSetDragging(false)
                         },
@@ -496,6 +568,7 @@ private fun DraggableSection(
             }.coerceIn(0f, totalHeightPx)
             InsertionIndicator(
                 modifier = Modifier
+                    .testTag("todo_insertion_indicator")
                     .fillMaxWidth()
                     .graphicsLayer { translationY = indicatorY }
                     .zIndex(20f)
@@ -737,7 +810,9 @@ private fun TaskCard(
     onDragStart: () -> Unit,
     onDrag: (Float) -> Unit,
     onDragEnd: () -> Unit,
-    tutorialTargetRegistry: TutorialTargetRegistry?
+    onDragCancel: () -> Unit,
+    tutorialTargetRegistry: TutorialTargetRegistry?,
+    dragEnabled: Boolean = true
 ) {
     val context = LocalContext.current
     val isRecurring = task.source == DailyTaskSource.RECURRING
@@ -763,6 +838,7 @@ private fun TaskCard(
 
     Box(
         modifier = Modifier
+            .testTag("todo_task_${task.id}")
             .fillMaxWidth()
             .heightIn(min = CARD_MIN_H)
             .then(
@@ -778,9 +854,20 @@ private fun TaskCard(
             .padding(horizontal = CARD_PAD_H, vertical = CARD_PAD_V)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            DragHandle(onDragStart = onDragStart, onDrag = onDrag, onDragEnd = onDragEnd)
+            if (dragEnabled) {
+                DragHandle(
+                    onDragStart = onDragStart, onDrag = onDrag, onDragEnd = onDragEnd,
+                    onDragCancel = onDragCancel,
+                    modifier = Modifier.testTag("todo_drag_${task.id}")
+                )
+            } else {
+                Spacer(Modifier.width(DRAG_HANDLE_W))
+            }
             Spacer(Modifier.width(6.dp))
-            CompletionCircle(completed = task.isCompleted, onClick = { onToggleComplete(task.id) })
+            CompletionCircle(
+                completed = task.isCompleted, onClick = { onToggleComplete(task.id) },
+                modifier = Modifier.testTag("todo_complete_${task.id}")
+            )
             Spacer(Modifier.width(14.dp))
             Column(
                 modifier = Modifier
@@ -826,11 +913,11 @@ private fun TaskCard(
             Big3Toggle(
                 selected = task.isBig3,
                 onClick = { onToggleBig3(task.id) },
-                modifier = if (task.id == TutorialTaskIds.MARK_BIG3) {
-                    Modifier.tutorialTarget(tutorialTargetRegistry, TutorialTarget.MARK_BIG3)
-                } else {
-                    Modifier
-                }
+                modifier = Modifier.testTag("todo_big3_${task.id}").then(
+                    if (task.id == TutorialTaskIds.MARK_BIG3) {
+                        Modifier.tutorialTarget(tutorialTargetRegistry, TutorialTarget.MARK_BIG3)
+                    } else Modifier
+                )
             )
         }
     }
@@ -893,20 +980,23 @@ private fun CompactCard(
 private fun DragHandle(
     onDragStart: () -> Unit,
     onDrag: (Float) -> Unit,
-    onDragEnd: () -> Unit
+    onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val latestOnDragStart by rememberUpdatedState(onDragStart)
     val latestOnDrag      by rememberUpdatedState(onDrag)
     val latestOnDragEnd   by rememberUpdatedState(onDragEnd)
+    val latestOnDragCancel by rememberUpdatedState(onDragCancel)
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(width = DRAG_HANDLE_W, height = 44.dp)
             .pointerInput(Unit) {
                 detectDragGesturesAfterLongPress(
                     onDragStart  = { latestOnDragStart() },
                     onDragEnd    = { latestOnDragEnd() },
-                    onDragCancel = { latestOnDragEnd() },
+                    onDragCancel = { latestOnDragCancel() },
                     onDrag = { change, dragAmount ->
                         change.consume()
                         latestOnDrag(dragAmount.y)
@@ -961,19 +1051,22 @@ private fun CompletionCircle(completed: Boolean, onClick: () -> Unit, modifier: 
 }
 
 @Composable
-private fun OtherHabitsHeader(count: Int, expanded: Boolean, onToggle: () -> Unit) {
+private fun CollapsibleSectionHeader(
+    title: String, count: Int, expanded: Boolean, onToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Divider))
         Row(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
-                .height(44.dp)
+                .heightIn(min = 44.dp)
                 .clickable(onClick = onToggle),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (expanded) ChevronUpIcon(TextMuted) else ChevronDownIcon(TextMuted)
             Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.todo_other_habits), style = TextStyle(color = TextMuted, fontSize = 14.sp, lineHeight = 20.sp))
+            Text(title, modifier = Modifier.weight(1f), style = TextStyle(color = TextMuted, fontSize = 14.sp, lineHeight = 20.sp))
             Spacer(Modifier.width(8.dp))
             Box(modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(CardBackground).padding(horizontal = 7.dp, vertical = 2.dp)) {
                 Text(count.toString(), style = TextStyle(color = TextMuted, fontSize = 12.sp, lineHeight = 16.sp))

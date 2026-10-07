@@ -24,7 +24,13 @@
       "Bash(./gradlew.bat :app:compileReleaseKotlin :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintVitalRelease --console=plain)",
       "Bash(sed -n '/fun fetchSnapshot/,/^    }/p' app/src/main/java/dev/jsjh/timebox/data/remote/SupabaseSync.kt)",
       "Bash(sed -n '/data class RemoteSyncSnapshot/,/\\)/p' app/src/main/java/dev/jsjh/timebox/data/remote/SupabaseSync.kt)",
-      "Bash(./gradlew.bat :app:compileReleaseKotlin :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin --console=plain)"
+      "Bash(./gradlew.bat :app:compileReleaseKotlin :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin --console=plain)",
+      "Bash(./gradlew.bat :app:testDebugUnitTest :app:compileReleaseKotlin --console=plain)",
+      "Bash(grep -hn \"fun \\\\`\\\\|@Test\" -A1 app/src/test/java/dev/jsjh/timebox/feature/todo/TodoTaskOrderStoreTest.kt app/src/test/java/dev/jsjh/timebox/feature/todo/TodoCompletedTasksTest.kt app/src/test/java/dev/jsjh/timebox/feature/root/TimeBoxingTodoOrderTest.kt)",
+      "Bash(git hash-object *)",
+      "Bash(awk '{print $6, $7, $8}')",
+      "Bash(sed -n '/fun write/,/^    }/p' app/src/main/java/dev/jsjh/timebox/feature/todo/TodoTaskOrderStore.kt)",
+      "Bash(sed -n '/private fun saveSectionOrder/,/^    }/p' app/src/main/java/dev/jsjh/timebox/feature/root/TimeBoxingAppState.kt)"
     ]
   }
 }

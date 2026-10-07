@@ -164,6 +164,7 @@
     <string name="todo_brain_dump">PFUNGWA DZOSE</string>
     <string name="todo_today_habits">TSIKA DZANHASI</string>
     <string name="todo_other_habits">DZIMWE TSIKA</string>
+    <string name="todo_completed">ZVAPEDZWA</string>
     <string name="recurrence_daily">Zuva Nezuva</string>
     <string name="recurrence_weekdays">Mazuva evhiki</string>
     <string name="recurrence_weekend">Pakupera kwevhiki</string>

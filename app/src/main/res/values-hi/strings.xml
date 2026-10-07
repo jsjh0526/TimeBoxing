@@ -164,6 +164,7 @@
     <string name="todo_brain_dump">सभी कार्य</string>
     <string name="todo_today_habits">आज की आदतें</string>
     <string name="todo_other_habits">अन्य आदतें</string>
+    <string name="todo_completed">पूर्ण कार्य</string>
     <string name="recurrence_daily">हर दिन</string>
     <string name="recurrence_weekdays">कार्यदिवस</string>
     <string name="recurrence_weekend">सप्ताहांत</string>

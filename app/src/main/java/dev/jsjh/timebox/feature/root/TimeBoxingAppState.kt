@@ -23,6 +23,9 @@ import dev.jsjh.timebox.feature.editor.TaskEditorDraft
 import dev.jsjh.timebox.feature.editor.newTaskDraft
 import dev.jsjh.timebox.feature.editor.parseTime
 import dev.jsjh.timebox.feature.editor.toEditorDraft
+import dev.jsjh.timebox.feature.todo.TodoTaskOrderStore
+import dev.jsjh.timebox.feature.todo.reconcileTodoOrder
+import dev.jsjh.timebox.feature.todo.reorderVisibleTodoTasks
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
@@ -37,9 +40,11 @@ internal const val ScheduleLimitMessageToken = "schedule_limit"
 class TimeBoxingAppState(
     private val repository: TaskRepository,
     initialTodayDate: LocalDate,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val orderStore: TodoTaskOrderStore? = null
 ) {
     private val sectionOrderByDate = mutableMapOf<LocalDate, MutableMap<String, MutableList<String>>>()
+    private var todayRefreshGeneration = 0
     private var todayDate by mutableStateOf(initialTodayDate)
     val today: LocalDate get() = todayDate
 
@@ -201,7 +206,8 @@ class TimeBoxingAppState(
     fun quickAddTask(title: String, date: LocalDate = today) {
         if (title.isBlank()) return
         scope.launch {
-            repository.addTask(date = date, title = title.trim())
+            val task = repository.addTask(date = date, title = title.trim())
+            placeNewTaskFirst(task)
             TimeBoxAnalytics.taskCreated(
                 source = "quick_add",
                 hasSchedule = false,
@@ -213,14 +219,13 @@ class TimeBoxingAppState(
 
     fun reorderTodayTodoTask(taskId: String, toIndex: Int) {
         val sectionKey = inferSectionKey(taskId, todayTodoTasks) ?: return
-        val sectionOrders = sectionOrderByDate.getOrPut(today) { mutableMapOf() }
         val currentIds = sectionTaskIds(sectionKey, todayTodoTasks)
-        val order = sectionOrders.getOrPut(sectionKey) { currentIds.toMutableList() }
-        currentIds.forEach { id -> if (id !in order) order.add(id) }
-        order.removeAll { it !in currentIds }
-        if (taskId !in order) return
-        order.remove(taskId)
-        order.add(toIndex.coerceIn(0, order.size), taskId)
+        val order = reconcileTodoOrder(sectionOrder(today, sectionKey), currentIds)
+        val currentIdSet = currentIds.toSet()
+        val visibleIds = todayTodoTasks.filter {
+            it.id in currentIdSet && (sectionKey != "brainDump" || !it.isCompleted)
+        }.map { it.id }
+        saveSectionOrder(today, sectionKey, reorderVisibleTodoTasks(order, visibleIds, taskId, toIndex))
         todayTodoTasks = applyAllSectionOrders(today, todayTasks)
     }
 
@@ -317,7 +322,7 @@ class TimeBoxingAppState(
                 }
             }
 
-            repository.upsertTask(
+            val savedTask = repository.upsertTask(
                 TaskEditInput(
                     taskId = draft.taskId,
                     templateId = draft.templateId,
@@ -331,6 +336,7 @@ class TimeBoxingAppState(
                 )
             )
             if (isNewTask) {
+                placeNewTaskFirst(savedTask)
                 TimeBoxAnalytics.taskCreated(
                     source = "editor",
                     hasSchedule = schedule != null,
@@ -388,11 +394,14 @@ class TimeBoxingAppState(
     }
 
     private suspend fun refreshToday() {
-        val fresh = repository.getTasks(today)
+        val date = today
+        val generation = ++todayRefreshGeneration
+        val fresh = repository.getTasks(date)
+        if (date != today || generation != todayRefreshGeneration) return
         todayTasks = fresh
-        syncSectionOrders(today, fresh)
-        todayTodoTasks = applyAllSectionOrders(today, fresh)
-        refreshTemplateCache(today)
+        syncSectionOrders(date, fresh)
+        todayTodoTasks = applyAllSectionOrders(date, fresh)
+        refreshTemplateCache(date)
         refreshPastIncomplete()
     }
 
@@ -433,13 +442,26 @@ class TimeBoxingAppState(
     }
 
     private fun syncSectionOrders(date: LocalDate, tasks: List<DailyTask>) {
-        val sectionOrders = sectionOrderByDate.getOrPut(date) { mutableMapOf() }
         listOf("big3", "brainDump", "recurring").forEach { key ->
             val ids = sectionTaskIds(key, tasks)
-            val order = sectionOrders.getOrPut(key) { ids.toMutableList() }
-            order.removeAll { it !in ids }
-            ids.forEach { id -> if (id !in order) order.add(id) }
+            saveSectionOrder(date, key, reconcileTodoOrder(sectionOrder(date, key), ids))
         }
+    }
+
+    private fun sectionOrder(date: LocalDate, section: String): MutableList<String> =
+        sectionOrderByDate.getOrPut(date) { mutableMapOf() }.getOrPut(section) {
+            orderStore?.read(date, section).orEmpty().toMutableList()
+        }
+
+    private fun saveSectionOrder(date: LocalDate, section: String, ids: List<String>) {
+        sectionOrderByDate.getOrPut(date) { mutableMapOf() }[section] = ids.toMutableList()
+        orderStore?.write(date, section, ids)
+    }
+
+    private fun placeNewTaskFirst(task: DailyTask) {
+        val section = inferSectionKey(task.id, listOf(task)) ?: return
+        val order = sectionOrder(task.date, section)
+        saveSectionOrder(task.date, section, listOf(task.id) + order.filter { it != task.id })
     }
 
     private fun applyAllSectionOrders(date: LocalDate, tasks: List<DailyTask>): List<DailyTask> {
@@ -554,9 +576,11 @@ private fun formatEditorTime(totalMinutes: Int): String {
 }
 
 @Composable
-fun rememberTimeBoxingAppState(repository: TaskRepository, today: LocalDate): TimeBoxingAppState {
+fun rememberTimeBoxingAppState(
+    repository: TaskRepository, today: LocalDate, orderStore: TodoTaskOrderStore? = null
+): TimeBoxingAppState {
     val scope = rememberCoroutineScope()
-    return remember(repository) {
-        TimeBoxingAppState(repository = repository, initialTodayDate = today, scope = scope)
+    return remember(repository, orderStore) {
+        TimeBoxingAppState(repository = repository, initialTodayDate = today, scope = scope, orderStore = orderStore)
     }
 }
