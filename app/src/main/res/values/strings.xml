@@ -281,4 +281,11 @@
     <string name="tutorial_open_home_step_body">Home brings your current task and the next schedule together.</string>
     <string name="tutorial_now_step_title">Focus on one thing now</string>
     <string name="tutorial_now_step_body">Once the plan is done, focus only on the task shown in NOW.</string>
+    <string name="todo_tags_expand">Show tag filters</string>
+    <string name="todo_tags_collapse">Hide tag filters</string>
+    <string name="todo_tags_clear">Clear all tag filters</string>
+    <string name="todo_tags_active">%1$d tags selected</string>
+    <string name="todo_tags_count">%1$d / %2$d</string>
+    <string name="todo_tags_empty">No tags in your Brain Dump yet.</string>
+    <string name="todo_tags_no_matches">No tasks contain all selected tags.</string>
 </resources>

@@ -281,4 +281,11 @@
     <string name="tutorial_open_home_step_body">Auf der Startseite siehst du deine aktuelle Aufgabe und den nächsten Termin zusammen.</string>
     <string name="tutorial_now_step_title">Konzentriere dich jetzt auf eine Sache</string>
     <string name="tutorial_now_step_body">Wenn dein Plan steht, konzentriere dich nur auf die Aufgabe, die unter NOW angezeigt wird.</string>
+    <string name="todo_tags_expand">Tag-Filter anzeigen</string>
+    <string name="todo_tags_collapse">Tag-Filter ausblenden</string>
+    <string name="todo_tags_clear">Alle Tag-Filter zurücksetzen</string>
+    <string name="todo_tags_active">%1$d Tags ausgewählt</string>
+    <string name="todo_tags_count">%1$d / %2$d</string>
+    <string name="todo_tags_empty">Dein Brain Dump hat noch keine Tags.</string>
+    <string name="todo_tags_no_matches">Keine Aufgabe enthält alle ausgewählten Tags.</string>
 </resources>

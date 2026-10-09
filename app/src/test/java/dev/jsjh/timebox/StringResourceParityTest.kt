@@ -63,6 +63,18 @@ class StringResourceParityTest {
         }
     }
 
+    @Test
+    fun `tag filter copy is localized for every supported locale`() {
+        val root = resourceRoot()
+        val defaults = readStrings(root.resolve("values/strings.xml"))
+        val keys = defaults.keys.filter { it.startsWith("todo_tags_") && it != "todo_tags_count" }
+        assertEquals(6, keys.size)
+        localeDirectories.forEach { directory ->
+            val localized = readStrings(root.resolve("$directory/strings.xml"))
+            assertTrue("English tag filter copy remains in $directory", keys.none { localized[it] == defaults[it] })
+        }
+    }
+
     private fun resourceRoot(): Path =
         sequenceOf(Path.of("src/main/res"), Path.of("app/src/main/res"))
             .first { Files.isDirectory(it) }
@@ -72,12 +84,14 @@ class StringResourceParityTest {
             .newDocumentBuilder()
             .parse(path.toFile())
         val nodes = document.getElementsByTagName("string")
-        return buildMap {
+        val strings = buildMap {
             repeat(nodes.length) { index ->
                 val element = nodes.item(index) as Element
                 put(element.getAttribute("name"), element.textContent)
             }
         }
+        assertEquals("Duplicate string keys in $path", nodes.length, strings.size)
+        return strings
     }
 
     private fun placeholders(value: String): List<String> =

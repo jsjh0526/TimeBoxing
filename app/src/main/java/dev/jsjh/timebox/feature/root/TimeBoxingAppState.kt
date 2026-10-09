@@ -24,6 +24,7 @@ import dev.jsjh.timebox.feature.editor.newTaskDraft
 import dev.jsjh.timebox.feature.editor.parseTime
 import dev.jsjh.timebox.feature.editor.toEditorDraft
 import dev.jsjh.timebox.feature.todo.TodoTaskOrderStore
+import dev.jsjh.timebox.feature.todo.matchesBrainDumpTags
 import dev.jsjh.timebox.feature.todo.reconcileTodoOrder
 import dev.jsjh.timebox.feature.todo.reorderVisibleTodoTasks
 import java.time.DayOfWeek
@@ -62,6 +63,11 @@ class TimeBoxingAppState(
         private set
     var editorDraft by mutableStateOf<TaskEditorDraft?>(null)
         private set
+    var brainDumpSelectedTags by mutableStateOf<Set<String>>(emptySet())
+        private set
+    var brainDumpTagsExpanded by mutableStateOf(false)
+        private set
+    private var newTaskEditorFromTodo = false
 
     var recurrenceByTemplateId by mutableStateOf<Map<String, RecurrenceRule?>>(emptyMap())
         private set
@@ -88,6 +94,7 @@ class TimeBoxingAppState(
         if (todayDate == nextToday) return
         val previousToday = todayDate
         todayDate = nextToday
+        resetBrainDumpTagFilter()
         if (selectedDate == previousToday) {
             selectedDate = nextToday
         }
@@ -99,6 +106,27 @@ class TimeBoxingAppState(
         scope.launch {
             if (tab == AppTab.TIMETABLE) refreshSelectedDate() else refreshToday()
         }
+    }
+
+    fun updateBrainDumpTagsExpanded(expanded: Boolean) {
+        brainDumpTagsExpanded = expanded
+    }
+
+    fun toggleBrainDumpTag(tag: String) {
+        brainDumpSelectedTags = if (tag in brainDumpSelectedTags) {
+            brainDumpSelectedTags - tag
+        } else {
+            brainDumpSelectedTags + tag
+        }
+    }
+
+    fun clearBrainDumpTags() {
+        brainDumpSelectedTags = emptySet()
+    }
+
+    private fun resetBrainDumpTagFilter() {
+        clearBrainDumpTags()
+        brainDumpTagsExpanded = false
     }
 
     fun openTimetable(date: LocalDate = today) {
@@ -205,9 +233,11 @@ class TimeBoxingAppState(
 
     fun quickAddTask(title: String, date: LocalDate = today) {
         if (title.isBlank()) return
+        val createdFromTodo = currentTab == AppTab.TODO
         scope.launch {
             val task = repository.addTask(date = date, title = title.trim())
             placeNewTaskFirst(task)
+            if (createdFromTodo && date == today) resetBrainDumpTagFilter()
             TimeBoxAnalytics.taskCreated(
                 source = "quick_add",
                 hasSchedule = false,
@@ -223,7 +253,8 @@ class TimeBoxingAppState(
         val order = reconcileTodoOrder(sectionOrder(today, sectionKey), currentIds)
         val currentIdSet = currentIds.toSet()
         val visibleIds = todayTodoTasks.filter {
-            it.id in currentIdSet && (sectionKey != "brainDump" || !it.isCompleted)
+            it.id in currentIdSet && (sectionKey != "brainDump" ||
+                (!it.isCompleted && it.matchesBrainDumpTags(brainDumpSelectedTags)))
         }.map { it.id }
         saveSectionOrder(today, sectionKey, reorderVisibleTodoTasks(order, visibleIds, taskId, toIndex))
         todayTodoTasks = applyAllSectionOrders(today, todayTasks)
@@ -264,10 +295,12 @@ class TimeBoxingAppState(
     }
 
     fun openNewTaskEditor(date: LocalDate = today, initialTitle: String = "") {
+        newTaskEditorFromTodo = currentTab == AppTab.TODO
         editorDraft = newTaskDraft(date = date, initialTitle = initialTitle)
     }
 
     fun openTaskEditor(taskId: String, date: LocalDate = today) {
+        newTaskEditorFromTodo = false
         scope.launch {
             val task = repository.getTask(date, taskId)
             if (task != null) {
@@ -288,12 +321,14 @@ class TimeBoxingAppState(
 
     fun dismissEditor() {
         editorDraft = null
+        newTaskEditorFromTodo = false
     }
 
     fun saveEditor() {
         val draft = editorDraft ?: return
         if (draft.title.isBlank()) return
         val isNewTask = draft.taskId == null && draft.templateId == null
+        val createdFromTodo = newTaskEditorFromTodo
 
         val startMinute = parseTime(draft.startText)
         val endMinute = parseTime(draft.endText)
@@ -337,6 +372,7 @@ class TimeBoxingAppState(
             )
             if (isNewTask) {
                 placeNewTaskFirst(savedTask)
+                if (createdFromTodo && draft.date == today) resetBrainDumpTagFilter()
                 TimeBoxAnalytics.taskCreated(
                     source = "editor",
                     hasSchedule = schedule != null,

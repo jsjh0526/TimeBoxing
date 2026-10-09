@@ -12,9 +12,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,6 +29,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -39,6 +42,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -71,12 +75,18 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -146,6 +156,10 @@ fun TodoScreen(
     onOpenTask: (String) -> Unit,
     // Move a task to its final index after drag ends.
     onReorderTask: (String, Int) -> Unit,
+    brainDumpSelectedTags: Set<String> = emptySet(),
+    brainDumpTagsExpanded: Boolean = false,
+    onBrainDumpTagToggle: (String) -> Unit = {},
+    onBrainDumpTagsExpandedChange: (Boolean) -> Unit = {},
     tutorialTargetRegistry: TutorialTargetRegistry? = null,
     tutorialFocusTarget: TutorialTarget? = null
 ) {
@@ -162,6 +176,13 @@ fun TodoScreen(
     val big3 = tasks.filter { it.isBig3 }
     val brainDumpTasks = tasks.filter { !it.isBig3 && it.source != DailyTaskSource.RECURRING }
     val brainDump = brainDumpTasks.filterNot { it.isCompleted }
+    val tagFilterEnabled = tutorialTargetRegistry == null
+    val selectedTags = if (tagFilterEnabled) brainDumpSelectedTags else emptySet()
+    val visibleBrainDump = brainDump.filter { it.matchesBrainDumpTags(selectedTags) }
+    val locale = LocalConfiguration.current.locales[0] ?: Locale.ENGLISH
+    val tagOptions = remember(brainDump, selectedTags, locale) {
+        brainDumpTagOptions(brainDump, selectedTags, locale)
+    }
     val completed = brainDumpTasks.filter { it.isCompleted }
     LaunchedEffect(completed.isEmpty()) {
         if (completed.isEmpty()) completedExpanded = false
@@ -257,12 +278,36 @@ fun TodoScreen(
 
         // BRAIN DUMP
         item { Spacer(Modifier.height(SECTION_GAP)) }
-        item { SectionHeader(stringResource(R.string.todo_brain_dump), TextSecondary, brainDump.size) }
+        item {
+            if (!tagFilterEnabled) {
+                SectionHeader(stringResource(R.string.todo_brain_dump), TextSecondary, brainDump.size)
+            } else {
+                BrainDumpFilterHeader(
+                    visibleCount = visibleBrainDump.size,
+                    totalCount = brainDump.size,
+                    selectedTags = selectedTags,
+                    expanded = brainDumpTagsExpanded,
+                    onToggle = { onBrainDumpTagsExpandedChange(!brainDumpTagsExpanded) }
+                )
+                AnimatedVisibility(
+                    visible = brainDumpTagsExpanded,
+                    enter = expandVertically(expandFrom = Alignment.Top, animationSpec = tween(180)) + fadeIn(),
+                    exit = shrinkVertically(shrinkTowards = Alignment.Top, animationSpec = tween(150)) + fadeOut()
+                ) {
+                    BrainDumpTagButtons(tagOptions, selectedTags, onBrainDumpTagToggle)
+                }
+            }
+        }
         item { Spacer(Modifier.height(HEADER_GAP)) }
         item {
-            if (brainDump.isEmpty()) EmptySectionHint(stringResource(R.string.todo_hint_braindump_empty))
+            if (visibleBrainDump.isEmpty()) {
+                EmptySectionHint(stringResource(
+                    if (selectedTags.isEmpty()) R.string.todo_hint_braindump_empty
+                    else R.string.todo_tags_no_matches
+                ))
+            }
             else DraggableSection(
-                tasks = brainDump,
+                tasks = visibleBrainDump,
                 bordered = false,
                 recurrenceByTemplateId = recurrenceByTemplateId,
                 onToggleBig3 = onToggleBig3,
@@ -786,6 +831,107 @@ private fun SectionHeader(title: String, color: Color, count: Int) {
         Text(title, style = TextStyle(color = color, fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp))
         Spacer(Modifier.width(8.dp))
         CountPill(count)
+    }
+}
+
+@Composable
+private fun BrainDumpFilterHeader(
+    visibleCount: Int,
+    totalCount: Int,
+    selectedTags: Set<String>,
+    expanded: Boolean,
+    onToggle: () -> Unit
+) {
+    val active = selectedTags.isNotEmpty()
+    val expandLabel = stringResource(if (expanded) R.string.todo_tags_collapse else R.string.todo_tags_expand)
+    val activeLabel = stringResource(R.string.todo_tags_active, selectedTags.size)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.weight(1f).heightIn(min = 48.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .testTag("brain_dump_filter_header")
+                .semantics { stateDescription = if (active) "$expandLabel, $activeLabel" else expandLabel }
+                .clickable(role = Role.Button, onClickLabel = expandLabel, onClick = onToggle),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FlowRow(
+                Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    stringResource(R.string.todo_brain_dump),
+                    modifier = Modifier.align(Alignment.CenterVertically).testTag("brain_dump_filter_title"),
+                    style = TextStyle(color = TextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                )
+                Text(
+                    if (active) stringResource(R.string.todo_tags_count, visibleCount, totalCount)
+                    else totalCount.toString(),
+                    modifier = Modifier.align(Alignment.CenterVertically).testTag("brain_dump_filter_count")
+                        .background(CardMuted, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp),
+                    style = TextStyle(
+                        color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp,
+                        platformStyle = PlatformTextStyle(includeFontPadding = false),
+                        lineHeightStyle = LineHeightStyle(
+                            alignment = LineHeightStyle.Alignment.Center,
+                            trim = LineHeightStyle.Trim.None
+                        )
+                    )
+                )
+                if (active) {
+                    Row(
+                        Modifier.align(Alignment.CenterVertically).testTag("brain_dump_filter_active"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(Icons.Default.FilterAlt, null, Modifier.size(16.dp), tint = Accent)
+                        Text(selectedTags.size.toString(), color = Accent, fontSize = 12.sp)
+                    }
+                }
+            }
+            Icon(
+                if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                null, Modifier.padding(start = 8.dp).size(24.dp), tint = TextSecondary
+            )
+        }
+    }
+}
+
+@Composable
+private fun BrainDumpTagButtons(tags: List<String>, selectedTags: Set<String>, onToggle: (String) -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp).testTag("brain_dump_tag_options")) {
+        val availableWidth = maxWidth
+        if (tags.isEmpty()) {
+            EmptySectionHint(stringResource(R.string.todo_tags_empty))
+        } else {
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                tags.forEach { tag ->
+                    key(tag) {
+                        val selected = tag in selectedTags
+                        Row(
+                            Modifier.widthIn(max = availableWidth).heightIn(min = 32.dp)
+                                .testTag("brain_dump_tag_$tag")
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(CardBackground)
+                                .border(if (selected) 2.dp else 1.dp, if (selected) Accent else Divider, RoundedCornerShape(8.dp))
+                                .toggleable(value = selected, role = Role.Checkbox, onValueChange = { onToggle(tag) })
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "#$tag", Modifier.weight(1f, fill = false),
+                                color = TextSecondary,
+                                fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

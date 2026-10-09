@@ -280,4 +280,11 @@
     <string name="tutorial_open_home_step_body">홈에서는 현재 할 일과 다음 일정을 한눈에 볼 수 있어요.</string>
     <string name="tutorial_now_step_title">지금은 한 가지에 집중해요</string>
     <string name="tutorial_now_step_body">계획이 끝났다면 NOW에 표시된 한 가지 일에만 집중하세요.</string>
+    <string name="todo_tags_expand">태그 필터 펼치기</string>
+    <string name="todo_tags_collapse">태그 필터 접기</string>
+    <string name="todo_tags_clear">태그 필터 전체 해제</string>
+    <string name="todo_tags_active">태그 %1$d개 선택됨</string>
+    <string name="todo_tags_count">%1$d / %2$d</string>
+    <string name="todo_tags_empty">Brain Dump에 아직 태그가 없어요.</string>
+    <string name="todo_tags_no_matches">선택한 태그를 모두 포함하는 할 일이 없어요.</string>
 </resources>

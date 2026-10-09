@@ -44,6 +44,6 @@ internal fun reorderVisibleTodoTasks(
     reordered.add(toIndex.coerceIn(0, reordered.size), taskId)
     val visibleIds = visible.toSet()
     var index = 0
-    // Hidden completed tasks keep their slots while visible tasks are rearranged.
+    // Completed and filtered-out tasks keep their slots while visible tasks are rearranged.
     return order.map { if (it in visibleIds) reordered[index++] else it }
 }

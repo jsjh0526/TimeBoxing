@@ -280,4 +280,11 @@
     <string name="tutorial_open_home_step_body">Inicio reúne tu tarea actual y el siguiente horario.</string>
     <string name="tutorial_now_step_title">Concéntrate en una sola cosa</string>
     <string name="tutorial_now_step_body">Cuando termines de planificar, céntrate solo en la tarea que aparece en NOW.</string>
+    <string name="todo_tags_expand">Mostrar filtros de etiquetas</string>
+    <string name="todo_tags_collapse">Ocultar filtros de etiquetas</string>
+    <string name="todo_tags_clear">Borrar todos los filtros de etiquetas</string>
+    <string name="todo_tags_active">%1$d etiquetas seleccionadas</string>
+    <string name="todo_tags_count">%1$d / %2$d</string>
+    <string name="todo_tags_empty">Aún no hay etiquetas en tu Brain Dump.</string>
+    <string name="todo_tags_no_matches">Ninguna tarea contiene todas las etiquetas seleccionadas.</string>
 </resources>

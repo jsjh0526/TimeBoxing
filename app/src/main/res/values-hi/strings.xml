@@ -280,4 +280,11 @@
     <string name="tutorial_open_home_step_body">होम आपकी मौजूदा जिम्मेदारी और अगला समय-सारणी एक साथ दिखाता है।</string>
     <string name="tutorial_now_step_title">अभी एक ही काम पर ध्यान दें</string>
     <string name="tutorial_now_step_body">योजना पूरी होने के बाद केवल NOW में दिख रहे कार्य पर ध्यान दें।</string>
+    <string name="todo_tags_expand">टैग फ़िल्टर दिखाएँ</string>
+    <string name="todo_tags_collapse">टैग फ़िल्टर छिपाएँ</string>
+    <string name="todo_tags_clear">सभी टैग फ़िल्टर हटाएँ</string>
+    <string name="todo_tags_active">%1$d टैग चुने गए</string>
+    <string name="todo_tags_count">%1$d / %2$d</string>
+    <string name="todo_tags_empty">तुम्हारे Brain Dump में अभी कोई टैग नहीं है।</string>
+    <string name="todo_tags_no_matches">किसी भी कार्य में सभी चुने गए टैग नहीं हैं।</string>
 </resources>

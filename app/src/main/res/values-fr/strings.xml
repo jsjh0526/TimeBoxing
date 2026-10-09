@@ -280,4 +280,11 @@
     <string name="tutorial_open_home_step_body">L’accueil réunit votre tâche actuelle et le prochain élément planifié.</string>
     <string name="tutorial_now_step_title">Concentrez-vous sur une seule chose</string>
     <string name="tutorial_now_step_body">Une fois le planning terminé, concentrez-vous uniquement sur la tâche affichée dans NOW.</string>
+    <string name="todo_tags_expand">Afficher les filtres par étiquette</string>
+    <string name="todo_tags_collapse">Masquer les filtres par étiquette</string>
+    <string name="todo_tags_clear">Effacer tous les filtres par étiquette</string>
+    <string name="todo_tags_active">%1$d étiquettes sélectionnées</string>
+    <string name="todo_tags_count">%1$d / %2$d</string>
+    <string name="todo_tags_empty">Aucune étiquette dans ton Brain Dump pour le moment.</string>
+    <string name="todo_tags_no_matches">Aucune tâche ne contient toutes les étiquettes sélectionnées.</string>
 </resources>

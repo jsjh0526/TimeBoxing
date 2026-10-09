@@ -280,4 +280,11 @@
     <string name="tutorial_open_home_step_body">Home inoratidza basa rauri kuita pamwe nehurongwa hunotevera.</string>
     <string name="tutorial_now_step_title">Tarisa chinhu chimwe chete zvino</string>
     <string name="tutorial_now_step_body">Kana kuronga kwapera, tarisa chete basa rinoratidzwa muNOW.</string>
+    <string name="todo_tags_expand">Ratidza mafirita ematagi</string>
+    <string name="todo_tags_collapse">Viga mafirita ematagi</string>
+    <string name="todo_tags_clear">Bvisa mafirita ese ematagi</string>
+    <string name="todo_tags_active">Matagi %1$d asarudzwa</string>
+    <string name="todo_tags_count">%1$d / %2$d</string>
+    <string name="todo_tags_empty">Hapana matagi muBrain Dump yako parizvino.</string>
+    <string name="todo_tags_no_matches">Hapana basa rine matagi ese asarudzwa.</string>
 </resources>

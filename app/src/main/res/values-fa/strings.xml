@@ -280,4 +280,11 @@
     <string name="tutorial_open_home_step_body">خانه کار فعلی و برنامه بعدی شما را کنار هم نشان می‌دهد.</string>
     <string name="tutorial_now_step_title">اکنون روی یک کار تمرکز کنید</string>
     <string name="tutorial_now_step_body">پس از پایان برنامه‌ریزی، فقط روی کاری که در NOW نشان داده می‌شود تمرکز کنید.</string>
+    <string name="todo_tags_expand">نمایش فیلتر برچسب‌ها</string>
+    <string name="todo_tags_collapse">بستن فیلتر برچسب‌ها</string>
+    <string name="todo_tags_clear">پاک کردن همهٔ فیلترهای برچسب</string>
+    <string name="todo_tags_active">%1$d برچسب انتخاب شده</string>
+    <string name="todo_tags_count">%1$d / %2$d</string>
+    <string name="todo_tags_empty">هنوز برچسبی در Brain Dump وجود ندارد.</string>
+    <string name="todo_tags_no_matches">هیچ کاری همهٔ برچسب‌های انتخاب‌شده را ندارد.</string>
 </resources>

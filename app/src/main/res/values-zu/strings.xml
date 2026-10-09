@@ -280,4 +280,11 @@
     <string name="tutorial_open_home_step_body">Ikhaya lihlanganisa umsebenzi wakho wamanje nohlelo olulandelayo.</string>
     <string name="tutorial_now_step_title">Gxila entweni eyodwa manje</string>
     <string name="tutorial_now_step_body">Uma ukuhlela sekuphelile, gxila kuphela emsebenzini oboniswa ku-NOW.</string>
+    <string name="todo_tags_expand">Bonisa izihlungi zamathegi</string>
+    <string name="todo_tags_collapse">Fihla izihlungi zamathegi</string>
+    <string name="todo_tags_clear">Susa zonke izihlungi zamathegi</string>
+    <string name="todo_tags_active">Kukhethwe amathegi angu-%1$d</string>
+    <string name="todo_tags_count">%1$d / %2$d</string>
+    <string name="todo_tags_empty">Awekho amathegi ku-Brain Dump yakho okwamanje.</string>
+    <string name="todo_tags_no_matches">Awukho umsebenzi onawo wonke amathegi akhethiwe.</string>
 </resources>

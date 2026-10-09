@@ -50,8 +50,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 @RunWith(AndroidJUnit4::class)
+@Config(qualifiers = "w360dp-h900dp")
 class TodoCompletedTasksTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val date = mutableStateOf(LocalDate.of(2026, 10, 7))

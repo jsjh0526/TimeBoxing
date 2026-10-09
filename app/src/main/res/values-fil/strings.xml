@@ -280,4 +280,11 @@
     <string name="tutorial_open_home_step_body">Pinagsasama sa Home ang kasalukuyan mong gawain at susunod na iskedyul.</string>
     <string name="tutorial_now_step_title">Tumutok muna sa isang bagay</string>
     <string name="tutorial_now_step_body">Kapag tapos na ang plano, tumutok lang sa gawaing ipinapakita sa NOW.</string>
+    <string name="todo_tags_expand">Ipakita ang mga filter ng tag</string>
+    <string name="todo_tags_collapse">Itago ang mga filter ng tag</string>
+    <string name="todo_tags_clear">Alisin ang lahat ng filter ng tag</string>
+    <string name="todo_tags_active">%1$d tag ang napili</string>
+    <string name="todo_tags_count">%1$d / %2$d</string>
+    <string name="todo_tags_empty">Wala pang tag sa iyong Brain Dump.</string>
+    <string name="todo_tags_no_matches">Walang gawaing may lahat ng napiling tag.</string>
 </resources>
