@@ -360,7 +360,7 @@ class RoomTaskRepository(
             activeTemplates.forEach { template ->
                 val previous = existingByTemplateId[template.id]
                 recurringUpserts +=
-                    template.toDailyTask(date).copy(
+                    template.toRecurringDailyTask(date).copy(
                         isCompleted = previous?.isCompleted ?: false,
                         isBig3 = previous?.isBig3 ?: false
                     ).toEntity()
@@ -379,7 +379,7 @@ class RoomTaskRepository(
             val previous = dailyTaskDao.getByDate(dateIso).firstOrNull { it.templateId == templateId }?.toDomain()
             dailyTaskDao.deleteByDateAndTemplateId(dateIso, templateId)
             if (template.occursOn(date)) {
-                val updated = template.toDailyTask(date)
+                val updated = template.toRecurringDailyTask(date)
                 dailyTaskDao.upsert(
                     updated.copy(
                         isCompleted = previous?.isCompleted ?: false,
@@ -392,7 +392,7 @@ class RoomTaskRepository(
 
     private fun buildRecurringTasks(date: LocalDate): List<DailyTask> {
         return templateDao.getAll().map { it.toDomain() }
-            .mapNotNull { template -> if (template.occursOn(date)) template.toDailyTask(date) else null }
+            .mapNotNull { template -> if (template.occursOn(date)) template.toRecurringDailyTask(date) else null }
     }
 
     private fun completionCountForDate(
@@ -400,24 +400,13 @@ class RoomTaskRepository(
         existing: List<DailyTask>,
         templates: List<TaskTemplate>
     ): Pair<Int, Int> {
-        val activeTemplates = templates.filter { it.occursOn(date) }
-        val activeTemplateIds = activeTemplates.map { it.id }.toSet()
-        val existingByTemplateId = existing.mapNotNull { task ->
-            task.templateId?.let { templateId -> templateId to task }
-        }.toMap()
-        val visibleExisting = existing.filter { task ->
-            task.title.isNotBlank() &&
-                (task.source != DailyTaskSource.RECURRING || task.templateId in activeTemplateIds)
-        }
-        val missingActiveTemplates = activeTemplates.filter { template ->
-            template.title.isNotBlank() && template.id !in existingByTemplateId
-        }
-        return visibleExisting.count { it.isCompleted } to visibleExisting.size + missingActiveTemplates.size
+        val tasks = statisticsTasksForDate(date, existing, templates)
+        return tasks.count { it.isCompleted } to tasks.size
     }
 
 }
 
-private fun TaskTemplateEntity.toDomain(): TaskTemplate {
+internal fun TaskTemplateEntity.toDomain(): TaskTemplate {
     val recurrenceRule = recurrenceType?.let { type ->
         runCatching { RecurrenceType.valueOf(type) }.getOrNull()?.let { recurrenceType ->
             RecurrenceRule(
@@ -450,7 +439,7 @@ private fun TaskTemplate.toEntity(): TaskTemplateEntity = TaskTemplateEntity(
     reminderEnabled = defaultSchedule?.reminderEnabled == true
 )
 
-private fun DailyTaskEntity.toDomain(): DailyTask {
+internal fun DailyTaskEntity.toDomain(): DailyTask {
     return DailyTask(
         id = id,
         templateId = templateId,
@@ -480,7 +469,7 @@ private fun DailyTask.toEntity(): DailyTaskEntity = DailyTaskEntity(
     source = source.name
 )
 
-private fun TaskTemplate.toDailyTask(date: LocalDate): DailyTask = DailyTask(
+internal fun TaskTemplate.toRecurringDailyTask(date: LocalDate): DailyTask = DailyTask(
     id = "$id-$date",
     templateId = id,
     date = date,

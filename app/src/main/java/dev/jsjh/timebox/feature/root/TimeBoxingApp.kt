@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -53,10 +55,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -83,6 +87,7 @@ import dev.jsjh.timebox.data.remote.SyncManager
 import dev.jsjh.timebox.data.remote.DurableSync
 import dev.jsjh.timebox.data.remote.SyncScheduler
 import dev.jsjh.timebox.data.repository.RoomTaskRepository
+import dev.jsjh.timebox.data.repository.RoomStatisticsRepository
 import dev.jsjh.timebox.data.repository.SyncedTaskRepository
 import dev.jsjh.timebox.data.repository.createTutorialSeedData
 import dev.jsjh.timebox.domain.repository.TaskRepository
@@ -93,6 +98,7 @@ import dev.jsjh.timebox.feature.settings.AppSettings
 import dev.jsjh.timebox.feature.settings.AppSettingsStore
 import dev.jsjh.timebox.feature.settings.SettingsScreen
 import dev.jsjh.timebox.feature.settings.effectiveToday
+import dev.jsjh.timebox.feature.stats.StatisticsRoute
 import dev.jsjh.timebox.feature.timetable.TimetableScreen
 import dev.jsjh.timebox.feature.todo.TodoScreen
 import dev.jsjh.timebox.feature.todo.TodoTaskOrderStore
@@ -416,16 +422,29 @@ private fun MainApp(
     }
 
     val appSettingsStore = remember(context) { AppSettingsStore(context) }
+    val statisticsRepository = remember(userId, reloadKey) {
+        RoomStatisticsRepository(TaskDatabase.get(context, userId))
+    }
     var appSettings by remember {
         mutableStateOf(appSettingsStore.read().copy(showSystemNavigationBar = initialShowSystemNavigationBar))
     }
-    val nowForDayBoundary by produceState(initialValue = LocalDateTime.now(), appSettings.dayStartHour) {
-        while (true) {
-            value = LocalDateTime.now()
-            delay(60_000)
+    val nowForDayBoundary by produceState(initialValue = LocalDateTime.now(), appSettings.dayStartHour, lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) value = LocalDateTime.now()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        try {
+            while (true) {
+                val now = LocalDateTime.now()
+                value = now
+                delay((60_000L - now.second * 1_000L - now.nano / 1_000_000L).coerceAtLeast(1L))
+            }
+        } finally {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
     val appToday = effectiveToday(appSettings.dayStartHour, nowForDayBoundary)
+    val visibleTabs = remember(appSettings.showStatistics) { visibleAppTabs(appSettings.showStatistics) }
     val currentTime = nowForDayBoundary.toLocalTime()
     val todoOrderStore = remember(context, userId) {
         TodoTaskOrderStore(context, userId)
@@ -575,6 +594,7 @@ private fun MainApp(
         val sanitized = next.copy(dayStartHour = next.dayStartHour.coerceIn(0, 6))
         appSettingsStore.write(sanitized)
         appSettings = sanitized
+        appState.ensureStatisticsVisibility(sanitized.showStatistics)
         onSystemNavigationBarPreferenceChange(sanitized.showSystemNavigationBar)
     }
 
@@ -656,6 +676,7 @@ private fun MainApp(
                     }
                     AppBottomBar(
                         currentTab = appState.currentTab,
+                        tabs = visibleTabs,
                         onTabSelected = { tab ->
                             if (tab == AppTab.TIMETABLE) appState.openTimetable(appToday) else appState.selectTab(tab)
                         }
@@ -722,6 +743,16 @@ private fun MainApp(
                     onUpdateSchedule = { taskId, schedule -> appState.updateSchedule(taskId, appState.selectedDate, schedule) },
                     onAddTask = { appState.openNewTaskEditor(appState.selectedDate) }
                 )
+                AppTab.STATS -> key(userId) {
+                    StatisticsRoute(
+                        modifier = contentModifier,
+                        repository = statisticsRepository,
+                        ownerKey = userId,
+                        today = nowForDayBoundary.toLocalDate(),
+                        weekStart = appSettings.statisticsWeekStart,
+                        refreshKey = appState.calendarStatsRevision
+                    )
+                }
                 AppTab.SETTINGS -> SettingsScreen(
                     modifier = contentModifier,
                     appSettings = appSettings,
@@ -790,6 +821,7 @@ private fun MainApp(
             }
             TutorialPreviewHost(
                 seedData = previewSeedData,
+                visibleTabs = visibleTabs,
                 date = appState.today,
                 source = tutorialSession.source,
                 isRestart = tutorialSession.isRestart,
@@ -1086,15 +1118,16 @@ private fun AppAnnouncementDialog(
 internal fun AppBottomBar(
     currentTab: AppTab,
     onTabSelected: (AppTab) -> Unit,
-    tutorialTargetRegistry: TutorialTargetRegistry? = null
+    tutorialTargetRegistry: TutorialTargetRegistry? = null,
+    tabs: List<AppTab> = AppTab.entries
 ) {
     Box(modifier = Modifier.fillMaxWidth().background(NavBackground)) {
         Box(modifier = Modifier.fillMaxWidth().background(NavBackground).navigationBarsPadding()) {
             Row(
-                modifier = Modifier.fillMaxWidth().height(78.dp).background(NavBackground),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 78.dp).background(NavBackground),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                AppTab.entries.forEach { tab ->
+                tabs.forEach { tab ->
                     val tutorialTarget = when (tab) {
                         AppTab.TIMETABLE -> TutorialTarget.TIMETABLE_TAB
                         AppTab.HOME -> TutorialTarget.HOME_TAB
@@ -1127,14 +1160,16 @@ private fun BottomBarItem(
     val color = if (selected) NavActive else NavInactive
     Box(
         modifier = modifier
-            .fillMaxHeight()
+            .heightIn(min = 78.dp)
+            .testTag("app_tab_${tab.name.lowercase()}")
             .clickable(onClick = onClick)
+            .padding(horizontal = 2.dp, vertical = 10.dp)
     ) {
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
-                .width(72.dp)
-                .height(68.dp)
+                .fillMaxWidth()
+                .heightIn(min = 58.dp)
                 .then(
                     if (tutorialTarget != null) {
                         Modifier.tutorialTarget(tutorialTargetRegistry, tutorialTarget)
@@ -1151,6 +1186,7 @@ private fun BottomBarItem(
                 TabIcon(tab = tab, color = color)
                 Text(
                     text = stringResource(tab.labelRes),
+                    textAlign = TextAlign.Center,
                     style = TextStyle(
                         color = color,
                         fontSize = 11.sp,
@@ -1173,6 +1209,7 @@ private fun TabIcon(tab: AppTab, color: Color) {
     val icon = when (tab) {
         AppTab.HOME -> Icons.Filled.Home
         AppTab.TODO -> Icons.AutoMirrored.Filled.FormatListBulleted
+        AppTab.STATS -> Icons.Filled.BarChart
         AppTab.SETTINGS -> Icons.Filled.Settings
         AppTab.TIMETABLE -> error("Handled above")
     }

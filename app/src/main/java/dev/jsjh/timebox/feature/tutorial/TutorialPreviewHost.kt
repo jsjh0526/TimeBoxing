@@ -96,7 +96,8 @@ fun TutorialPreviewHost(
     isRestart: Boolean,
     onSkip: () -> Unit,
     onComplete: suspend (TutorialCompletionResult) -> Boolean,
-    onExit: () -> Unit
+    onExit: () -> Unit,
+    visibleTabs: List<AppTab> = AppTab.entries
 ) {
     val controller = remember(seedData, date) { TutorialPreviewController(seedData, date) }
     var snapshot by remember(controller) { mutableStateOf(controller.snapshot) }
@@ -189,6 +190,7 @@ fun TutorialPreviewHost(
                 bottomBar = {
                     AppBottomBar(
                         currentTab = snapshot.tab,
+                        tabs = visibleTabs,
                         onTabSelected = {},
                         tutorialTargetRegistry = registry
                     )
@@ -255,7 +257,7 @@ fun TutorialPreviewHost(
                         tutorialTargetRegistry = registry
                     )
 
-                    AppTab.SETTINGS -> Box(modifier = contentModifier.background(TutorialBackground))
+                    AppTab.SETTINGS, AppTab.STATS -> Box(modifier = contentModifier.background(TutorialBackground))
                 }
             }
 

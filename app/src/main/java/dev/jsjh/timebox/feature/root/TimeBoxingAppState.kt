@@ -103,9 +103,14 @@ class TimeBoxingAppState(
 
     fun selectTab(tab: AppTab) {
         currentTab = tab
+        if (tab == AppTab.STATS) return
         scope.launch {
             if (tab == AppTab.TIMETABLE) refreshSelectedDate() else refreshToday()
         }
+    }
+
+    fun ensureStatisticsVisibility(showStatistics: Boolean) {
+        if (!showStatistics && currentTab == AppTab.STATS) selectTab(AppTab.HOME)
     }
 
     fun updateBrainDumpTagsExpanded(expanded: Boolean) {

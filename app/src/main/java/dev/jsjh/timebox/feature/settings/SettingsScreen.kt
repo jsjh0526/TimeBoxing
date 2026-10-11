@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Feedback
@@ -48,6 +49,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -66,6 +70,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -90,6 +95,7 @@ import dev.jsjh.timebox.auth.AuthState
 import dev.jsjh.timebox.data.remote.SyncErrorType
 import dev.jsjh.timebox.data.remote.SyncManager
 import dev.jsjh.timebox.data.remote.SyncState
+import dev.jsjh.timebox.domain.model.StatisticsWeekStart
 import dev.jsjh.timebox.notification.ReminderSettings
 import dev.jsjh.timebox.widget.TodoWidgetUpdater
 import dev.jsjh.timebox.widget.WidgetAccessStore
@@ -266,6 +272,12 @@ fun SettingsScreen(
                     showDivider = false,
                     onClick = { uriHandler.openUri(LANGUAGE_SURVEY_URL) }
                 )
+            }
+        }
+
+        item {
+            SectionCard(title = stringResource(R.string.settings_statistics), icon = { Icon(Icons.Filled.BarChart, null, tint = Accent, modifier = Modifier.size(18.dp)) }) {
+                StatisticsSettings(appSettings, onAppSettingsChange)
             }
         }
 
@@ -776,8 +788,8 @@ private fun SectionCard(title: String, icon: @Composable () -> Unit, content: @C
 }
 
 @Composable
-private fun ToggleRow(title: String, subtitle: String?, checked: Boolean, onToggle: (Boolean) -> Unit, showDivider: Boolean = true, enabled: Boolean = true) {
-    Column {
+private fun ToggleRow(title: String, subtitle: String?, checked: Boolean, onToggle: (Boolean) -> Unit, showDivider: Boolean = true, enabled: Boolean = true, modifier: Modifier = Modifier) {
+    Column(modifier) {
         Row(modifier = Modifier.fillMaxWidth().clickable(enabled = enabled) { onToggle(!checked) }.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(title, style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium))
@@ -791,6 +803,33 @@ private fun ToggleRow(title: String, subtitle: String?, checked: Boolean, onTogg
             Spacer(modifier = Modifier.height(14.dp))
             Box(modifier = Modifier.fillMaxWidth().height(0.7.dp).background(CardBorder))
             Spacer(modifier = Modifier.height(14.dp))
+        }
+    }
+}
+
+@Composable
+internal fun StatisticsSettings(settings: AppSettings, onChange: (AppSettings) -> Unit) {
+    ToggleRow(
+        title = stringResource(R.string.settings_show_statistics),
+        subtitle = null,
+        checked = settings.showStatistics,
+        onToggle = { onChange(settings.copy(showStatistics = it)) },
+        modifier = Modifier.testTag("settings_show_statistics")
+    )
+    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(stringResource(R.string.settings_statistics_week_start), style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 21.sp))
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            StatisticsWeekStart.entries.forEachIndexed { index, start ->
+                SegmentedButton(
+                    selected = settings.statisticsWeekStart == start,
+                    onClick = { onChange(settings.copy(statisticsWeekStart = start)) },
+                    shape = SegmentedButtonDefaults.itemShape(index, StatisticsWeekStart.entries.size),
+                    colors = SegmentedButtonDefaults.colors(activeContainerColor = Accent.copy(alpha = 0.2f), activeContentColor = TextPrimary, inactiveContainerColor = CardBackground, inactiveContentColor = TextPrimary),
+                    modifier = Modifier.testTag("settings_week_${start.name.lowercase()}")
+                ) {
+                    Text(stringResource(if (start == StatisticsWeekStart.SUNDAY) R.string.stats_week_sunday else R.string.stats_week_monday), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+            }
         }
     }
 }

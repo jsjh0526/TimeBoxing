@@ -10,5 +10,9 @@ enum class AppTab(
     HOME(R.string.tab_home, "H"),
     TODO(R.string.tab_todo, "T"),
     TIMETABLE(R.string.tab_timetable, "B"),
+    STATS(R.string.tab_stats, "A"),
     SETTINGS(R.string.tab_settings, "S")
 }
+
+internal fun visibleAppTabs(showStatistics: Boolean): List<AppTab> =
+    AppTab.entries.filter { showStatistics || it != AppTab.STATS }
