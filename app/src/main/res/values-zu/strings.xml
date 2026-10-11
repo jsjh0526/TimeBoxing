@@ -242,8 +242,8 @@
     <string name="tutorial_enable_alert">Thepha ukuze uvule izexwayiso bese usetha isikhathi</string>
     <string name="tutorial_open_timetable">Hudulela imisebenzi ohlelweni lwesikhathi</string>
 
-    <string name="announcement_current_title">Zama okokufundisa okusha kwe-TimeBox</string>
-    <string name="announcement_current_message">Zibonela isinyathelo ngesinyathelo indlela eyinhloko ye-TimeBox: Brain Dump, ukukhetha i-Big 3 yakho, ukuhlela imisebenzi ngesikhathi, nokugxila ku-NOW.\n\nUngaphinda ubuke okokufundisa noma nini kokuthi Izilungiselelo.\n\nUma ufuna olunye ulimi ku-TimeBox, sicela ugcwalise inhlolovo yolimi kokuthi Izilungiselelo.</string>
+    <string name="announcement_current_title">Izibalo zamahhala zeviki sezikhona</string>
+    <string name="announcement_current_message">Bheka ukuqedwa kwemisebenzi ne-Big 3, igrafu yansuku zonke, isikhathi esabelwe ohlelweni, nokuqhathanisa nesikhathi esifanayo seviki elidlule kokuthi Izibalo. Ungafihla ithebhu noma ukhethe ukuqala kweviki kokuthi Izilungiselelo.\n\nSiza ukunquma izici ezilandelayo ngenhlolovo yemizuzu engu-2 ngezinzuzo ongazikhetha. Zonke izici zamahhala zamanje zizohlala zimahhala. Inhlolovo inesiNgisi nesiKorea futhi ihlala itholakala kokuthi Izilungiselelo.</string>
     <string name="announcement_current_confirm">Kulungile</string>
     <string name="settings_tutorial_title">Phinda okokufundisa</string>
     <string name="settings_tutorial_subtitle">Phinda uzame i-Brain Dump, i-Big 3, nokuhlela isikhathi</string>
@@ -324,4 +324,9 @@
     <string name="stats_comparison_same">Kuyafana nesonto eledlule</string>
     <string name="stats_comparison_count_more">Imisebenzi engu-%1$d ngaphezulu kunesonto eledlule</string>
     <string name="stats_comparison_count_fewer">Imisebenzi engu-%1$d engaphansi kunesonto eledlule</string>
+    <string name="settings_feature_survey_title">Siza ukuhlela izici ezilandelayo ze-TimeBox</string>
+    <string name="settings_feature_survey_subtitle">Yabelana ngemibono ngezinzuzo ongazikhetha. Cishe imizuzu engu-2; isiNgisi nesiKorea.</string>
+    <string name="survey_open_failed">Inhlolovo ayivulekanga. Sicela uzame futhi.</string>
+    <string name="announcement_do_not_show_again">Ungaphinde ubonise</string>
+    <string name="announcement_take_survey">Phendula inhlolovo</string>
 </resources>

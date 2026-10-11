@@ -114,7 +114,6 @@ private val ButtonText       = Color(0xFFD1D5DC)
 private const val NOTICE_URL = "https://debonair-approval-27a.notion.site/TimeBox-353a223f3eb38026b1f4ea3b9457d251"
 private const val TERMS_URL = "https://debonair-approval-27a.notion.site/TimeBox-354a223f3eb3801dade1c5fc23d587e2"
 private const val PRIVACY_URL = "https://debonair-approval-27a.notion.site/TimeBox-353a223f3eb380979595cbbfb50fa400"
-private const val LANGUAGE_SURVEY_URL = "https://forms.gle/3GKB9VFp9btoddve6"
 private const val CONTACT_EMAIL = "jsjh.dev@gmail.com"
 
 @Composable
@@ -263,16 +262,7 @@ fun SettingsScreen(
         }
 
         item {
-            SectionCard(title = stringResource(R.string.settings_survey), icon = { MaterialSettingsIcon(SettingsIcon.Survey, Accent) }) {
-                SettingsMenuRow(
-                    title = stringResource(R.string.settings_language_survey_title),
-                    subtitle = stringResource(R.string.settings_language_survey_subtitle),
-                    icon = SettingsIcon.Survey,
-                    showChevron = true,
-                    showDivider = false,
-                    onClick = { uriHandler.openUri(LANGUAGE_SURVEY_URL) }
-                )
-            }
+            SurveySettingsSection()
         }
 
         item {
@@ -913,16 +903,52 @@ private fun AccountSummary(name: String?, email: String) {
 }
 
 @Composable
+internal fun SurveySettingsSection() {
+    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
+    val openFailedMessage = stringResource(R.string.survey_open_failed)
+    fun openSurvey(url: String) {
+        if (!AppSurveys.open(url, uriHandler::openUri)) {
+            Toast.makeText(context, openFailedMessage, Toast.LENGTH_SHORT).show()
+        }
+    }
+    SectionCard(title = stringResource(R.string.settings_survey), icon = { MaterialSettingsIcon(SettingsIcon.Survey, Accent) }) {
+        SettingsMenuRow(
+            title = stringResource(R.string.settings_feature_survey_title),
+            subtitle = stringResource(R.string.settings_feature_survey_subtitle),
+            icon = SettingsIcon.Survey,
+            showChevron = true,
+            maxLines = Int.MAX_VALUE,
+            modifier = Modifier.testTag("settings_feature_survey"),
+            onClick = { openSurvey(AppSurveys.FEATURES_URL) }
+        )
+        SettingsMenuRow(
+            title = stringResource(R.string.settings_language_survey_title),
+            subtitle = stringResource(R.string.settings_language_survey_subtitle),
+            icon = SettingsIcon.Language,
+            showChevron = true,
+            showDivider = false,
+            maxLines = Int.MAX_VALUE,
+            modifier = Modifier.testTag("settings_language_survey"),
+            onClick = { openSurvey(AppSurveys.LANGUAGE_URL) }
+        )
+    }
+}
+
+@Composable
 private fun SettingsMenuRow(
     title: String,
     subtitle: String?,
     icon: SettingsIcon,
     showDivider: Boolean = true,
     showChevron: Boolean = false,
+    maxLines: Int = 1,
+    modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
     Column {
         val rowModifier = Modifier
+            .then(modifier)
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 16.dp, vertical = 2.dp)
@@ -933,9 +959,9 @@ private fun SettingsMenuRow(
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+                Text(title, style = TextStyle(color = TextPrimary, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium), maxLines = maxLines)
                 subtitle?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp), maxLines = 1)
+                    Text(it, style = TextStyle(color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp), maxLines = maxLines)
                 }
             }
             if (showChevron && onClick != null) {

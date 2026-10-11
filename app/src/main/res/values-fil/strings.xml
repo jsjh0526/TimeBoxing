@@ -242,8 +242,8 @@
     <string name="tutorial_enable_alert">I-tap para i-on ang alert at magtakda ng oras</string>
     <string name="tutorial_open_timetable">I-drag ang mga gawain papunta sa iskedyul</string>
 
-    <string name="announcement_current_title">Subukan ang bagong tutorial ng TimeBox</string>
-    <string name="announcement_current_message">Subukan nang sunod-sunod ang pangunahing daloy ng TimeBox: Brain Dump, pagpili ng iyong Big 3, paglalagay ng mga gawain sa iskedyul, at pagtutok sa NOW.\n\nMaaari mong ulitin ang tutorial anumang oras sa Mga Setting.\n\nKung gusto mo ng isa pang wika sa TimeBox, sagutan ang survey sa wika sa Mga Setting.</string>
+    <string name="announcement_current_title">May libreng lingguhang estadistika na</string>
+    <string name="announcement_current_message">Tingnan sa Estadistika ang pagkumpleto ng mga gawain at Big 3, araw-araw na chart, oras na inilaan sa iskedyul, at paghahambing sa parehong panahon noong nakaraang linggo. Maaari mong itago ang tab o piliin ang simula ng linggo sa Mga Setting.\n\nTumulong sa pagpili ng susunod na feature sa isang 2-minutong survey tungkol sa mga opsyonal na benepisyo. Mananatiling libre ang lahat ng kasalukuyang libreng feature. Ingles at Koreano ang survey at palaging makikita sa Mga Setting.</string>
     <string name="announcement_current_confirm">Sige</string>
     <string name="settings_tutorial_title">Balikan ang tutorial</string>
     <string name="settings_tutorial_subtitle">Subukan muli ang Brain Dump, Big 3, at time blocking</string>
@@ -324,4 +324,9 @@
     <string name="stats_comparison_same">Kapareho ng nakaraang linggo</string>
     <string name="stats_comparison_count_more">Mas marami nang %1$d gawain kaysa noong nakaraang linggo</string>
     <string name="stats_comparison_count_fewer">Mas kaunti nang %1$d gawain kaysa noong nakaraang linggo</string>
+    <string name="settings_feature_survey_title">Tumulong sa mga susunod na feature ng TimeBox</string>
+    <string name="settings_feature_survey_subtitle">Ibahagi ang opinyon mo sa mga opsyonal na benepisyo. Mga 2 minuto; Ingles at Koreano.</string>
+    <string name="survey_open_failed">Hindi mabuksan ang survey. Subukan ulit.</string>
+    <string name="announcement_do_not_show_again">Huwag nang ipakita muli</string>
+    <string name="announcement_take_survey">Sagutan ang survey</string>
 </resources>

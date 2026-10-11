@@ -242,8 +242,8 @@
     <string name="tutorial_enable_alert">अलर्ट चालू करने और समय चुनने के लिए टैप करें</string>
     <string name="tutorial_open_timetable">कार्यों को समय-सारणी में खींचें</string>
 
-    <string name="announcement_current_title">नया TimeBox ट्यूटोरियल आज़माएँ</string>
-    <string name="announcement_current_message">TimeBox के मुख्य तरीके को चरण-दर-चरण आज़माएँ: Brain Dump, अपना Big 3 चुनना, कामों का समय तय करना और NOW पर ध्यान केंद्रित करना।\n\nआप सेटिंग्स में कभी भी ट्यूटोरियल दोबारा देख सकते हैं।\n\nयदि आप TimeBox में कोई और भाषा चाहते हैं, तो सेटिंग्स में भाषा सर्वेक्षण में भाग लें।</string>
+    <string name="announcement_current_title">निःशुल्क साप्ताहिक आँकड़े आ गए हैं</string>
+    <string name="announcement_current_message">आँकड़े टैब में कामों और Big 3 की पूर्णता, दैनिक ग्राफ़, समय-सारणी में आवंटित समय और पिछले सप्ताह की समान अवधि से तुलना देखें। सेटिंग्स में टैब छिपा सकते हैं या सप्ताह की शुरुआत चुन सकते हैं।\n\nवैकल्पिक लाभों पर 2 मिनट का सर्वे भरकर अगली सुविधाएँ तय करने में मदद करें। अभी की सभी निःशुल्क सुविधाएँ निःशुल्क रहेंगी। सर्वे अंग्रेज़ी और कोरियाई में है और सेटिंग्स में हमेशा उपलब्ध है।</string>
     <string name="announcement_current_confirm">समझ गया</string>
     <string name="settings_tutorial_title">ट्यूटोरियल फिर से देखें</string>
     <string name="settings_tutorial_subtitle">Brain Dump, Big 3 और टाइम ब्लॉकिंग को फिर से आज़माएँ</string>
@@ -324,4 +324,9 @@
     <string name="stats_comparison_same">पिछले सप्ताह के समान</string>
     <string name="stats_comparison_count_more">पिछले सप्ताह से %1$d कार्य अधिक</string>
     <string name="stats_comparison_count_fewer">पिछले सप्ताह से %1$d कार्य कम</string>
+    <string name="settings_feature_survey_title">TimeBox की अगली सुविधाएँ तय करने में मदद करें</string>
+    <string name="settings_feature_survey_subtitle">वैकल्पिक लाभों पर अपनी राय दें। लगभग 2 मिनट; अंग्रेज़ी और कोरियाई।</string>
+    <string name="survey_open_failed">सर्वे नहीं खुल सका। कृपया फिर कोशिश करें।</string>
+    <string name="announcement_do_not_show_again">दोबारा न दिखाएँ</string>
+    <string name="announcement_take_survey">सर्वे में भाग लें</string>
 </resources>

@@ -242,8 +242,8 @@
     <string name="tutorial_enable_alert">Touchez pour activer les alertes et définir une heure</string>
     <string name="tutorial_open_timetable">Faites glisser les tâches dans le planning</string>
 
-    <string name="announcement_current_title">Découvrez le nouveau tutoriel TimeBox</string>
-    <string name="announcement_current_message">Découvrez pas à pas le fonctionnement essentiel de TimeBox : Brain Dump, choix de votre Big 3, planification des tâches et concentration sur NOW.\n\nVous pouvez revoir le tutoriel à tout moment dans les Réglages.\n\nSi vous souhaitez utiliser TimeBox dans une autre langue, répondez au sondage sur les langues dans les Réglages.</string>
+    <string name="announcement_current_title">Les statistiques hebdomadaires gratuites sont là</string>
+    <string name="announcement_current_message">Consultez dans Statistiques la réalisation des tâches et du Big 3, le graphique quotidien, le temps attribué dans le planning et la comparaison avec la même période de la semaine précédente. Vous pouvez masquer l’onglet ou choisir le début de semaine dans les Réglages.\n\nAidez à choisir la suite avec un sondage de 2 minutes sur des avantages optionnels. Toutes les fonctionnalités actuellement gratuites le resteront. Le sondage est en anglais et en coréen et reste accessible dans les Réglages.</string>
     <string name="announcement_current_confirm">Compris</string>
     <string name="settings_tutorial_title">Revoir le tutoriel</string>
     <string name="settings_tutorial_subtitle">Refaites l’expérience du Brain Dump, du Big 3 et du time blocking</string>
@@ -324,4 +324,9 @@
     <string name="stats_comparison_same">Identique à la semaine précédente</string>
     <string name="stats_comparison_count_more">%1$d tâches de plus que la semaine précédente</string>
     <string name="stats_comparison_count_fewer">%1$d tâches de moins que la semaine précédente</string>
+    <string name="settings_feature_survey_title">Aidez à choisir les prochaines fonctionnalités</string>
+    <string name="settings_feature_survey_subtitle">Donnez votre avis sur les avantages optionnels. Environ 2 minutes ; anglais et coréen.</string>
+    <string name="survey_open_failed">Impossible d’ouvrir le sondage. Réessayez.</string>
+    <string name="announcement_do_not_show_again">Ne plus afficher</string>
+    <string name="announcement_take_survey">Répondre au sondage</string>
 </resources>

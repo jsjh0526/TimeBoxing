@@ -242,8 +242,8 @@
     <string name="tutorial_enable_alert">Tippen, um Erinnerungen und eine Zeit festzulegen</string>
     <string name="tutorial_open_timetable">Aufgaben in den Zeitplan ziehen</string>
 
-    <string name="announcement_current_title">Probiere das neue TimeBox-Tutorial aus</string>
-    <string name="announcement_current_message">Erlebe den wichtigsten TimeBox-Ablauf Schritt für Schritt: Brain Dump, dein Big 3 auswählen, Aufgaben einplanen und auf NOW konzentrieren.\n\nDu kannst das Tutorial jederzeit in den Einstellungen erneut starten.\n\nWenn du TimeBox in einer weiteren Sprache nutzen möchtest, nimm bitte an der Sprachumfrage in den Einstellungen teil.</string>
+    <string name="announcement_current_title">Kostenlose Wochenstatistiken sind da</string>
+    <string name="announcement_current_message">Sieh unter Statistik den Abschluss von Aufgaben und Big 3, das Tagesdiagramm, die im Zeitplan zugewiesene Zeit und den Vergleich mit dem gleichen Zeitraum der Vorwoche. In den Einstellungen kannst du den Tab ausblenden oder den Wochenbeginn wählen.\n\nHilf mit einer 2-minütigen Umfrage zu optionalen Vorteilen bei der nächsten Entwicklung. Alle derzeit kostenlosen Funktionen bleiben kostenlos. Die Umfrage ist auf Englisch und Koreanisch und jederzeit in den Einstellungen verfügbar.</string>
     <string name="announcement_current_confirm">Verstanden</string>
 
     <string name="settings_tutorial_title">Tutorial erneut ansehen</string>
@@ -325,4 +325,9 @@
     <string name="stats_comparison_same">Unverändert gegenüber der Vorwoche</string>
     <string name="stats_comparison_count_more">%1$d Aufgaben mehr als in der Vorwoche</string>
     <string name="stats_comparison_count_fewer">%1$d Aufgaben weniger als in der Vorwoche</string>
+    <string name="settings_feature_survey_title">Gestalte die nächsten TimeBox-Funktionen mit</string>
+    <string name="settings_feature_survey_subtitle">Teile deine Meinung zu optionalen Vorteilen. Etwa 2 Minuten; Englisch und Koreanisch.</string>
+    <string name="survey_open_failed">Die Umfrage konnte nicht geöffnet werden. Bitte versuche es erneut.</string>
+    <string name="announcement_do_not_show_again">Nicht mehr anzeigen</string>
+    <string name="announcement_take_survey">Zur Umfrage</string>
 </resources>

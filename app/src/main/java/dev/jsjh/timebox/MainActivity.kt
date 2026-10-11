@@ -93,6 +93,7 @@ class MainActivity : ComponentActivity() {
         recordNotificationOpen(intent)
         widgetLaunchRequest = WidgetLaunchRequest.from(intent)
         launchedFromWidget = widgetLaunchRequest != null
+        if (savedInstanceState == null) AppAnnouncementStore.beginLaunch()
         appAnnouncementEligible = AppAnnouncementStore.shouldShow(
             this,
             CurrentAppAnnouncement.value

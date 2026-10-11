@@ -242,8 +242,8 @@
     <string name="tutorial_enable_alert">클릭해서 알림 켜고 시간 설정</string>
     <string name="tutorial_open_timetable">시간표에서 드래그로 할 일을 배치</string>
 
-    <string name="announcement_current_title">새로워진 TimeBox 튜토리얼</string>
-    <string name="announcement_current_message">Brain Dump부터 Big 3 선택, 시간표 배치, NOW 집중까지 TimeBox의 핵심 흐름을 단계별로 체험해 보세요.\n\n설정에서 언제든 튜토리얼을 다시 볼 수 있어요.\n\n추가로 원하는 언어가 있다면 설정의 언어 설문조사에 참여해 주세요.</string>
+    <string name="announcement_current_title">무료 주간 통계</string>
+    <string name="announcement_current_message">통계 탭에서 전체·Big 3 완료율, 날짜별 그래프, 시간표 배정 시간과 지난주 같은 기간 비교를 확인해 보세요. 설정에서 탭 표시와 주 시작 요일을 바꿀 수 있어요.\n\n다음 업데이트를 함께 정할 수 있도록 추가 혜택에 대한 약 2분 설문에 의견을 남겨 주세요. 현재 무료 기능은 그대로 유지돼요. 설문은 한국어·영어로 제공되며 설정에서 언제든 참여할 수 있어요.</string>
     <string name="announcement_current_confirm">확인</string>
     <string name="settings_tutorial_title">튜토리얼 다시 보기</string>
     <string name="settings_tutorial_subtitle">Brain Dump, Big 3, 시간 배치를 다시 체험해요</string>
@@ -324,4 +324,9 @@
     <string name="stats_comparison_same">지난주 같은 기간과 동일</string>
     <string name="stats_comparison_count_more">지난주 같은 기간보다 %1$d개 많음</string>
     <string name="stats_comparison_count_fewer">지난주 같은 기간보다 %1$d개 적음</string>
+    <string name="settings_feature_survey_title">TimeBox의 다음 기능에 의견 보내기</string>
+    <string name="settings_feature_survey_subtitle">추가 혜택에 대한 의견을 들려주세요. 약 2분 · 한국어·영어</string>
+    <string name="survey_open_failed">설문을 열지 못했어요. 다시 시도해 주세요.</string>
+    <string name="announcement_do_not_show_again">다시 보지 않기</string>
+    <string name="announcement_take_survey">설문 참여하기</string>
 </resources>

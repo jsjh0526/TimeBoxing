@@ -242,8 +242,8 @@
     <string name="tutorial_enable_alert">Tap to turn on alerts and set a time</string>
     <string name="tutorial_open_timetable">Drag tasks into the timetable</string>
 
-    <string name="announcement_current_title">Try the new TimeBox tutorial</string>
-    <string name="announcement_current_message">Experience the core TimeBox flow step by step: Brain Dump, choose your Big 3, schedule tasks, and focus on NOW.\n\nYou can replay the tutorial anytime in Settings.\n\nIf you\'d like TimeBox in another language, please take the language survey in Settings.</string>
+    <string name="announcement_current_title">Free weekly statistics are here</string>
+    <string name="announcement_current_message">See your task and Big 3 completion, daily chart, timetable-assigned time, and comparisons with the same period last week in Stats. You can hide the tab or choose your week start in Settings.\n\nHelp shape what comes next with a 2-minute survey about optional benefits. All currently free features will remain free. The survey is in English and Korean and is always available in Settings.</string>
     <string name="announcement_current_confirm">Got it</string>
 
     <string name="settings_tutorial_title">Tutorial again</string>
@@ -325,4 +325,9 @@
     <string name="stats_comparison_same">Same as last week</string>
     <string name="stats_comparison_count_more">%1$d more tasks than last week</string>
     <string name="stats_comparison_count_fewer">%1$d fewer tasks than last week</string>
+    <string name="settings_feature_survey_title">Help shape the next TimeBox features</string>
+    <string name="settings_feature_survey_subtitle">Share your ideas for optional benefits. About 2 minutes; English and Korean.</string>
+    <string name="survey_open_failed">Could not open the survey. Please try again.</string>
+    <string name="announcement_do_not_show_again">Do not show again</string>
+    <string name="announcement_take_survey">Take the survey</string>
 </resources>

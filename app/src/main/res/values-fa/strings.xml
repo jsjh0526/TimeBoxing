@@ -242,8 +242,8 @@
     <string name="tutorial_enable_alert">برای روشن کردن هشدار و تنظیم زمان بزنید</string>
     <string name="tutorial_open_timetable">کارها را به جدول زمانی بکشید</string>
 
-    <string name="announcement_current_title">آموزش جدید TimeBox را امتحان کنید</string>
-    <string name="announcement_current_message">روند اصلی TimeBox را مرحله‌به‌مرحله تجربه کنید: Brain Dump، انتخاب Big 3، زمان‌بندی کارها و تمرکز روی NOW.\n\nمی‌توانید هر زمان خواستید آموزش را از تنظیمات دوباره ببینید.\n\nاگر دوست دارید TimeBox از زبان دیگری هم پشتیبانی کند، لطفاً در نظرسنجی زبان در تنظیمات شرکت کنید.</string>
+    <string name="announcement_current_title">آمار هفتگی رایگان اضافه شد</string>
+    <string name="announcement_current_message">در بخش آمار، میزان تکمیل کارها و Big 3، نمودار روزانه، زمان اختصاص‌یافته در برنامه و مقایسه با بازه مشابه هفته قبل را ببینید. در تنظیمات می‌توانید زبانه را پنهان کنید یا روز شروع هفته را انتخاب کنید.\n\nبا نظرسنجی ۲ دقیقه‌ای درباره مزایای اختیاری، به انتخاب قابلیت‌های بعدی کمک کنید. همه قابلیت‌های رایگان فعلی رایگان می‌مانند. نظرسنجی به انگلیسی و کره‌ای است و همیشه در تنظیمات در دسترس است.</string>
     <string name="announcement_current_confirm">متوجه شدم</string>
     <string name="settings_tutorial_title">مشاهده دوباره آموزش</string>
     <string name="settings_tutorial_subtitle">Brain Dump، Big 3 و زمان‌بندی را دوباره تجربه کنید</string>
@@ -324,4 +324,9 @@
     <string name="stats_comparison_same">برابر با هفتهٔ قبل</string>
     <string name="stats_comparison_count_more">%1$d کار بیشتر از هفتهٔ قبل</string>
     <string name="stats_comparison_count_fewer">%1$d کار کمتر از هفتهٔ قبل</string>
+    <string name="settings_feature_survey_title">به انتخاب قابلیت‌های بعدی TimeBox کمک کنید</string>
+    <string name="settings_feature_survey_subtitle">نظرتان را درباره مزایای اختیاری بگویید. حدود ۲ دقیقه؛ انگلیسی و کره‌ای.</string>
+    <string name="survey_open_failed">نظرسنجی باز نشد. لطفاً دوباره تلاش کنید.</string>
+    <string name="announcement_do_not_show_again">دیگر نمایش نده</string>
+    <string name="announcement_take_survey">شرکت در نظرسنجی</string>
 </resources>

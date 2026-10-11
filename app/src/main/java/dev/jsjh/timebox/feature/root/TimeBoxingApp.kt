@@ -46,6 +46,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
@@ -96,6 +98,7 @@ import dev.jsjh.timebox.feature.home.HomeScreen
 import dev.jsjh.timebox.feature.settings.AppLanguage
 import dev.jsjh.timebox.feature.settings.AppSettings
 import dev.jsjh.timebox.feature.settings.AppSettingsStore
+import dev.jsjh.timebox.feature.settings.AppSurveys
 import dev.jsjh.timebox.feature.settings.SettingsScreen
 import dev.jsjh.timebox.feature.settings.effectiveToday
 import dev.jsjh.timebox.feature.stats.StatisticsRoute
@@ -191,7 +194,15 @@ fun TimeBoxingApp(
     var migrationCheckInProgress by remember { mutableStateOf(false) }
     var migrationReloadKey by remember { mutableStateOf(0) }
     val currentAnnouncement = CurrentAppAnnouncement.value
-    var showAppAnnouncement by remember { mutableStateOf(false) }
+    var visibleAnnouncementId by rememberSaveable { mutableStateOf<String?>(null) }
+    val showAppAnnouncement = visibleAnnouncementId == currentAnnouncement.id
+    var announcementDisplayCount by rememberSaveable(currentAnnouncement.id) { mutableStateOf(0) }
+    val openingAdAllowedForLaunch = remember(currentAnnouncement.id) {
+        !AppAnnouncementStore.shouldShow(context, currentAnnouncement)
+    }
+    var blockingUi by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
     val migrationDecisionPending = authState.let { state ->
         state is AuthState.LoggedIn &&
             AuthRepository.hadGuestSessionBeforeLogin &&
@@ -203,7 +214,11 @@ fun TimeBoxingApp(
         showMigrationDialog,
         migrationDecisionPending,
         tutorialGateResolved,
-        tutorialSession
+        tutorialSession,
+        blockingUi,
+        lifecycleState,
+        showAppAnnouncement,
+        widgetLaunchRequest
     ) {
         val authReady = authState is AuthState.Guest || authState is AuthState.LoggedIn
         if (
@@ -212,10 +227,19 @@ fun TimeBoxingApp(
             tutorialSession == null &&
             !showMigrationDialog &&
             !migrationDecisionPending &&
-            AppAnnouncementStore.markShownIfEligible(context, currentAnnouncement)
+            !blockingUi &&
+            !showAppAnnouncement &&
+            widgetLaunchRequest == null &&
+            lifecycleState == Lifecycle.State.RESUMED &&
+            !OpeningNativeAdGate.isOverlayActive()
         ) {
-            TimeBoxAnalytics.announcementShown(currentAnnouncement.id)
-            showAppAnnouncement = true
+            AppAnnouncementStore.markShownIfEligible(context, currentAnnouncement)?.let { count ->
+                OpeningNativeAdGate.disableForCurrentLaunch()
+                OpeningNativeAdPreloader.clear()
+                announcementDisplayCount = count
+                TimeBoxAnalytics.announcementShown(currentAnnouncement.id)
+                visibleAnnouncementId = currentAnnouncement.id
+            }
         }
     }
 
@@ -238,6 +262,8 @@ fun TimeBoxingApp(
             tutorialSession = tutorialSession,
             tutorialGateResolved = tutorialGateResolved,
             autoTutorialAllowed = true,
+            allowOpeningAd = openingAdAllowedForLaunch && !showAppAnnouncement,
+            onBlockingUiChange = { blockingUi = it },
             onTutorialGateResolved = { tutorialGateResolvedFor = tutorialOwnerKey },
             onTutorialSessionChange = { session ->
                 activeTutorial = session?.let { ActiveTutorial(tutorialOwnerKey, it) }
@@ -310,6 +336,8 @@ fun TimeBoxingApp(
                 tutorialSession = tutorialSession,
                 tutorialGateResolved = tutorialGateResolved,
                 autoTutorialAllowed = !showMigrationDialog && !migrationDecisionPending,
+                allowOpeningAd = openingAdAllowedForLaunch && !showAppAnnouncement,
+                onBlockingUiChange = { blockingUi = it },
                 onTutorialGateResolved = { tutorialGateResolvedFor = tutorialOwnerKey },
                 onTutorialSessionChange = { session ->
                     activeTutorial = session?.let { ActiveTutorial(tutorialOwnerKey, it) }
@@ -318,15 +346,32 @@ fun TimeBoxingApp(
         }
     }
 
-    if (showAppAnnouncement && tutorialSession == null) {
+    if (
+        showAppAnnouncement &&
+        (authState is AuthState.Guest || authState is AuthState.LoggedIn) &&
+        tutorialGateResolved &&
+        tutorialSession == null &&
+        !blockingUi &&
+        !showMigrationDialog &&
+        !migrationDecisionPending
+    ) {
+        val uriHandler = LocalUriHandler.current
+        val openFailedMessage = stringResource(R.string.survey_open_failed)
         AppAnnouncementDialog(
             announcement = currentAnnouncement,
-            onDismiss = { source ->
+            displayCount = announcementDisplayCount,
+            onOpenSurvey = {
+                AppSurveys.open(AppSurveys.FEATURES_URL, uriHandler::openUri).also { opened ->
+                    if (!opened) Toast.makeText(context, openFailedMessage, Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDismiss = { source, suppress ->
+                if (suppress) AppAnnouncementStore.suppress(context, currentAnnouncement)
                 TimeBoxAnalytics.announcementDismissed(
                     announcementId = currentAnnouncement.id,
                     source = source
                 )
-                showAppAnnouncement = false
+                visibleAnnouncementId = null
             }
         )
     }
@@ -347,6 +392,8 @@ private fun MainApp(
     tutorialSession: TutorialSession?,
     tutorialGateResolved: Boolean,
     autoTutorialAllowed: Boolean,
+    allowOpeningAd: Boolean,
+    onBlockingUiChange: (Boolean) -> Unit,
     onTutorialGateResolved: () -> Unit,
     onTutorialSessionChange: (TutorialSession?) -> Unit
 ) {
@@ -450,6 +497,10 @@ private fun MainApp(
         TodoTaskOrderStore(context, userId)
     }
     val appState = rememberTimeBoxingAppState(repository, appToday, todoOrderStore)
+    DisposableEffect(appState, appState.editorDraft != null) {
+        onBlockingUiChange(appState.editorDraft != null)
+        onDispose { onBlockingUiChange(false) }
+    }
     val tutorialStore = remember(context) { TutorialOnboardingStore(context) }
     var tutorialEligibilityHandled by remember(userId, reloadKey) { mutableStateOf(false) }
     var startupRequestsDispatched by remember(userId, reloadKey) { mutableStateOf(false) }
@@ -808,7 +859,7 @@ private fun MainApp(
             Big3LimitNotice()
         }
 
-        if (tutorialGateResolved && tutorialSession == null) {
+        if (allowOpeningAd && tutorialGateResolved && tutorialSession == null) {
             OpeningNativeAdOverlay()
         }
 
@@ -1042,73 +1093,6 @@ private fun MigrationDialog(onMigrate: () -> Unit, onStartFresh: () -> Unit) {
                     .padding(horizontal = 20.dp, vertical = 10.dp)
             ) {
                 Text(stringResource(R.string.migration_start_fresh), style = TextStyle(color = textMuted, fontSize = 14.sp))
-            }
-        }
-    )
-}
-
-@Composable
-private fun AppAnnouncementDialog(
-    announcement: AppAnnouncement,
-    onDismiss: (String) -> Unit
-) {
-    val cardBg = Color(0xFF1E1E1E)
-    val accent = Color(0xFF8687E7)
-    val textMuted = Color(0xFFB0B5C0)
-    AlertDialog(
-        onDismissRequest = { onDismiss("outside") },
-        containerColor = cardBg,
-        shape = RoundedCornerShape(20.dp),
-        tonalElevation = 0.dp,
-        title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(9.dp)
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(accent)
-                )
-                Spacer(modifier = Modifier.size(10.dp))
-                Text(
-                    text = stringResource(announcement.titleRes),
-                    style = TextStyle(
-                        color = Color.White,
-                        fontSize = 19.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                )
-            }
-        },
-        text = {
-            Text(
-                text = stringResource(announcement.messageRes),
-                style = TextStyle(
-                    color = textMuted,
-                    fontSize = 14.sp,
-                    lineHeight = 21.sp
-                )
-            )
-        },
-        confirmButton = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(46.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(accent)
-                    .clickable { onDismiss("confirm") },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = stringResource(announcement.confirmRes),
-                    style = TextStyle(
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                )
             }
         }
     )

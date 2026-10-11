@@ -242,8 +242,8 @@
     <string name="tutorial_enable_alert">Tinya kuti ubatidze chenjedzo uye uise nguva</string>
     <string name="tutorial_open_timetable">Dhonza mabasa muchirongwa chenguva</string>
 
-    <string name="announcement_current_title">Edza dzidziso itsva yeTimeBox</string>
-    <string name="announcement_current_message">Tevedza mafambiro makuru eTimeBox nhanho nenhanho: Brain Dump, kusarudza Big 3 yako, kuronga mabasa panguva, uye kutarisa paNOW.\n\nUnogona kuona dzidziso yacho zvakare chero nguva muZvirongwa.\n\nKana uchida TimeBox mune mumwe mutauro, tapota zadza ongororo yemutauro muZvirongwa.</string>
+    <string name="announcement_current_title">Nhamba dzevhiki dzemahara dzavapo</string>
+    <string name="announcement_current_message">MuNhamba ona kupedzwa kwemabasa neBig 3, girafu rezuva, nguva yakapihwa muhurongwa uye kuenzanisa nenguva imwechete yevhiki rapfuura. Unogona kuviga tebhu kana kusarudza kutanga kwevhiki muZvirongwa.\n\nBatsira kusarudza zvinotevera neongororo yemaminitsi 2 pamusoro pezvimwe zvinobatsira. Zvese zvemahara zviripo zvicharamba zviri zvemahara. Ongororo iri muChirungu neKorean uye inogara iripo muZvirongwa.</string>
     <string name="announcement_current_confirm">Ndazviwana</string>
     <string name="settings_tutorial_title">Dzokorora dzidziso</string>
     <string name="settings_tutorial_subtitle">Dzokorora Brain Dump, Big 3, uye kuronga nguva</string>
@@ -324,4 +324,9 @@
     <string name="stats_comparison_same">Zvakafanana nesvondo rapfuura</string>
     <string name="stats_comparison_count_more">Mabasa %1$d akawanda kupfuura svondo rapfuura</string>
     <string name="stats_comparison_count_fewer">Mabasa %1$d mashoma kupfuura svondo rapfuura</string>
+    <string name="settings_feature_survey_title">Batsira kusarudza zvinotevera zveTimeBox</string>
+    <string name="settings_feature_survey_subtitle">Tiudze maonero ako pamusoro pezvimwe zvinobatsira. Maminitsi anenge 2; Chirungu neKorean.</string>
+    <string name="survey_open_failed">Ongororo haina kuvhurika. Edza zvakare.</string>
+    <string name="announcement_do_not_show_again">Usaratidza zvakare</string>
+    <string name="announcement_take_survey">Zadza ongororo</string>
 </resources>

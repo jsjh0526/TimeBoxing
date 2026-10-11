@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.annotation.StringRes
 import dev.jsjh.timebox.BuildConfig
 import dev.jsjh.timebox.R
+import java.time.LocalDate
 
 data class AppAnnouncement(
     val key: String,
@@ -13,7 +14,6 @@ data class AppAnnouncement(
     @param:StringRes val titleRes: Int,
     @param:StringRes val messageRes: Int,
     @param:StringRes val confirmRes: Int,
-    val maxDisplayCount: Int = 2,
     val updatedInstallOnly: Boolean = true
 ) {
     val id: String = "${key}_v$revision"
@@ -22,7 +22,7 @@ data class AppAnnouncement(
 object CurrentAppAnnouncement {
     // Change the copy resources and increment revision for every new announcement.
     val value = AppAnnouncement(
-        key = "tutorial_refresh",
+        key = "statistics_and_feature_survey",
         revision = 1,
         titleRes = R.string.announcement_current_title,
         messageRes = R.string.announcement_current_message,
@@ -34,23 +34,36 @@ object AppAnnouncementStore {
     private const val PREFS_NAME = "app_announcements"
 
     @Volatile
-    private var shownThisProcessId: String? = null
+    private var shownThisLaunchId: String? = null
 
-    fun shouldShow(context: Context, announcement: AppAnnouncement): Boolean = synchronized(this) {
-        isEligible(context, announcement)
+    fun beginLaunch() = synchronized(this) {
+        shownThisLaunchId = null
     }
 
-    fun markShownIfEligible(context: Context, announcement: AppAnnouncement): Boolean = synchronized(this) {
-        if (!isEligible(context, announcement)) return false
+    fun shouldShow(context: Context, announcement: AppAnnouncement, today: LocalDate = LocalDate.now()): Boolean = synchronized(this) {
+        isEligible(context, announcement, today)
+    }
+
+    fun markShownIfEligible(context: Context, announcement: AppAnnouncement, today: LocalDate = LocalDate.now()): Int? = synchronized(this) {
+        if (!isEligible(context, announcement, today)) return null
         val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val countKey = displayCountKey(announcement)
-        val nextCount = prefs.getInt(countKey, 0) + 1
-        prefs.edit().putInt(countKey, nextCount).apply()
-        shownThisProcessId = announcement.id
-        true
+        val nextCount = (prefs.getInt(countKey, 0).coerceAtLeast(0).toLong() + 1)
+            .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        prefs.edit()
+            .putInt(countKey, nextCount)
+            .putLong(lastDisplayDayKey(announcement), today.toEpochDay())
+            .apply()
+        shownThisLaunchId = announcement.id
+        nextCount
     }
 
-    private fun isEligible(context: Context, announcement: AppAnnouncement): Boolean {
+    fun suppress(context: Context, announcement: AppAnnouncement) = synchronized(this) {
+        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean(suppressedKey(announcement), true).apply()
+    }
+
+    private fun isEligible(context: Context, announcement: AppAnnouncement, today: LocalDate): Boolean {
         val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val audienceEligible = BuildConfig.DEBUG ||
             !announcement.updatedInstallOnly ||
@@ -58,13 +71,21 @@ object AppAnnouncementStore {
         return isAppAnnouncementEligible(
             audienceEligible = audienceEligible,
             displayCount = prefs.getInt(displayCountKey(announcement), 0),
-            maxDisplayCount = announcement.maxDisplayCount,
-            shownThisProcess = shownThisProcessId == announcement.id
+            lastDisplayDay = prefs.getLong(lastDisplayDayKey(announcement), Long.MIN_VALUE),
+            today = today.toEpochDay(),
+            suppressed = prefs.getBoolean(suppressedKey(announcement), false),
+            shownThisLaunch = shownThisLaunchId == announcement.id
         )
     }
 
     private fun displayCountKey(announcement: AppAnnouncement): String =
         "${announcement.id}_display_count"
+
+    private fun lastDisplayDayKey(announcement: AppAnnouncement): String =
+        "${announcement.id}_last_display_day"
+
+    private fun suppressedKey(announcement: AppAnnouncement): String =
+        "${announcement.id}_suppressed"
 
     @Suppress("DEPRECATION")
     private fun isUpdatedInstallation(context: Context): Boolean = runCatching {
@@ -83,9 +104,12 @@ object AppAnnouncementStore {
 internal fun isAppAnnouncementEligible(
     audienceEligible: Boolean,
     displayCount: Int,
-    maxDisplayCount: Int,
-    shownThisProcess: Boolean
+    lastDisplayDay: Long,
+    today: Long,
+    suppressed: Boolean,
+    shownThisLaunch: Boolean
 ): Boolean =
     audienceEligible &&
-        !shownThisProcess &&
-        displayCount < maxDisplayCount
+        !suppressed &&
+        !shownThisLaunch &&
+        (displayCount < 3 || lastDisplayDay != today)
