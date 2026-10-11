@@ -172,7 +172,7 @@ fun TimetableScreen(
     val density = LocalDensity.current
     val currentMinute = currentTime.hour * 60 + currentTime.minute
     val scheduled = tasks.filter { it.schedule != null }.sortedBy { it.schedule!!.startMinute }
-    val unscheduled = tasks.filter { it.schedule == null }
+    val unscheduled = tasks.filter { it.schedule == null }.sortedBy { it.isCompleted }
     val layouts = remember(scheduled) { buildLayouts(scheduled) }
     val scrollState = rememberScrollState()
     val readOnly = !showCurrentTime

@@ -33,6 +33,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.jsjh.timebox.R
+import dev.jsjh.timebox.domain.model.DailyTask
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.Locale
@@ -52,6 +53,55 @@ class TimetableCalendarTest {
     private val today = LocalDate.of(2026, 9, 23)
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val addLabel get() = context.getString(R.string.calendar_add_for_date)
+
+    @Test
+    fun unscheduledShowsUnfinishedFirstPreservingEachGroupsOrderAndClickTargets() {
+        val tasks = listOf(
+            trayTask("done-first", true),
+            trayTask("pending-first"),
+            trayTask("done-second", true),
+            trayTask("pending-second")
+        )
+        var openedId: String? = null
+        setScreen(date = today, tasks = { tasks }, onOpen = { openedId = it })
+        compose.onNodeWithText(context.getString(R.string.timetable_unscheduled)).performClick()
+
+        assertTrayOrder("pending-first", "pending-second", "done-first", "done-second")
+        compose.onNodeWithText("done-first").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals("done-first", openedId) }
+        assertEquals(listOf("done-first", "pending-first", "done-second", "pending-second"), tasks.map { it.id })
+    }
+
+    @Test
+    fun unscheduledUpdatesOrderWhenCompletionIsChangedOrUndone() {
+        val tasks = mutableStateOf(listOf(
+            trayTask("done-first", true),
+            trayTask("pending-first"),
+            trayTask("done-second", true),
+            trayTask("pending-second")
+        ))
+        setScreen(date = today, tasks = { tasks.value })
+        compose.onNodeWithText(context.getString(R.string.timetable_unscheduled)).performClick()
+        assertTrayOrder("pending-first", "pending-second", "done-first", "done-second")
+
+        compose.runOnIdle {
+            tasks.value = tasks.value.map { if (it.id == "pending-first") it.copy(isCompleted = true) else it }
+        }
+        assertTrayOrder("pending-second", "done-first", "pending-first", "done-second")
+
+        compose.runOnIdle {
+            tasks.value = tasks.value.map { if (it.id == "done-first") it.copy(isCompleted = false) else it }
+        }
+        assertTrayOrder("done-first", "pending-second", "pending-first", "done-second")
+    }
+
+    private fun trayTask(id: String, completed: Boolean = false) =
+        DailyTask(id = id, date = today, title = id, isCompleted = completed)
+
+    private fun assertTrayOrder(vararg titles: String) {
+        val tops = titles.map { compose.onNodeWithText(it).getUnclippedBoundsInRoot().top }
+        assertTrue("Unexpected tray order: $titles at $tops", tops.zipWithNext().all { (a, b) -> a < b })
+    }
 
     @Test
     fun todayKeepsExistingTimelineButDateHeaderOpensCalendarWithAddButton() {
@@ -258,7 +308,9 @@ class TimetableCalendarTest {
         width: Dp = 360.dp,
         fontScale: Float = 1f,
         language: () -> String = { "en" },
-        restoration: StateRestorationTester? = null
+        restoration: StateRestorationTester? = null,
+        tasks: () -> List<DailyTask> = { emptyList() },
+        onOpen: (String) -> Unit = {}
     ) {
         val content: @androidx.compose.runtime.Composable () -> Unit = {
             val configuration = Configuration(LocalConfiguration.current).apply {
@@ -275,7 +327,7 @@ class TimetableCalendarTest {
                 Box(Modifier.size(width = width, height = 600.dp)) {
                     TimetableScreen(
                         modifier = Modifier.fillMaxSize(),
-                        tasks = emptyList(),
+                        tasks = tasks(),
                         date = date,
                         currentTime = LocalTime.of(1, 30),
                         showCurrentTime = date == appToday,
@@ -288,7 +340,7 @@ class TimetableCalendarTest {
                         calendarStatsForDates = { stats(it) },
                         onSelectDate = onSelect,
                         onAddTaskForDate = onAdd,
-                        onOpenTask = {},
+                        onOpenTask = onOpen,
                         onToggleComplete = {},
                         onMoveToUnscheduled = {},
                         onUpdateSchedule = { _, _ -> },
