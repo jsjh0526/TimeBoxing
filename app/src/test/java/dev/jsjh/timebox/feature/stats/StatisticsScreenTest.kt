@@ -39,9 +39,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.domain.model.DailyTask
+import dev.jsjh.timebox.domain.model.DailyTaskSource
 import dev.jsjh.timebox.domain.model.ScheduleBlock
 import dev.jsjh.timebox.domain.model.StatisticsWeekStart
+import dev.jsjh.timebox.domain.model.WeeklyStatisticsComparison
 import dev.jsjh.timebox.domain.model.calculateWeeklyStatistics
+import dev.jsjh.timebox.domain.model.statisticsComparisonWeek
 import dev.jsjh.timebox.domain.model.statisticsWeek
 import dev.jsjh.timebox.domain.repository.StatisticsRepository
 import dev.jsjh.timebox.feature.root.AppBottomBar
@@ -118,7 +121,7 @@ class StatisticsScreenTest {
         val currentStart = statisticsWeek(today, StatisticsWeekStart.SUNDAY).start
         setRoute(object : StatisticsRepository {
             override suspend fun getTasksForDates(dates: Collection<LocalDate>): Map<LocalDate, List<DailyTask>> {
-                if (dates.first() < currentStart) {
+                if (dates.last() < currentStart) {
                     requestedOldWeek = true
                     withContext(NonCancellable) { oldQuery.await() }
                     return dates.associateWith { listOf(task(it)) }
@@ -155,7 +158,7 @@ class StatisticsScreenTest {
         compose.runOnIdle { done = false; revision.value++ }
         compose.onNodeWithTag("stats_overall_count").assertTextEquals("0/1")
         compose.runOnIdle { start.value = StatisticsWeekStart.MONDAY }
-        compose.runOnIdle { assertEquals(LocalDate.of(2026, 10, 5), calls.last().first()) }
+        compose.runOnIdle { assertEquals(LocalDate.of(2026, 9, 28), calls.last().first()) }
         compose.runOnIdle { date.value = today.plusDays(1) }
         compose.runOnIdle { assertEquals(today.plusDays(1), calls.last().last()) }
         compose.runOnIdle { owner.value = "other-account" }
@@ -201,6 +204,40 @@ class StatisticsScreenTest {
         compose.onNodeWithTag("stats_overall_count").assertTextEquals("0/1")
     }
 
+    @Test fun comparisonReadsBothMatchedPeriodsTogetherAndDisplaysRatesAndCarryCounts() {
+        val week = statisticsWeek(today, StatisticsWeekStart.SUNDAY)
+        val previousWeek = statisticsComparisonWeek(week)
+        val previousDay = today.minusWeeks(1)
+        val calls = mutableListOf<List<LocalDate>>()
+        setRoute(object : StatisticsRepository {
+            override suspend fun getTasksForDates(dates: Collection<LocalDate>): Map<LocalDate, List<DailyTask>> {
+                calls += dates.toList()
+                return mapOf(
+                    today to listOf(task().copy(isBig3 = true, source = DailyTaskSource.CARRY_OVER), task().copy(id = "pending", isCompleted = false)),
+                    previousDay to listOf(
+                        task(previousDay).copy(isBig3 = true, source = DailyTaskSource.CARRY_OVER),
+                        task(previousDay).copy(id = "pending_big3", isBig3 = true, isCompleted = false, source = DailyTaskSource.CARRY_OVER),
+                        task(previousDay).copy(id = "pending", isCompleted = false)
+                    )
+                )
+            }
+        })
+        compose.onNodeWithTag("stats_overall_count").assertTextEquals("1/2")
+        compose.onNodeWithTag("stats_overall_comparison").assertTextEquals(context.getString(R.string.stats_comparison_rate_up, 17))
+        compose.runOnIdle { assertTrue(calls.all { it == previousWeek.includedDates + week.includedDates }) }
+        compose.onNodeWithTag("stats_list").performScrollToNode(hasTestTag("stats_big3_comparison"))
+        compose.onNodeWithTag("stats_big3_comparison").assertTextEquals(context.getString(R.string.stats_comparison_rate_up, 50))
+        compose.onNodeWithTag("stats_list").performScrollToNode(hasTestTag("stats_carried_over_comparison"))
+        compose.onNodeWithTag("stats_carried_over_comparison").assertTextEquals(context.getString(R.string.stats_comparison_count_fewer, 1))
+    }
+
+    @Test fun missingPreviousTasksAreNotDisplayedAsZeroPercentComparison() {
+        setRoute()
+        compose.onNodeWithTag("stats_overall_comparison").assertTextEquals(context.getString(R.string.stats_comparison_unavailable))
+        compose.onNodeWithTag("stats_list").performScrollToNode(hasTestTag("stats_carried_over_comparison"))
+        compose.onNodeWithTag("stats_carried_over_comparison").assertTextEquals(context.getString(R.string.stats_comparison_unavailable))
+    }
+
     @Test fun settingsToggleAndWeekSelectorPreserveOtherChoices() {
         val settings = mutableStateOf(AppSettings(dayStartHour = 3))
         compose.setContent { Column { StatisticsSettings(settings.value) { settings.value = it } } }
@@ -241,6 +278,9 @@ class StatisticsScreenTest {
         val stats = calculateWeeklyStatistics(week, week.includedDates.associateWith { day ->
             listOf(task(day), task(day).copy(id = "pending", isCompleted = false, isBig3 = true, schedule = ScheduleBlock(600, 660)))
         })
+        val previousWeek = statisticsComparisonWeek(week)
+        val previous = calculateWeeklyStatistics(previousWeek, previousWeek.includedDates.associateWith { day -> listOf(task(day)) })
+        val comparison = WeeklyStatisticsComparison(stats, previous)
         compose.setContent {
             val localized = localizedContext()
             val density = LocalDensity.current
@@ -252,7 +292,7 @@ class StatisticsScreenTest {
             ) {
                 Box(Modifier.size(320.dp, 800.dp)) {
                     Scaffold(bottomBar = { AppBottomBar(AppTab.STATS, {}, tabs = visibleAppTabs(true)) }) { padding ->
-                        StatisticsScreen(week, StatisticsLoadState.Ready(stats), true, {}, {}, {}, {}, Modifier.fillMaxSize().padding(padding))
+                        StatisticsScreen(week, StatisticsLoadState.Ready(stats, comparison), true, {}, {}, {}, {}, Modifier.fillMaxSize().padding(padding))
                     }
                 }
             }
@@ -267,6 +307,18 @@ class StatisticsScreenTest {
             }
             val bounds = AppTab.entries.map { compose.onNodeWithTag("app_tab_${it.name.lowercase()}").fetchSemanticsNode().boundsInRoot }
             assertTrue("Overlapping nav tabs for $tag", bounds.sortedBy { it.left }.zipWithNext().all { (a, b) -> a.right <= b.left + 1f })
+            listOf("stats_comparison_period", "stats_overall_comparison", "stats_big3_comparison", "stats_carried_over_comparison").forEach { nodeTag ->
+                compose.onNodeWithTag("stats_list").performScrollToNode(hasTestTag(nodeTag))
+                val layouts = mutableListOf<TextLayoutResult>()
+                compose.onNodeWithTag(nodeTag).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                assertTextFits("Comparison label $nodeTag for $tag", layouts.single())
+            }
+            if (tag in listOf("en", "ko", "fa")) {
+                compose.onNodeWithTag("stats_list").performScrollToNode(hasTestTag("stats_overall_comparison"))
+                savePreview("$tag-comparison")
+                compose.onNodeWithTag("stats_list").performScrollToNode(hasTestTag("stats_carried_over_comparison"))
+                savePreview("$tag-comparison-details")
+            }
             compose.onNodeWithTag("stats_list").performScrollToNode(hasTestTag("stats_chart"))
             compose.onNodeWithTag("stats_chart").assertIsDisplayed()
             if (tag in listOf("en", "ko", "fa")) savePreview(tag)

@@ -317,4 +317,11 @@
     <string name="settings_statistics_week_start">Zuva rekutanga revhiki munhamba</string>
     <string name="stats_week_sunday">Svondo</string>
     <string name="stats_week_monday">Muvhuro</string>
+    <string name="stats_comparison_period">Svondo rapfuura: %1$s kusvika %2$s</string>
+    <string name="stats_comparison_unavailable">Hapana data yekuenzanisa</string>
+    <string name="stats_comparison_rate_up">Yakakwira ne%1$d percentage points pane svondo rapfuura</string>
+    <string name="stats_comparison_rate_down">Yakadzikira ne%1$d percentage points pane svondo rapfuura</string>
+    <string name="stats_comparison_same">Zvakafanana nesvondo rapfuura</string>
+    <string name="stats_comparison_count_more">Mabasa %1$d akawanda kupfuura svondo rapfuura</string>
+    <string name="stats_comparison_count_fewer">Mabasa %1$d mashoma kupfuura svondo rapfuura</string>
 </resources>

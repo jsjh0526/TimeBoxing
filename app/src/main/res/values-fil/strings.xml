@@ -317,4 +317,11 @@
     <string name="settings_statistics_week_start">Unang araw ng linggo sa estadistika</string>
     <string name="stats_week_sunday">Linggo</string>
     <string name="stats_week_monday">Lunes</string>
+    <string name="stats_comparison_period">Nakaraang linggo: %1$s hanggang %2$s</string>
+    <string name="stats_comparison_unavailable">Walang datos para ihambing</string>
+    <string name="stats_comparison_rate_up">Mas mataas nang %1$d percentage points kaysa noong nakaraang linggo</string>
+    <string name="stats_comparison_rate_down">Mas mababa nang %1$d percentage points kaysa noong nakaraang linggo</string>
+    <string name="stats_comparison_same">Kapareho ng nakaraang linggo</string>
+    <string name="stats_comparison_count_more">Mas marami nang %1$d gawain kaysa noong nakaraang linggo</string>
+    <string name="stats_comparison_count_fewer">Mas kaunti nang %1$d gawain kaysa noong nakaraang linggo</string>
 </resources>

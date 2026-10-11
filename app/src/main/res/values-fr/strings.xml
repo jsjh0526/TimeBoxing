@@ -317,4 +317,11 @@
     <string name="settings_statistics_week_start">Premier jour de semaine des statistiques</string>
     <string name="stats_week_sunday">Dimanche</string>
     <string name="stats_week_monday">Lundi</string>
+    <string name="stats_comparison_period">Semaine précédente : du %1$s au %2$s</string>
+    <string name="stats_comparison_unavailable">Aucune donnée de comparaison</string>
+    <string name="stats_comparison_rate_up">%1$d points de pourcentage de plus que la semaine précédente</string>
+    <string name="stats_comparison_rate_down">%1$d points de pourcentage de moins que la semaine précédente</string>
+    <string name="stats_comparison_same">Identique à la semaine précédente</string>
+    <string name="stats_comparison_count_more">%1$d tâches de plus que la semaine précédente</string>
+    <string name="stats_comparison_count_fewer">%1$d tâches de moins que la semaine précédente</string>
 </resources>

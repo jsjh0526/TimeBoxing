@@ -59,7 +59,9 @@ import dev.jsjh.timebox.domain.model.DailyStatistics
 import dev.jsjh.timebox.domain.model.StatisticsWeek
 import dev.jsjh.timebox.domain.model.StatisticsWeekStart
 import dev.jsjh.timebox.domain.model.WeeklyStatistics
+import dev.jsjh.timebox.domain.model.WeeklyStatisticsComparison
 import dev.jsjh.timebox.domain.model.calculateWeeklyStatistics
+import dev.jsjh.timebox.domain.model.statisticsComparisonWeek
 import dev.jsjh.timebox.domain.model.statisticsWeek
 import dev.jsjh.timebox.domain.repository.StatisticsRepository
 import java.time.LocalDate
@@ -77,12 +79,13 @@ private val Secondary = Color(0xFF99A1AF)
 private val Divider = Color(0xFF303030)
 private val Accent = Color(0xFF8687E7)
 private val Completed = Color(0xFF79CE8E)
+private val Decreased = Color(0xFFFF9E92)
 private val Pending = Color(0xFF535965)
 
 internal sealed interface StatisticsLoadState {
     data object Loading : StatisticsLoadState
     data object Error : StatisticsLoadState
-    data class Ready(val statistics: WeeklyStatistics) : StatisticsLoadState
+    data class Ready(val statistics: WeeklyStatistics, val comparison: WeeklyStatisticsComparison? = null) : StatisticsLoadState
 }
 
 @Composable
@@ -110,10 +113,13 @@ fun StatisticsRoute(
     LaunchedEffect(ownerKey, repository, week, refreshKey, attempt, foregroundRevision) {
         state = StatisticsLoadState.Loading
         state = try {
-            val tasks = repository.getTasksForDates(week.includedDates)
+            val previousWeek = statisticsComparisonWeek(week)
+            val tasks = repository.getTasksForDates(previousWeek.includedDates + week.includedDates)
             // A cancelled or obsolete query must never publish into the current screen.
             currentCoroutineContext().ensureActive()
-            StatisticsLoadState.Ready(calculateWeeklyStatistics(week, tasks))
+            val statistics = calculateWeeklyStatistics(week, tasks)
+            val previous = calculateWeeklyStatistics(previousWeek, tasks)
+            StatisticsLoadState.Ready(statistics, WeeklyStatisticsComparison(statistics, previous))
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
@@ -192,6 +198,7 @@ internal fun StatisticsScreen(
             }
             is StatisticsLoadState.Ready -> {
                 val stats = state.statistics
+                val comparison = state.comparison
                 item {
                     Text(stringResource(R.string.stats_overall), style = textStyle(14, color = Secondary))
                     Spacer(Modifier.height(10.dp))
@@ -205,6 +212,20 @@ internal fun StatisticsScreen(
                         modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
                         color = Completed, trackColor = Divider
                     )
+                    if (comparison != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            stringResource(
+                                R.string.stats_comparison_period,
+                                comparison.previous.week.start.format(dateFormatter),
+                                comparison.previous.week.through.format(dateFormatter)
+                            ),
+                            modifier = Modifier.fillMaxWidth().testTag("stats_comparison_period"),
+                            style = textStyle(12, color = Secondary)
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        RateComparison(comparison.overallPercentagePointChange, "stats_overall_comparison")
+                    }
                     if (stats.overall.total == 0) {
                         Spacer(Modifier.height(12.dp))
                         Text(stringResource(R.string.stats_no_tasks), Modifier.testTag("stats_empty"), style = textStyle(13, color = Secondary))
@@ -213,14 +234,20 @@ internal fun StatisticsScreen(
                 item { DailyChart(stats, locale, dateFormatter) }
                 item {
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                        CompletionRow(stringResource(R.string.stats_big3), stats.big3, "stats_big3")
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            CompletionRow(stringResource(R.string.stats_big3), stats.big3, "stats_big3")
+                            if (comparison != null) RateComparison(comparison.big3PercentagePointChange, "stats_big3_comparison")
+                        }
                         StatsDivider()
                         CompletionRow(stringResource(R.string.stats_scheduled), stats.scheduled, "stats_scheduled")
                         StatsDivider()
                         MetricRow(stringResource(R.string.stats_planned_time), durationLabel(stats.plannedMinutes), "stats_planned_time")
                         MetricRow(stringResource(R.string.stats_completed_time), durationLabel(stats.completedPlannedMinutes), "stats_completed_time")
                         StatsDivider()
-                        MetricRow(stringResource(R.string.stats_carried_over), String.format(locale, "%d", stats.carriedOverCount), "stats_carried_over")
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            MetricRow(stringResource(R.string.stats_carried_over), String.format(locale, "%d", stats.carriedOverCount), "stats_carried_over")
+                            if (comparison != null) CountComparison(comparison.carriedOverChange)
+                        }
                     }
                 }
             }
@@ -302,6 +329,33 @@ private fun MetricRow(label: String, value: String, tag: String) {
         Text(label, style = textStyle(14, color = Secondary))
         Text(value, style = textStyle(20, FontWeight.SemiBold))
     }
+}
+
+@Composable
+private fun RateComparison(change: Int?, tag: String) {
+    val label = when {
+        change == null -> stringResource(R.string.stats_comparison_unavailable)
+        change > 0 -> stringResource(R.string.stats_comparison_rate_up, change)
+        change < 0 -> stringResource(R.string.stats_comparison_rate_down, -change)
+        else -> stringResource(R.string.stats_comparison_same)
+    }
+    val color = when {
+        change == null || change == 0 -> Secondary
+        change > 0 -> Completed
+        else -> Decreased
+    }
+    Text(label, Modifier.fillMaxWidth().testTag(tag), style = textStyle(13, color = color))
+}
+
+@Composable
+private fun CountComparison(change: Int?) {
+    val label = when {
+        change == null -> stringResource(R.string.stats_comparison_unavailable)
+        change > 0 -> stringResource(R.string.stats_comparison_count_more, change)
+        change < 0 -> stringResource(R.string.stats_comparison_count_fewer, -change)
+        else -> stringResource(R.string.stats_comparison_same)
+    }
+    Text(label, Modifier.fillMaxWidth().testTag("stats_carried_over_comparison"), style = textStyle(13, color = Secondary))
 }
 
 @Composable

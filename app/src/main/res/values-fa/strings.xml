@@ -317,4 +317,11 @@
     <string name="settings_statistics_week_start">روز آغاز هفته در آمار</string>
     <string name="stats_week_sunday">یکشنبه</string>
     <string name="stats_week_monday">دوشنبه</string>
+    <string name="stats_comparison_period">هفتهٔ قبل: از %1$s تا %2$s</string>
+    <string name="stats_comparison_unavailable">داده‌ای برای مقایسه وجود ندارد</string>
+    <string name="stats_comparison_rate_up">%1$d واحد درصد بیشتر از هفتهٔ قبل</string>
+    <string name="stats_comparison_rate_down">%1$d واحد درصد کمتر از هفتهٔ قبل</string>
+    <string name="stats_comparison_same">برابر با هفتهٔ قبل</string>
+    <string name="stats_comparison_count_more">%1$d کار بیشتر از هفتهٔ قبل</string>
+    <string name="stats_comparison_count_fewer">%1$d کار کمتر از هفتهٔ قبل</string>
 </resources>

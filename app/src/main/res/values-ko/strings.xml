@@ -317,4 +317,11 @@
     <string name="settings_statistics_week_start">통계 주 시작 요일</string>
     <string name="stats_week_sunday">일요일</string>
     <string name="stats_week_monday">월요일</string>
+    <string name="stats_comparison_period">비교 기간: %1$s ~ %2$s</string>
+    <string name="stats_comparison_unavailable">비교 데이터 없음</string>
+    <string name="stats_comparison_rate_up">지난주 같은 기간보다 %1$d%%p 높음</string>
+    <string name="stats_comparison_rate_down">지난주 같은 기간보다 %1$d%%p 낮음</string>
+    <string name="stats_comparison_same">지난주 같은 기간과 동일</string>
+    <string name="stats_comparison_count_more">지난주 같은 기간보다 %1$d개 많음</string>
+    <string name="stats_comparison_count_fewer">지난주 같은 기간보다 %1$d개 적음</string>
 </resources>

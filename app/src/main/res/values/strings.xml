@@ -318,4 +318,11 @@
     <string name="settings_statistics_week_start">Statistics week starts on</string>
     <string name="stats_week_sunday">Sunday</string>
     <string name="stats_week_monday">Monday</string>
+    <string name="stats_comparison_period">Last week: %1$s to %2$s</string>
+    <string name="stats_comparison_unavailable">No comparison data</string>
+    <string name="stats_comparison_rate_up">%1$d percentage points higher than last week</string>
+    <string name="stats_comparison_rate_down">%1$d percentage points lower than last week</string>
+    <string name="stats_comparison_same">Same as last week</string>
+    <string name="stats_comparison_count_more">%1$d more tasks than last week</string>
+    <string name="stats_comparison_count_fewer">%1$d fewer tasks than last week</string>
 </resources>

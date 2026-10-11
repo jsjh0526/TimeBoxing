@@ -317,4 +317,11 @@
     <string name="settings_statistics_week_start">Usuku lokuqala lwesonto ezibalweni</string>
     <string name="stats_week_sunday">ISonto</string>
     <string name="stats_week_monday">UMsombuluko</string>
+    <string name="stats_comparison_period">Isonto eledlule: %1$s kuya ku-%2$s</string>
+    <string name="stats_comparison_unavailable">Ayikho idatha yokuqhathanisa</string>
+    <string name="stats_comparison_rate_up">Kukhuphuke ngamaphuzu ephesenti angu-%1$d kunesonto eledlule</string>
+    <string name="stats_comparison_rate_down">Kwehle ngamaphuzu ephesenti angu-%1$d kunesonto eledlule</string>
+    <string name="stats_comparison_same">Kuyafana nesonto eledlule</string>
+    <string name="stats_comparison_count_more">Imisebenzi engu-%1$d ngaphezulu kunesonto eledlule</string>
+    <string name="stats_comparison_count_fewer">Imisebenzi engu-%1$d engaphansi kunesonto eledlule</string>
 </resources>

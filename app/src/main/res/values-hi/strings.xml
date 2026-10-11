@@ -317,4 +317,11 @@
     <string name="settings_statistics_week_start">आँकड़ों में सप्ताह का पहला दिन</string>
     <string name="stats_week_sunday">रविवार</string>
     <string name="stats_week_monday">सोमवार</string>
+    <string name="stats_comparison_period">पिछला सप्ताह: %1$s से %2$s</string>
+    <string name="stats_comparison_unavailable">तुलना के लिए डेटा नहीं है</string>
+    <string name="stats_comparison_rate_up">पिछले सप्ताह से %1$d प्रतिशत अंक अधिक</string>
+    <string name="stats_comparison_rate_down">पिछले सप्ताह से %1$d प्रतिशत अंक कम</string>
+    <string name="stats_comparison_same">पिछले सप्ताह के समान</string>
+    <string name="stats_comparison_count_more">पिछले सप्ताह से %1$d कार्य अधिक</string>
+    <string name="stats_comparison_count_fewer">पिछले सप्ताह से %1$d कार्य कम</string>
 </resources>

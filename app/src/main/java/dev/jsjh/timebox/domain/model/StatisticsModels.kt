@@ -22,6 +22,12 @@ fun statisticsWeek(today: LocalDate, weekStart: StatisticsWeekStart, offset: Int
     return StatisticsWeek(start, end, minOf(today, end))
 }
 
+fun statisticsComparisonWeek(week: StatisticsWeek): StatisticsWeek = StatisticsWeek(
+    start = week.start.minusWeeks(1),
+    end = week.end.minusWeeks(1),
+    through = week.through.minusWeeks(1)
+)
+
 data class CompletionStatistics(val completed: Int, val total: Int) {
     val percentage: Int? get() = if (total == 0) null else (completed.toDouble() * 100 / total).roundToInt()
 }
@@ -43,6 +49,23 @@ data class WeeklyStatistics(val week: StatisticsWeek, val days: List<DailyStatis
     val plannedMinutes = days.sumOf { it.plannedMinutes }
     val completedPlannedMinutes = days.sumOf { it.completedPlannedMinutes }
     val carriedOverCount = days.sumOf { it.carriedOverCount }
+}
+
+data class WeeklyStatisticsComparison(val current: WeeklyStatistics, val previous: WeeklyStatistics) {
+    init {
+        require(previous.week == statisticsComparisonWeek(current.week))
+    }
+
+    val overallPercentagePointChange = current.overall.changeFrom(previous.overall)
+    val big3PercentagePointChange = current.big3.changeFrom(previous.big3)
+    val carriedOverChange: Int? = if (current.overall.total == 0 || previous.overall.total == 0) null
+        else current.carriedOverCount - previous.carriedOverCount
+}
+
+private fun CompletionStatistics.changeFrom(previous: CompletionStatistics): Int? {
+    val currentPercentage = percentage ?: return null
+    val previousPercentage = previous.percentage ?: return null
+    return currentPercentage - previousPercentage
 }
 
 fun calculateWeeklyStatistics(

@@ -318,4 +318,11 @@
     <string name="settings_statistics_week_start">Erster Wochentag der Statistik</string>
     <string name="stats_week_sunday">Sonntag</string>
     <string name="stats_week_monday">Montag</string>
+    <string name="stats_comparison_period">Vorwoche: %1$s bis %2$s</string>
+    <string name="stats_comparison_unavailable">Keine Vergleichsdaten</string>
+    <string name="stats_comparison_rate_up">%1$d Prozentpunkte höher als in der Vorwoche</string>
+    <string name="stats_comparison_rate_down">%1$d Prozentpunkte niedriger als in der Vorwoche</string>
+    <string name="stats_comparison_same">Unverändert gegenüber der Vorwoche</string>
+    <string name="stats_comparison_count_more">%1$d Aufgaben mehr als in der Vorwoche</string>
+    <string name="stats_comparison_count_fewer">%1$d Aufgaben weniger als in der Vorwoche</string>
 </resources>

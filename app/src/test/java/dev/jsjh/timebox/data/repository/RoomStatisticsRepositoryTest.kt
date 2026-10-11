@@ -8,7 +8,9 @@ import dev.jsjh.timebox.data.local.database.TaskDatabase
 import dev.jsjh.timebox.data.local.entity.DailyTaskEntity
 import dev.jsjh.timebox.data.local.entity.TaskTemplateEntity
 import dev.jsjh.timebox.domain.model.StatisticsWeekStart
+import dev.jsjh.timebox.domain.model.WeeklyStatisticsComparison
 import dev.jsjh.timebox.domain.model.calculateWeeklyStatistics
+import dev.jsjh.timebox.domain.model.statisticsComparisonWeek
 import dev.jsjh.timebox.domain.model.statisticsWeek
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
@@ -72,6 +74,32 @@ class RoomStatisticsRepositoryTest {
         assertEquals(30, snapshot.getValue(today).single().schedule?.durationMinutes)
         assertFalse(snapshot.getValue(today).single().isCompleted)
         assertEquals(0, withContext(Dispatchers.IO) { database.dailyTaskDao().count() })
+    }
+
+    @Test fun comparisonSnapshotDoesNotBackfillRecentHabitsOrChangeStoredData() = runBlocking {
+        val week = statisticsWeek(today, StatisticsWeekStart.SUNDAY)
+        val previousWeek = statisticsComparisonWeek(week)
+        withContext(Dispatchers.IO) {
+            database.taskTemplateDao().upsert(habit())
+            database.dailyTaskDao().upsertAll(listOf(
+                task("current", today).copy(isCompleted = true, source = "CARRY_OVER"),
+                task("previous", previousWeek.through).copy(source = "CARRY_OVER")
+            ))
+        }
+        val before = rows()
+        val dates = previousWeek.includedDates + week.includedDates
+        val snapshot = repository.getTasksForDates(dates)
+        val comparison = WeeklyStatisticsComparison(
+            calculateWeeklyStatistics(week, snapshot),
+            calculateWeeklyStatistics(previousWeek, snapshot)
+        )
+        assertEquals(1, comparison.previous.overall.total)
+        assertEquals(3, comparison.current.overall.total)
+        assertEquals(33, comparison.overallPercentagePointChange)
+        assertEquals(0, comparison.carriedOverChange)
+        val calendar = RoomTaskRepository(database.taskTemplateDao(), database.dailyTaskDao()).getTaskCompletionCounts(dates)
+        assertEquals(calendar, snapshot.mapValues { (_, tasks) -> tasks.count { it.isCompleted } to tasks.size })
+        assertEquals(before, rows())
     }
 
     @Test fun invalidBlocksAreExcludedFromTimeButNotOverallCompletion() = runBlocking {

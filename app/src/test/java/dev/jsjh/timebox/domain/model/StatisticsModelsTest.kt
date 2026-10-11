@@ -89,5 +89,106 @@ class StatisticsModelsTest {
         assertEquals(13, CompletionStatistics(1, 8).percentage)
     }
 
+    @Test fun comparisonMatchesElapsedDaysForEitherWeekStartAcrossYearAndLeapDay() {
+        listOf(today, LocalDate.of(2027, 1, 1), LocalDate.of(2024, 2, 29)).forEach { date ->
+            StatisticsWeekStart.entries.forEach { start ->
+                val current = statisticsWeek(date, start)
+                val previous = statisticsComparisonWeek(current)
+                assertEquals(current.includedDates.map { it.minusWeeks(1) }, previous.includedDates)
+                assertEquals(current.start.dayOfWeek, previous.start.dayOfWeek)
+                assertEquals(date.minusWeeks(1), previous.through)
+            }
+        }
+    }
+
+    @Test fun comparisonOfPastWeeksAlwaysIncludesSevenDays() {
+        val current = statisticsWeek(today, StatisticsWeekStart.MONDAY, -1)
+        val previous = statisticsComparisonWeek(current)
+        assertEquals(7, previous.includedDates.size)
+        assertEquals(current.end.minusWeeks(1), previous.through)
+    }
+
+    @Test fun comparisonExcludesLaterDaysOfLastWeekAndUsesPercentagePoints() {
+        val currentWeek = statisticsWeek(today, StatisticsWeekStart.MONDAY)
+        val previousWeek = statisticsComparisonWeek(currentWeek)
+        val previousDay = today.minusWeeks(1)
+        val tasks = mapOf(
+            today to listOf(
+                task().copy(isCompleted = true, isBig3 = true, source = DailyTaskSource.CARRY_OVER),
+                task()
+            ),
+            previousDay to listOf(
+                task(previousDay).copy(isCompleted = true, isBig3 = true, source = DailyTaskSource.CARRY_OVER),
+                task(previousDay).copy(isBig3 = true, source = DailyTaskSource.CARRY_OVER),
+                task(previousDay)
+            ),
+            previousDay.plusDays(1) to List(10) { task(previousDay.plusDays(1)).copy(isCompleted = true) },
+            today.plusDays(1) to List(10) { task(today.plusDays(1)).copy(isCompleted = true) }
+        )
+        val current = calculateWeeklyStatistics(currentWeek, tasks)
+        val previous = calculateWeeklyStatistics(previousWeek, tasks)
+        val comparison = WeeklyStatisticsComparison(current, previous)
+        assertEquals(CompletionStatistics(1, 3), previous.overall)
+        assertEquals(17, comparison.overallPercentagePointChange)
+        assertEquals(50, comparison.big3PercentagePointChange)
+        assertEquals(-1, comparison.carriedOverChange)
+        val reversedTasks = tasks.mapValues { (_, rows) -> rows.map { it.copy(isCompleted = !it.isCompleted) } }
+        val reversed = WeeklyStatisticsComparison(
+            calculateWeeklyStatistics(currentWeek, reversedTasks),
+            calculateWeeklyStatistics(previousWeek, reversedTasks)
+        )
+        assertEquals(-17, reversed.overallPercentagePointChange)
+        assertEquals(-50, reversed.big3PercentagePointChange)
+    }
+
+    @Test fun comparisonWithoutTasksIsUnavailableButUncompletedTasksHaveZeroRate() {
+        val currentWeek = statisticsWeek(today, StatisticsWeekStart.SUNDAY)
+        val previousWeek = statisticsComparisonWeek(currentWeek)
+        val current = calculateWeeklyStatistics(currentWeek, mapOf(today to listOf(task())))
+        val empty = calculateWeeklyStatistics(previousWeek, emptyMap())
+        val missingPrevious = WeeklyStatisticsComparison(current, empty)
+        assertNull(missingPrevious.overallPercentagePointChange)
+        assertNull(missingPrevious.big3PercentagePointChange)
+        assertNull(missingPrevious.carriedOverChange)
+        val previousDay = today.minusWeeks(1)
+        val previous = calculateWeeklyStatistics(previousWeek, mapOf(previousDay to listOf(task(previousDay))))
+        val same = WeeklyStatisticsComparison(current, previous)
+        assertEquals(0, same.overallPercentagePointChange)
+        assertNull(same.big3PercentagePointChange)
+        assertEquals(0, same.carriedOverChange)
+        val missingCurrent = WeeklyStatisticsComparison(calculateWeeklyStatistics(currentWeek, emptyMap()), previous)
+        assertNull(missingCurrent.overallPercentagePointChange)
+        assertNull(missingCurrent.carriedOverChange)
+    }
+
+    @Test fun comparisonUsesWeightedWeeklyRatesAndCountsAdditionalCarryTasks() {
+        val week = statisticsWeek(today, StatisticsWeekStart.MONDAY)
+        val previous = statisticsComparisonWeek(week)
+        val tasks = mapOf(
+            week.start to List(2) { task(week.start).copy(isCompleted = true) },
+            week.start.plusDays(1) to listOf(
+                task(week.start.plusDays(1)).copy(source = DailyTaskSource.CARRY_OVER),
+                task(week.start.plusDays(1))
+            ),
+            previous.start to listOf(task(previous.start).copy(isCompleted = true)),
+            previous.start.plusDays(1) to List(9) { task(previous.start.plusDays(1)) }
+        )
+        val comparison = WeeklyStatisticsComparison(
+            calculateWeeklyStatistics(week, tasks),
+            calculateWeeklyStatistics(previous, tasks)
+        )
+        assertEquals(40, comparison.overallPercentagePointChange)
+        assertEquals(1, comparison.carriedOverChange)
+    }
+
+    @Test(expected = IllegalArgumentException::class) fun mismatchedComparisonPeriodsAreRejected() {
+        val currentWeek = statisticsWeek(today, StatisticsWeekStart.SUNDAY)
+        val fullPreviousWeek = statisticsWeek(today, StatisticsWeekStart.SUNDAY, -1)
+        WeeklyStatisticsComparison(
+            calculateWeeklyStatistics(currentWeek, emptyMap()),
+            calculateWeeklyStatistics(fullPreviousWeek, emptyMap())
+        )
+    }
+
     private fun task(date: LocalDate = today) = DailyTask("task", date = date, title = "Task")
 }
