@@ -24,7 +24,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.lifecycle.Lifecycle
 import dev.jsjh.timebox.ads.AdsConsentManager
 import dev.jsjh.timebox.ads.OpeningNativeAdGate
 import dev.jsjh.timebox.ads.OpeningNativeAdPreloader
@@ -38,6 +37,7 @@ import dev.jsjh.timebox.feature.settings.AppSettingsStore
 import dev.jsjh.timebox.notification.ReminderReceiver
 import dev.jsjh.timebox.notification.ReminderScheduler
 import dev.jsjh.timebox.review.InAppReviewPrompter
+import dev.jsjh.timebox.ui.isReadyForExternalUi
 import dev.jsjh.timebox.ui.theme.TimeBoxingTheme
 import dev.jsjh.timebox.widget.WidgetLaunchRequest
 import com.google.android.play.core.appupdate.AppUpdateInfo
@@ -208,7 +208,7 @@ class MainActivity : ComponentActivity() {
             if (generation != windowFocusGeneration) return@postDelayed
             if (!isWindowReadyForExternalFlow()) return@postDelayed
 
-            if (OpeningNativeAdGate.isOverlayActive()) {
+            if (OpeningNativeAdGate.isOverlayActive() || AdsConsentManager.isConsentFlowActive(this)) {
                 scheduleExternalFlowCheck()
                 return@postDelayed
             }
@@ -266,8 +266,17 @@ class MainActivity : ComponentActivity() {
         if (appUpdateInfoRequestInFlight || appUpdateFlowInProgress || pendingImmediateUpdateInfo != null) return
         if (!isWindowReadyForExternalFlow()) return
 
+        if (OpeningNativeAdGate.isOverlayActive() || AdsConsentManager.isConsentFlowActive(this)) {
+            scheduleExternalFlowCheck()
+            return
+        }
+
         reviewRequestPending = false
-        InAppReviewPrompter.requestIfEligible(this)
+        InAppReviewPrompter.requestIfEligible(this) {
+            !loginScreenVisible && !OpeningNativeAdGate.isOverlayActive() &&
+                !AdsConsentManager.isConsentFlowActive(this) && !appUpdateCheckNeeded &&
+                !appUpdateInfoRequestInFlight && !appUpdateFlowInProgress && pendingImmediateUpdateInfo == null
+        }
     }
 
     private fun startImmediateUpdateSafely(appUpdateInfo: AppUpdateInfo) {
@@ -290,12 +299,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun isWindowReadyForExternalFlow(): Boolean {
-        if (isFinishing || isDestroyed) return false
-        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return false
-        val decorView = window.decorView
-        return decorView.isAttachedToWindow && decorView.windowToken != null && hasWindowFocus()
-    }
+    private fun isWindowReadyForExternalFlow(): Boolean = isReadyForExternalUi()
 
     private fun initializeMobileAdsIfNeeded() {
         if (mobileAdsInitialized) return

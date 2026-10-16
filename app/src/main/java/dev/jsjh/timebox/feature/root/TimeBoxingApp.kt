@@ -690,9 +690,14 @@ private fun MainApp(
     }
 
     var todoBannerRequested by remember { mutableStateOf(appState.currentTab == AppTab.TODO) }
+    var statsBannerRequested by remember { mutableStateOf(false) }
     LaunchedEffect(appState.currentTab, tutorialSession) {
-        if (tutorialSession == null && appState.currentTab == AppTab.TODO) {
-            todoBannerRequested = true
+        if (tutorialSession == null) {
+            when (appState.currentTab) {
+                AppTab.TODO -> todoBannerRequested = true
+                AppTab.STATS -> statsBannerRequested = true
+                else -> Unit
+            }
         }
     }
     val todoBannerAdView = if (todoBannerRequested) {
@@ -707,6 +712,14 @@ private fun MainApp(
         adUnitId = BuildConfig.ADMOB_SETTINGS_BANNER_AD_UNIT_ID,
         placement = TimeBoxAnalytics.PLACEMENT_SETTINGS_BANNER
     )
+    val statsBannerAdView = if (statsBannerRequested) {
+        rememberBannerAdView(
+            adUnitId = BuildConfig.ADMOB_SETTINGS_BANNER_AD_UNIT_ID,
+            placement = TimeBoxAnalytics.PLACEMENT_STATS_BANNER
+        )
+    } else {
+        null
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -716,6 +729,7 @@ private fun MainApp(
                     val visibleBanner = if (tutorialSession == null) {
                         when (appState.currentTab) {
                             AppTab.TODO -> todoBannerAdView
+                            AppTab.STATS -> statsBannerAdView
                             AppTab.SETTINGS -> settingsBannerAdView
                             else -> null
                         }

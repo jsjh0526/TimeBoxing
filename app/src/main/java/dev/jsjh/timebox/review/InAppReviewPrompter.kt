@@ -3,9 +3,9 @@ package dev.jsjh.timebox.review
 import android.app.Activity
 import android.content.Context
 import androidx.core.content.edit
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
 import com.google.android.play.core.review.ReviewManagerFactory
+import dev.jsjh.timebox.ui.isReadyForExternalUi
+import dev.jsjh.timebox.ui.runWhenWindowReady
 import java.util.concurrent.TimeUnit
 
 object InAppReviewPrompter {
@@ -26,9 +26,9 @@ object InAppReviewPrompter {
         }
     }
 
-    fun requestIfEligible(activity: Activity) {
+    fun requestIfEligible(activity: Activity, canLaunch: () -> Boolean = { true }) {
         if (requestedThisProcess) return
-        if (!activity.isReadyForReviewFlow()) return
+        if (!activity.isReadyForExternalUi() || !canLaunch()) return
         val now = System.currentTimeMillis()
         val appContext = activity.applicationContext
         val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -44,21 +44,18 @@ object InAppReviewPrompter {
         val reviewManager = ReviewManagerFactory.create(appContext)
         reviewManager.requestReviewFlow()
             .addOnSuccessListener { reviewInfo ->
-                if (!activity.isReadyForReviewFlow()) {
+                if (!activity.isReadyForExternalUi() || !canLaunch()) {
                     requestedThisProcess = false
                     return@addOnSuccessListener
                 }
 
-                val decorView = activity.window.decorView
-                val expectedWindowToken = decorView.windowToken
-                decorView.postDelayed({
-                    if (
-                        expectedWindowToken == null ||
-                        decorView.windowToken != expectedWindowToken ||
-                        !activity.isReadyForReviewFlow()
-                    ) {
+                activity.runWhenWindowReady(
+                    settleDelayMillis = REVIEW_FLOW_SETTLE_DELAY_MS,
+                    onCancelled = { requestedThisProcess = false }
+                ) {
+                    if (!canLaunch()) {
                         requestedThisProcess = false
-                        return@postDelayed
+                        return@runWhenWindowReady
                     }
 
                     runCatching {
@@ -68,7 +65,7 @@ object InAppReviewPrompter {
                     }.onFailure {
                         requestedThisProcess = false
                     }
-                }, REVIEW_FLOW_SETTLE_DELAY_MS)
+                }
             }
             .addOnFailureListener {
                 requestedThisProcess = false
@@ -79,13 +76,5 @@ object InAppReviewPrompter {
         return runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).firstInstallTime
         }.getOrDefault(System.currentTimeMillis())
-    }
-
-    private fun Activity.isReadyForReviewFlow(): Boolean {
-        if (isFinishing || isDestroyed) return false
-        val lifecycleOwner = this as? LifecycleOwner ?: return false
-        if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return false
-        val decorView = window.decorView
-        return decorView.isAttachedToWindow && decorView.windowToken != null && hasWindowFocus()
     }
 }

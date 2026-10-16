@@ -31,8 +31,9 @@ android {
         applicationId = "dev.jsjh.timebox"
         minSdk = 28
         targetSdk = 36
-        versionCode = 43
-        versionName = "1.4.0"
+        // Internal test uploads can use a fresh code without changing the release default.
+        versionCode = providers.gradleProperty("internalTestVersionCode").map { it.toInt() }.getOrElse(43)
+        versionName = "1.4.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
         buildConfigField("String", "ADMOB_SETTINGS_BANNER_AD_UNIT_ID", "\"ca-app-pub-3940256099942544/9214589741\"")
@@ -137,6 +138,7 @@ dependencies {
     implementation(libs.user.messaging.platform)
     implementation(libs.play.app.update.ktx)
     implementation(libs.play.review.ktx)
+    implementation(libs.play.billing)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(platform(libs.firebase.bom))

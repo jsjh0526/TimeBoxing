@@ -78,6 +78,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
@@ -97,6 +99,7 @@ import dev.jsjh.timebox.data.remote.SyncManager
 import dev.jsjh.timebox.data.remote.SyncState
 import dev.jsjh.timebox.domain.model.StatisticsWeekStart
 import dev.jsjh.timebox.notification.ReminderSettings
+import dev.jsjh.timebox.ui.isReadyForExternalUi
 import dev.jsjh.timebox.widget.TodoWidgetUpdater
 import dev.jsjh.timebox.widget.WidgetAccessStore
 import java.util.concurrent.TimeUnit
@@ -416,7 +419,7 @@ private fun SupportAdCard() {
             icon = { MaterialSettingsIcon(SettingsIcon.Support, buttonIconColor, 18) },
             onClick = {
                 val ad = rewardedAd
-                if (activity == null) {
+                if (activity == null || !activity.isReadyForExternalUi() || AdsConsentManager.isConsentFlowActive(activity)) {
                     Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
                     return@ActionButton
                 }
@@ -484,6 +487,9 @@ private fun WidgetAccessCard() {
     var rewardedAd by remember { mutableStateOf<RewardedAd?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var showWhenLoaded by remember { mutableStateOf(false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
+        showWhenLoaded = false
+    }
     var refreshKey by remember { mutableStateOf(0) }
     val remainingMillis by androidx.compose.runtime.produceState(
         initialValue = WidgetAccessStore.remainingMillis(context),
@@ -549,6 +555,10 @@ private fun WidgetAccessCard() {
         if (hostActivity == null) {
             showWhenLoaded = false
             Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
+            return@LaunchedEffect
+        }
+        if (!hostActivity.isReadyForExternalUi() || AdsConsentManager.isConsentFlowActive(hostActivity)) {
+            showWhenLoaded = false
             return@LaunchedEffect
         }
 
