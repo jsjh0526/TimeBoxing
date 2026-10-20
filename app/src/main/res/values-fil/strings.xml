@@ -214,6 +214,7 @@
     <string name="timetable_add_task">Magdagdag ng Gawain</string>
 
     <string name="widget_today">Ngayon</string>
+    <string name="widget_open_todo">Buksan ang TODO</string>
     <string name="widget_left">%1$d/%2$d ang natitira</string>
     <string name="widget_no_tasks">Walang gawain ngayon</string>
     <string name="widget_more_tasks">+%1$d pa sa TimeBox</string>

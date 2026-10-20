@@ -214,6 +214,7 @@
     <string name="timetable_add_task">Add Task</string>
 
     <string name="widget_today">Today</string>
+    <string name="widget_open_todo">TODO 열기</string>
     <string name="widget_left">%1$d/%2$d left</string>
     <string name="widget_no_tasks">오늘 할일이 없어요</string>
     <string name="widget_more_tasks">+%1$d개 더 보기</string>

@@ -214,6 +214,7 @@
     <string name="timetable_add_task">Aufgabe hinzufügen</string>
 
     <string name="widget_today">Heute</string>
+    <string name="widget_open_todo">TODO öffnen</string>
     <string name="widget_left">Noch %1$d/%2$d</string>
     <string name="widget_no_tasks">Heute keine Aufgaben</string>
     <string name="widget_more_tasks">+%1$d weitere in TimeBox</string>

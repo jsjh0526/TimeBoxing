@@ -214,6 +214,7 @@
     <string name="timetable_add_task">Wedzera Basa</string>
 
     <string name="widget_today">Nhasi</string>
+    <string name="widget_open_todo">Vhura TODO</string>
     <string name="widget_left">%1$d/%2$d yasara</string>
     <string name="widget_no_tasks">Hapana mabasa nhasi</string>
     <string name="widget_more_tasks">+%1$d zvimwe muTimeBox</string>

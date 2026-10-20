@@ -214,6 +214,7 @@
     <string name="timetable_add_task">कार्य जोड़ें</string>
 
     <string name="widget_today">आज</string>
+    <string name="widget_open_todo">TODO खोलें</string>
     <string name="widget_left">%1$d/%2$d शेष</string>
     <string name="widget_no_tasks">आज कोई कार्य नहीं</string>
     <string name="widget_more_tasks">TimeBox में +%1$d और</string>

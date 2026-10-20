@@ -214,6 +214,7 @@
     <string name="timetable_add_task">افزودن کار</string>
 
     <string name="widget_today">امروز</string>
+    <string name="widget_open_todo">باز کردن TODO</string>
     <string name="widget_left">%1$d از %2$d باقی مانده</string>
     <string name="widget_no_tasks">امروز کاری ندارید</string>
     <string name="widget_more_tasks">+%1$d کار دیگر در TimeBox</string>

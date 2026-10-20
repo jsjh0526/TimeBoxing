@@ -1,14 +1,12 @@
 package dev.jsjh.timebox.widget
 
-import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -19,16 +17,18 @@ import androidx.glance.LocalSize
 import androidx.glance.action.Action
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
-import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.updateAll
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -41,6 +41,7 @@ import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
+import androidx.glance.layout.wrapContentHeight
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
@@ -80,12 +81,6 @@ private val WidgetAccent = Color(0xFF8687E7)
 private val WidgetText = Color(0xFFFFFFFF)
 private val WidgetMuted = Color(0xFF9AA1AF)
 private val WidgetBorder = Color(0xFFFFFFFF)
-private val WidgetCompactSize = DpSize(250.dp, 120.dp)
-private val WidgetWideCompactSize = DpSize(360.dp, 120.dp)
-private val WidgetTallSize = DpSize(250.dp, 220.dp)
-private val WidgetWideTallSize = DpSize(360.dp, 220.dp)
-private val WidgetLargeTallSize = DpSize(300.dp, 404.dp)
-private val WidgetWideLargeTallSize = DpSize(360.dp, 404.dp)
 private val WidgetControlHitSize = 30.dp
 private val WidgetCompactControlHitSize = 26.dp
 private val TaskIdKey = ActionParameters.Key<String>("task_id")
@@ -109,16 +104,7 @@ class TodoWidgetReceiver : GlanceAppWidgetReceiver() {
 }
 
 class TodoWidget : GlanceAppWidget() {
-    override val sizeMode: SizeMode = SizeMode.Responsive(
-        setOf(
-            WidgetCompactSize,
-            WidgetWideCompactSize,
-            WidgetTallSize,
-            WidgetWideTallSize,
-            WidgetLargeTallSize,
-            WidgetWideLargeTallSize
-        )
-    )
+    override val sizeMode: SizeMode = SizeMode.Responsive(TodoWidgetSizes)
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val initialState = withContext(Dispatchers.IO) { loadTodoWidgetStateOrFallback(context) }
@@ -131,12 +117,8 @@ class TodoWidget : GlanceAppWidget() {
                     }
                 }
             }
-            val size = LocalSize.current
-            val compact = size.height < 180.dp
             TodoWidgetContent(
                 state = state,
-                compact = compact,
-                widgetHeight = size.height,
                 context = context
             )
         }
@@ -168,7 +150,7 @@ private object TodoWidgetRefreshBus {
     }
 }
 
-private data class TodoWidgetState(
+internal data class TodoWidgetState(
     val date: LocalDate,
     val tasks: List<DailyTask>,
     val incompleteCount: Int,
@@ -211,10 +193,8 @@ private suspend fun loadTodoWidgetStateOrFallback(context: Context): TodoWidgetS
     }
 
 @Composable
-private fun TodoWidgetContent(
+internal fun TodoWidgetContent(
     state: TodoWidgetState,
-    compact: Boolean,
-    widgetHeight: Dp,
     context: Context
 ) {
     if (state.errorMessage != null) {
@@ -222,25 +202,17 @@ private fun TodoWidgetContent(
         return
     }
 
-    val mainActivity = ComponentName(context, dev.jsjh.timebox.MainActivity::class.java)
-    val addAction = actionStartActivity(
-        mainActivity,
-        actionParametersOf(
-            ActionParameters.Key<String>(WidgetLaunchRequest.EXTRA_OPEN_TAB) to WidgetLaunchRequest.TAB_TODO,
-            ActionParameters.Key<Boolean>(WidgetLaunchRequest.EXTRA_OPEN_ADD_TASK) to true
-        )
-    )
+    val fontScale = context.resources.configuration.fontScale
+    val layout = todoWidgetLayout(LocalSize.current, fontScale)
+    val compactHeader = layout.compact && fontScale > 1.3f
+    val openAction = actionStartActivity(WidgetLaunchRequest.todoIntent(context))
+    val addAction = actionStartActivity(WidgetLaunchRequest.addTaskIntent(context))
     val addButtonSize = 42.dp
 
     if (!state.isUnlocked) {
         LockedWidgetState(
             context = context,
-            action = actionStartActivity(
-                mainActivity,
-                actionParametersOf(
-                    ActionParameters.Key<String>(WidgetLaunchRequest.EXTRA_OPEN_TAB) to WidgetLaunchRequest.TAB_SETTINGS
-                )
-            )
+            action = actionStartActivity(WidgetLaunchRequest.settingsIntent(context))
         )
         return
     }
@@ -250,24 +222,42 @@ private fun TodoWidgetContent(
             .fillMaxSize()
             .background(WidgetBg)
             .cornerRadius(24.dp)
-            .padding(14.dp)
+            .padding(layout.padding)
     ) {
         Row(
             modifier = GlanceModifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = GlanceModifier.defaultWeight()) {
-                Text(
-                    text = context.getString(R.string.widget_today),
-                    style = TextStyle(
-                        color = ColorProvider(WidgetText),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+            Column(
+                modifier = GlanceModifier.defaultWeight().wrapContentHeight()
+                    .clickable(openAction, rippleOverride = R.drawable.bg_widget_no_ripple),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = GlanceModifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = context.getString(R.string.widget_today),
+                        modifier = GlanceModifier.defaultWeight(),
+                        maxLines = 1,
+                        style = TextStyle(
+                            color = ColorProvider(WidgetText),
+                            fontSize = if (compactHeader) 14.sp else 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
-                )
+                    Spacer(GlanceModifier.width(6.dp))
+                    Image(
+                        provider = ImageProvider(R.drawable.ic_widget_open),
+                        contentDescription = context.getString(R.string.widget_open_todo),
+                        modifier = GlanceModifier.size(16.dp)
+                    )
+                }
                 Text(
                     text = context.getString(R.string.widget_left, state.incompleteCount, state.totalCount),
-                    style = TextStyle(color = ColorProvider(WidgetMuted), fontSize = 12.sp)
+                    maxLines = 1,
+                    style = TextStyle(color = ColorProvider(WidgetMuted), fontSize = if (compactHeader) 10.sp else 12.sp)
                 )
             }
             Spacer(GlanceModifier.width(10.dp))
@@ -279,79 +269,38 @@ private fun TodoWidgetContent(
                     .clickable(addAction, rippleOverride = R.drawable.bg_widget_no_ripple),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "+",
-                    style = TextStyle(
-                        color = ColorProvider(WidgetText),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center
-                    )
+                Image(
+                    provider = ImageProvider(R.drawable.ic_widget_add),
+                    contentDescription = context.getString(R.string.home_add_task),
+                    modifier = GlanceModifier.size(24.dp)
                 )
             }
         }
 
-        Spacer(GlanceModifier.height(if (compact) 8.dp else 10.dp))
+        Spacer(GlanceModifier.height(layout.spacing))
 
         if (state.tasks.isEmpty()) {
             EmptyWidgetState(context)
             return@Column
         }
 
-        val visibleLimit = visibleTaskLimit(widgetHeight)
-        val visibleTasks = state.tasks.take(visibleLimit)
-        val hiddenCount = (state.tasks.size - visibleTasks.size).coerceAtLeast(0)
-        val showMore = hiddenCount > 0
-        Column(
+        val itemIds = remember(state.tasks) { todoWidgetItemIds(state.tasks) }
+        LazyColumn(
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .defaultWeight(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            visibleTasks.forEachIndexed { index, task ->
-                TodoWidgetCard(
-                    task = task,
-                    compact = compact,
-                    context = context
-                )
-                if (index < visibleTasks.lastIndex || showMore) {
-                    Spacer(GlanceModifier.height(if (compact) 8.dp else 10.dp))
+            items(state.tasks, itemId = { itemIds.getValue(it.widgetItemKey()) }) { task ->
+                Column(modifier = GlanceModifier.fillMaxWidth().padding(bottom = layout.spacing)) {
+                    TodoWidgetCard(
+                        task = task,
+                        layout = layout,
+                        context = context
+                    )
                 }
             }
-            if (showMore) {
-                MoreWidgetTasksRow(context, hiddenCount)
-            }
         }
-    }
-}
-
-private fun visibleTaskLimit(widgetHeight: Dp): Int = when {
-    widgetHeight >= 360.dp -> 3
-    widgetHeight >= 180.dp -> 2
-    else -> 1
-}
-
-@Composable
-private fun MoreWidgetTasksRow(context: Context, hiddenCount: Int) {
-    Box(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .height(28.dp)
-            .cornerRadius(12.dp)
-            .background(WidgetCard.copy(alpha = 0.82f))
-            .padding(horizontal = 12.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = context.getString(R.string.widget_more_tasks, hiddenCount),
-            maxLines = 1,
-            style = TextStyle(
-                color = ColorProvider(WidgetMuted),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center
-            )
-        )
     }
 }
 
@@ -461,10 +410,9 @@ private fun EmptyWidgetState(context: Context) {
 }
 
 @Composable
-private fun TodoWidgetCard(task: DailyTask, compact: Boolean, context: Context) {
+private fun TodoWidgetCard(task: DailyTask, layout: TodoWidgetLayout, context: Context) {
     val timeText = task.schedule?.let { formatClockRange(context, it.startMinute, it.endMinute) }
         ?: context.getString(R.string.widget_unscheduled)
-    val cardHeight = if (compact) 58.dp else 78.dp
     val actionParameters = actionParametersOf(
         TaskIdKey to task.id,
         TaskDateKey to task.date.toString()
@@ -475,7 +423,7 @@ private fun TodoWidgetCard(task: DailyTask, compact: Boolean, context: Context) 
         Box(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .height(if (compact) 62.dp else 82.dp)
+                .wrapContentHeight()
                 .cornerRadius(18.dp)
                 .background(WidgetBorder)
                 .padding(2.dp)
@@ -483,8 +431,7 @@ private fun TodoWidgetCard(task: DailyTask, compact: Boolean, context: Context) 
             TodoWidgetCardBody(
                 task = task,
                 timeText = timeText,
-                cardHeight = cardHeight,
-                compact = compact,
+                layout = layout,
                 decoration = decoration,
                 actionParameters = actionParameters
             )
@@ -495,8 +442,7 @@ private fun TodoWidgetCard(task: DailyTask, compact: Boolean, context: Context) 
     TodoWidgetCardBody(
         task = task,
         timeText = timeText,
-        cardHeight = cardHeight,
-        compact = compact,
+        layout = layout,
         decoration = decoration,
         actionParameters = actionParameters
     )
@@ -506,18 +452,18 @@ private fun TodoWidgetCard(task: DailyTask, compact: Boolean, context: Context) 
 private fun TodoWidgetCardBody(
     task: DailyTask,
     timeText: String,
-    cardHeight: androidx.compose.ui.unit.Dp,
-    compact: Boolean,
+    layout: TodoWidgetLayout,
     decoration: TextDecoration,
     actionParameters: ActionParameters
 ) {
+    val compact = layout.compact
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .height(cardHeight)
+            .wrapContentHeight()
             .cornerRadius(16.dp)
             .background(if (task.isCompleted) WidgetCardCompleted else WidgetCard)
-            .padding(horizontal = 12.dp, vertical = if (compact) 8.dp else 11.dp)
+            .padding(horizontal = 12.dp, vertical = layout.cardVerticalPadding)
     ) {
         Row(
             modifier = GlanceModifier.fillMaxWidth(),

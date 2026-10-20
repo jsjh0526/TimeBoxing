@@ -214,6 +214,7 @@
     <string name="timetable_add_task">Engeza Umsebenzi</string>
 
     <string name="widget_today">Namuhla</string>
+    <string name="widget_open_todo">Vula i-TODO</string>
     <string name="widget_left">Kusele %1$d/%2$d</string>
     <string name="widget_no_tasks">Ayikho imisebenzi yanamuhla</string>
     <string name="widget_more_tasks">+%1$d okwengeziwe ku-TimeBox</string>
