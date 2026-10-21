@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ListView
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -55,20 +56,35 @@ class TodoWidgetRenderingTest {
         }
     }
 
-    @Test fun completionAndDeleteCallbacksKeepTheirTaskIdentityAfterListChanges() {
-        val original = (1..4).map { task(it) }
+    @Test fun completionAndCardEntryKeepTheirTaskIdentityAfterListChanges() {
+        val original = (1..4).map { task(it).copy(isBig3 = it == 1, isCompleted = it == 3) }
         listOf(original, original.reversed(), original.drop(1)).forEach { tasks ->
             val root = render(tasks)
             val list = root.descendants().filterIsInstance<ListView>().single()
             tasks.forEachIndexed { position, task ->
                 val row = list.adapter.getView(position, null, list)
-                val intents = row.descendants().filter { it.hasOnClickListeners() }.map { callbackIntent(it) }
-                assertEquals(setOf(ToggleWidgetTaskAction::class.java.name, DeleteWidgetTaskAction::class.java.name),
-                    intents.map { it.getStringExtra("ActionCallbackBroadcastReceiver:callbackClass") }.toSet())
-                intents.forEach { intent ->
+                val intents = row.descendants().mapNotNull(::fillInIntent).flatMap(::intentTree)
+                val callbacks = intents.filter { it.hasExtra("ActionCallbackBroadcastReceiver:callbackClass") }
+                assertEquals(listOf(ToggleWidgetTaskAction::class.java.name),
+                    callbacks.map { it.getStringExtra("ActionCallbackBroadcastReceiver:callbackClass") })
+                callbacks.forEach { intent ->
                     val parameters = intent.getBundleExtra("ActionCallbackBroadcastReceiver:parameters")!!
                     assertEquals(task.id, parameters.getString("task_id"))
                     assertEquals(task.date.toString(), parameters.getString("task_date"))
+                }
+                val cardIntents = intents.filter { it.hasExtra(WidgetLaunchRequest.EXTRA_TASK_ID) }
+                assertTrue(cardIntents.isNotEmpty())
+                cardIntents.forEach { intent ->
+                    val request = WidgetLaunchRequest.from(intent)!!
+                    assertTrue(request.openTask)
+                    assertFalse(request.openAddTask)
+                    assertEquals(WidgetTaskTarget("account-a", task.id, task.date), request.taskTarget)
+                }
+                val images = imageResources(row)
+                assertFalse(R.drawable.ic_widget_close in images)
+                assertTrue(R.drawable.ic_widget_checkbox_empty in images || R.drawable.ic_widget_checkbox_checked in images)
+                row.descendants().filterIsInstance<TextView>().forEach { label ->
+                    assertTrue(label.cardClickTarget() != null)
                 }
             }
         }
@@ -81,6 +97,9 @@ class TodoWidgetRenderingTest {
         assertTrue(views.filterIsInstance<TextView>().any { it.text.toString() == context.getString(R.string.widget_no_tasks) })
         assertTrue(views.single { it.contentDescription == context.getString(R.string.home_add_task) }.clickTarget() != null)
         assertTrue(views.filterIsInstance<TextView>().single { it.text.toString() == context.getString(R.string.widget_today) }.clickTarget() != null)
+        assertFalse(R.drawable.ic_widget_open in imageResources(root))
+        assertTrue(R.drawable.ic_widget_add in imageResources(root))
+        assertFalse(views.any { it.contentDescription == context.getString(R.string.widget_open_todo) })
     }
 
     @Test fun headerAndPlusReallySendDifferentActivityIntents() {
@@ -136,8 +155,12 @@ class TodoWidgetRenderingTest {
                         assertTrue("$language $scale $size: clipped ${label.text} (${label.layout.getLineBottom(0)}/${label.height})",
                             label.layout.getLineBottom(0) <= label.height - label.compoundPaddingTop - label.compoundPaddingBottom)
                     }
-                    val buttons = row.descendants().filter { it.hasOnClickListeners() }
-                    assertEquals(2, buttons.size)
+                    val buttons = row.descendants().filter { view ->
+                        fillInIntent(view)?.let(::intentTree)?.any {
+                            it.hasExtra("ActionCallbackBroadcastReceiver:callbackClass")
+                        } == true
+                    }
+                    assertEquals(1, buttons.size)
                     val titleBounds = boundsIn(row, title)
                     buttons.forEach { button -> assertFalse(Rect.intersects(titleBounds, boundsIn(row, button))) }
                     val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
@@ -161,7 +184,7 @@ class TodoWidgetRenderingTest {
         val views = runBlocking {
             GlanceRemoteViews().compose(hostContext, size) {
                 TodoWidgetContent(
-                    TodoWidgetState(today, tasks, tasks.count { !it.isCompleted }, tasks.size, unlocked),
+                    TodoWidgetState(today, tasks, tasks.count { !it.isCompleted }, tasks.size, unlocked, ownerUserId = "account-a"),
                     hostContext
                 )
             }.remoteViews
@@ -173,16 +196,25 @@ class TodoWidgetRenderingTest {
 
     private fun task(index: Int) = DailyTask(id = "task-$index", date = today, title = "Task $index")
 
-    private fun callbackIntent(button: View): Intent {
-        // Inspect generated collection fill-in intents without invoking database mutations.
-        val listener = shadowOf(button).onClickListener!!
-        val action = listener.javaClass.declaredFields.single {
-            it.type.name.endsWith("\$SetOnClickResponse")
-        }.apply { isAccessible = true }.get(listener)
-        val response = ReflectionHelpers.getField<Any>(action, "mResponse")
-        val fillIn = ReflectionHelpers.getField<Intent>(response, "mFillIntent")
-        return intentTree(fillIn).single { it.hasExtra("ActionCallbackBroadcastReceiver:callbackClass") }
+    private fun imageResources(root: View): List<Int> = root.descendants().filterIsInstance<ImageView>().map {
+        ReflectionHelpers.getField<Int>(it, "mResource")
     }
+
+    private fun fillInIntent(view: View): Intent? {
+        // Inspect collection actions without launching activities or mutating the database.
+        val tagId = view.resources.getIdentifier("fillInIntent", "id", "android")
+        val taggedResponse = if (tagId != 0) view.getTag(tagId) else null
+        val listener = shadowOf(view).onClickListener
+        val action = listener?.javaClass?.declaredFields?.singleOrNull {
+            it.type.name.endsWith("\$SetOnClickResponse")
+        }?.apply { isAccessible = true }?.get(listener)
+        val response = taggedResponse ?: action?.let { ReflectionHelpers.getField<Any>(it, "mResponse") }
+        return response?.let { ReflectionHelpers.getField<Intent?>(it, "mFillIntent") }
+    }
+
+    private fun View.cardClickTarget(): View? =
+        if (fillInIntent(this)?.let(::intentTree)?.any { it.hasExtra(WidgetLaunchRequest.EXTRA_TASK_ID) } == true) this
+        else (parent as? View)?.cardClickTarget()
 
     private fun intentTree(intent: Intent): List<Intent> = listOf(intent) + bundleIntents(intent.extras)
 

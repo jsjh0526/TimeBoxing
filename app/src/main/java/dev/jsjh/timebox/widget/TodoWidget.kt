@@ -156,13 +156,15 @@ internal data class TodoWidgetState(
     val incompleteCount: Int,
     val totalCount: Int,
     val isUnlocked: Boolean,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val ownerUserId: String
 )
 
 private suspend fun loadTodoWidgetState(context: Context): TodoWidgetState {
     val appContext = context.applicationContext
     val today = effectiveToday(AppSettingsStore(appContext).read().dayStartHour)
-    val repository = createWidgetLocalRepository(appContext)
+    val ownerUserId = ActiveUserStore.readUserId(appContext)
+    val repository = createWidgetLocalRepository(appContext, ownerUserId)
     val tasks = repository.getTasks(today)
         .sortedWith(
             compareBy<DailyTask> { it.isCompleted }
@@ -175,7 +177,8 @@ private suspend fun loadTodoWidgetState(context: Context): TodoWidgetState {
         tasks = tasks,
         incompleteCount = tasks.count { !it.isCompleted },
         totalCount = tasks.size,
-        isUnlocked = WidgetAccessStore.isUnlocked(appContext)
+        isUnlocked = WidgetAccessStore.isUnlocked(appContext),
+        ownerUserId = ownerUserId
     )
 }
 
@@ -188,7 +191,8 @@ private suspend fun loadTodoWidgetStateOrFallback(context: Context): TodoWidgetS
             incompleteCount = 0,
             totalCount = 0,
             isUnlocked = false,
-            errorMessage = "${e::class.simpleName}: ${e.message}"
+            errorMessage = "${e::class.simpleName}: ${e.message}",
+            ownerUserId = ActiveUserStore.readUserId(context)
         )
     }
 
@@ -233,27 +237,16 @@ internal fun TodoWidgetContent(
                     .clickable(openAction, rippleOverride = R.drawable.bg_widget_no_ripple),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
+                Text(
+                    text = context.getString(R.string.widget_today),
                     modifier = GlanceModifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = context.getString(R.string.widget_today),
-                        modifier = GlanceModifier.defaultWeight(),
-                        maxLines = 1,
-                        style = TextStyle(
-                            color = ColorProvider(WidgetText),
-                            fontSize = if (compactHeader) 14.sp else 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    maxLines = 1,
+                    style = TextStyle(
+                        color = ColorProvider(WidgetText),
+                        fontSize = if (compactHeader) 14.sp else 18.sp,
+                        fontWeight = FontWeight.Bold
                     )
-                    Spacer(GlanceModifier.width(6.dp))
-                    Image(
-                        provider = ImageProvider(R.drawable.ic_widget_open),
-                        contentDescription = context.getString(R.string.widget_open_todo),
-                        modifier = GlanceModifier.size(16.dp)
-                    )
-                }
+                )
                 Text(
                     text = context.getString(R.string.widget_left, state.incompleteCount, state.totalCount),
                     maxLines = 1,
@@ -296,7 +289,10 @@ internal fun TodoWidgetContent(
                     TodoWidgetCard(
                         task = task,
                         layout = layout,
-                        context = context
+                        context = context,
+                        openAction = actionStartActivity(
+                            WidgetLaunchRequest.taskIntent(context, WidgetTaskTarget(state.ownerUserId, task.id, task.date))
+                        )
                     )
                 }
             }
@@ -410,7 +406,7 @@ private fun EmptyWidgetState(context: Context) {
 }
 
 @Composable
-private fun TodoWidgetCard(task: DailyTask, layout: TodoWidgetLayout, context: Context) {
+private fun TodoWidgetCard(task: DailyTask, layout: TodoWidgetLayout, context: Context, openAction: Action) {
     val timeText = task.schedule?.let { formatClockRange(context, it.startMinute, it.endMinute) }
         ?: context.getString(R.string.widget_unscheduled)
     val actionParameters = actionParametersOf(
@@ -426,6 +422,7 @@ private fun TodoWidgetCard(task: DailyTask, layout: TodoWidgetLayout, context: C
                 .wrapContentHeight()
                 .cornerRadius(18.dp)
                 .background(WidgetBorder)
+                .clickable(openAction, rippleOverride = R.drawable.bg_widget_no_ripple)
                 .padding(2.dp)
         ) {
             TodoWidgetCardBody(
@@ -433,7 +430,8 @@ private fun TodoWidgetCard(task: DailyTask, layout: TodoWidgetLayout, context: C
                 timeText = timeText,
                 layout = layout,
                 decoration = decoration,
-                actionParameters = actionParameters
+                actionParameters = actionParameters,
+                openAction = openAction
             )
         }
         return
@@ -444,7 +442,8 @@ private fun TodoWidgetCard(task: DailyTask, layout: TodoWidgetLayout, context: C
         timeText = timeText,
         layout = layout,
         decoration = decoration,
-        actionParameters = actionParameters
+        actionParameters = actionParameters,
+        openAction = openAction
     )
 }
 
@@ -454,7 +453,8 @@ private fun TodoWidgetCardBody(
     timeText: String,
     layout: TodoWidgetLayout,
     decoration: TextDecoration,
-    actionParameters: ActionParameters
+    actionParameters: ActionParameters,
+    openAction: Action
 ) {
     val compact = layout.compact
     Column(
@@ -463,6 +463,7 @@ private fun TodoWidgetCardBody(
             .wrapContentHeight()
             .cornerRadius(16.dp)
             .background(if (task.isCompleted) WidgetCardCompleted else WidgetCard)
+            .clickable(openAction, rippleOverride = R.drawable.bg_widget_no_ripple)
             .padding(horizontal = 12.dp, vertical = layout.cardVerticalPadding)
     ) {
         Row(
@@ -485,11 +486,6 @@ private fun TodoWidgetCardBody(
                     fontWeight = FontWeight.Bold,
                     textDecoration = decoration
                 )
-            )
-            Spacer(GlanceModifier.width(if (compact) 4.dp else 6.dp))
-            WidgetCloseButton(
-                compact = compact,
-                action = actionRunCallback<DeleteWidgetTaskAction>(actionParameters)
             )
         }
 
@@ -527,22 +523,6 @@ private fun WidgetCheckbox(checked: Boolean, compact: Boolean, action: Action) {
     }
 }
 
-@Composable
-private fun WidgetCloseButton(compact: Boolean, action: Action) {
-    Box(
-        modifier = GlanceModifier
-            .size(if (compact) WidgetCompactControlHitSize else WidgetControlHitSize)
-            .clickable(action, rippleOverride = R.drawable.bg_widget_no_ripple),
-        contentAlignment = Alignment.Center
-    ) {
-        Image(
-            provider = ImageProvider(R.drawable.ic_widget_close),
-            contentDescription = null,
-            modifier = GlanceModifier.size(if (compact) 18.dp else 20.dp)
-        )
-    }
-}
-
 class ToggleWidgetTaskAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val taskId = parameters[TaskIdKey] ?: return
@@ -566,12 +546,8 @@ class ToggleWidgetTaskAction : ActionCallback {
 
 class DeleteWidgetTaskAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        val taskId = parameters[TaskIdKey] ?: return
-        val date = parameters[TaskDateKey]?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return
-        val appContext = context.applicationContext
-        val repository = createWidgetRepository(appContext)
-        repository.deleteTask(date, taskId)
-        refreshAfterWidgetMutation(appContext, glanceId, repository, date)
+        // Old RemoteViews can still reference this callback until the launcher refreshes them.
+        TodoWidgetUpdater.updateNow(context)
     }
 }
 
@@ -600,9 +576,8 @@ private suspend fun refreshAfterWidgetMutation(
     }
 }
 
-private fun createWidgetLocalRepository(context: Context): RoomTaskRepository {
+private fun createWidgetLocalRepository(context: Context, userId: String): RoomTaskRepository {
     val appContext = context.applicationContext
-    val userId = ActiveUserStore.readUserId(appContext)
     val database = TaskDatabase.get(appContext, userId)
     return RoomTaskRepository(
         templateDao = database.taskTemplateDao(),

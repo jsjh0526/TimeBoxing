@@ -602,17 +602,24 @@ private fun MainApp(
     LaunchedEffect(appToday) {
         appState.updateTodayDate(appToday)
     }
-    LaunchedEffect(widgetLaunchRequest?.nonce, appState) {
+    LaunchedEffect(widgetLaunchRequest?.nonce, appState, userId) {
         val request = widgetLaunchRequest ?: return@LaunchedEffect
         val destination = when {
+            request.openTask -> "task"
             request.openAddTask -> "add_task"
             request.openSettings -> "settings"
             else -> "todo"
         }
         TimeBoxAnalytics.widgetOpened(destination)
-        if (request.openTodo) appState.selectTab(AppTab.TODO)
-        if (request.openSettings) appState.selectTab(AppTab.SETTINGS)
-        if (request.openAddTask) appState.openNewTaskEditor(date = appState.today)
+        if (request.openTask) {
+            if (!appState.openWidgetTaskEditor(request.taskTarget, userId)) {
+                TodoWidgetUpdater.requestUpdate(context)
+            }
+        } else {
+            if (request.openTodo) appState.selectTab(AppTab.TODO)
+            if (request.openSettings) appState.selectTab(AppTab.SETTINGS)
+            if (request.openAddTask) appState.openNewTaskEditor(date = appState.today)
+        }
         onWidgetLaunchRequestConsumed()
     }
     LaunchedEffect(appState.scheduleLimitMessage) {

@@ -110,6 +110,7 @@ class TutorialOnboardingTest {
         override suspend fun getReminderCandidates(): List<DailyTask> = emptyList()
 
         override suspend fun getTask(date: LocalDate, taskId: String): DailyTask? = tasks[taskId]
+        override suspend fun getStoredTask(date: LocalDate, taskId: String): DailyTask? = tasks[taskId]?.takeIf { it.date == date }
 
         override suspend fun getTemplate(templateId: String): TaskTemplate? = null
 

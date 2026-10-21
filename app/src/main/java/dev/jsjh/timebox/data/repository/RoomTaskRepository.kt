@@ -54,6 +54,10 @@ class RoomTaskRepository(
         getTaskBlocking(date, taskId)
     }
 
+    override suspend fun getStoredTask(date: LocalDate, taskId: String): DailyTask? = withContext(Dispatchers.IO) {
+        dailyTaskDao.getById(date.toString(), taskId)?.toDomain()
+    }
+
     override suspend fun getTemplate(templateId: String): TaskTemplate? = io {
         getTemplateBlocking(templateId)
     }

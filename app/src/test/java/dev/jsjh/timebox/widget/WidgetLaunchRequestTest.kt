@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Parcel
 import androidx.test.core.app.ApplicationProvider
 import dev.jsjh.timebox.MainActivity
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -17,6 +18,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class WidgetLaunchRequestTest {
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
+    private val target = WidgetTaskTarget("account-a", "task-a", LocalDate.of(2026, 10, 20))
 
     @Test fun headerOpensTodoWithoutOpeningEditor() {
         val request = parse(WidgetLaunchRequest.todoIntent(context))
@@ -43,12 +45,53 @@ class WidgetLaunchRequestTest {
         listOf(
             WidgetLaunchRequest.todoIntent(context),
             WidgetLaunchRequest.addTaskIntent(context),
+            WidgetLaunchRequest.taskIntent(context, target),
             WidgetLaunchRequest.settingsIntent(context)
         ).forEach { intent ->
             assertEquals(MainActivity::class.java.name, intent.component?.className)
             listOf(Intent.FLAG_ACTIVITY_NEW_TASK, Intent.FLAG_ACTIVITY_CLEAR_TOP, Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .forEach { flag -> assertEquals(flag, intent.flags and flag) }
             assertEquals(0, intent.flags and Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        }
+    }
+
+    @Test fun taskEntryKeepsAccountDateAndIdentityWithoutOpeningANewTask() {
+        val request = parse(WidgetLaunchRequest.taskIntent(context, target))
+        assertTrue(request.openTask)
+        assertTrue(request.openTodo)
+        assertFalse(request.openAddTask)
+        assertFalse(request.openSettings)
+        assertEquals(target, request.taskTarget)
+    }
+
+    @Test fun malformedTaskEntryFallsBackToTodoAndCannotOpenANewTaskOrSettings() {
+        listOf(
+            WidgetLaunchRequest.taskIntent(context, target).putExtra(WidgetLaunchRequest.EXTRA_TASK_DATE, "invalid"),
+            WidgetLaunchRequest.taskIntent(context, target).putExtra(WidgetLaunchRequest.EXTRA_TASK_OWNER, ""),
+            WidgetLaunchRequest.taskIntent(context, target).apply { removeExtra(WidgetLaunchRequest.EXTRA_TASK_ID) }
+        ).forEach { intent ->
+            intent.putExtra(WidgetLaunchRequest.EXTRA_OPEN_ADD_TASK, true)
+            intent.putExtra(WidgetLaunchRequest.EXTRA_OPEN_TAB, WidgetLaunchRequest.TAB_SETTINGS)
+            val request = parse(intent)
+            assertTrue(request.openTodo)
+            assertTrue(request.openTask)
+            assertNull(request.taskTarget)
+            assertFalse(request.openAddTask)
+            assertFalse(request.openSettings)
+        }
+    }
+
+    @Test fun taskTargetSurvivesParcelDeliveryAndSeparateCardsKeepSeparateTargets() {
+        val other = target.copy(taskId = "task-b", date = target.date.minusDays(1))
+        listOf(target, other).forEach { expected ->
+            val parcel = Parcel.obtain()
+            try {
+                WidgetLaunchRequest.taskIntent(context, expected).writeToParcel(parcel, 0)
+                parcel.setDataPosition(0)
+                assertEquals(expected, parse(Intent.CREATOR.createFromParcel(parcel)).taskTarget)
+            } finally {
+                parcel.recycle()
+            }
         }
     }
 

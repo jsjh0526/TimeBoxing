@@ -27,12 +27,15 @@ import dev.jsjh.timebox.feature.todo.TodoTaskOrderStore
 import dev.jsjh.timebox.feature.todo.matchesBrainDumpTags
 import dev.jsjh.timebox.feature.todo.reconcileTodoOrder
 import dev.jsjh.timebox.feature.todo.reorderVisibleTodoTasks
+import dev.jsjh.timebox.widget.WidgetTaskTarget
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 internal const val MaxConcurrentTimeBlocks = 5
 internal const val ScheduleLimitMessageToken = "schedule_limit"
@@ -317,6 +320,26 @@ class TimeBoxingAppState(
             val templateId = taskId.removePrefix("template-")
             val template = repository.getTemplate(templateId) ?: return@launch
             editorDraft = template.toTemplateEditorDraft(date)
+        }
+    }
+
+    internal suspend fun openWidgetTaskEditor(target: WidgetTaskTarget?, userId: String): Boolean {
+        currentTab = AppTab.TODO
+        editorDraft = null
+        newTaskEditorFromTodo = false
+        if (target == null || target.ownerUserId != userId) return false
+        return try {
+            val task = repository.getStoredTask(target.date, target.taskId) ?: return false
+            if (task.date != target.date || task.id != target.taskId) return false
+            val rule = task.templateId?.let { repository.getTemplate(it)?.recurrenceRule }
+            currentCoroutineContext().ensureActive()
+            editorDraft = task.toEditorDraft(existingRule = rule)
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("TimeBoxingAppState", "Unable to open widget task", e)
+            false
         }
     }
 

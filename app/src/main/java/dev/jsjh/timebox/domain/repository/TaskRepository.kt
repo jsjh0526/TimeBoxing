@@ -19,6 +19,8 @@ interface TaskRepository {
         }
     }
     suspend fun getTask(date: LocalDate, taskId: String): DailyTask?
+    // Read an existing row without materializing recurring tasks or tutorial data.
+    suspend fun getStoredTask(date: LocalDate, taskId: String): DailyTask?
     suspend fun getTemplate(templateId: String): TaskTemplate?
     suspend fun toggleCompleted(date: LocalDate, taskId: String)
     suspend fun markCompleted(date: LocalDate, taskId: String)
