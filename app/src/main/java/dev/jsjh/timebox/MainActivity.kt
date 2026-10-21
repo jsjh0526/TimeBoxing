@@ -95,6 +95,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) = startupTrace.traceStep("activity.initialize") {
         startupTrace.event("activity.create restored=${savedInstanceState != null}")
         setTheme(R.style.Theme_TimeBoxing)
+        // Finish native window creation before lifecycle callbacks or SDK workers can touch it.
+        startupTrace.traceStep("window.prepare_decor") { window.decorView }
         super.onCreate(savedInstanceState)
         appUpdateManager = AppUpdateManagerFactory.create(this)
         startupTrace.traceStep("supabase.initialize") { initSupabase(this) }
@@ -116,13 +118,15 @@ class MainActivity : ComponentActivity() {
             )
             InAppReviewPrompter.recordLaunch(this)
         }
-        AdsConsentManager.gatherConsent(this) {
-            initializeMobileAdsIfNeeded()
-        }
         ReminderScheduler.createChannels(this)
         showSystemNavigationBar = AppSettingsStore(this).read().showSystemNavigationBar
         enableEdgeToEdgeSafely()
         setTimeBoxContent()
+        startupTrace.traceStep("ads.request_consent") {
+            AdsConsentManager.gatherConsent(this) {
+                initializeMobileAdsIfNeeded()
+            }
+        }
     }
 
     private fun setTimeBoxContent() = startupTrace.traceStep("content.install") {
@@ -175,6 +179,11 @@ class MainActivity : ComponentActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
+        )
+        val decor = window.decorView as? ViewGroup
+        val content = decor?.findViewById<ViewGroup>(android.R.id.content)
+        startupTrace.event(
+            "content.tree decorChildren=${decor?.childCount ?: -1} contentChildren=${content?.childCount ?: -1}"
         )
     }
 
