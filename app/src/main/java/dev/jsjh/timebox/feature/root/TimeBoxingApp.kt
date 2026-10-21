@@ -93,6 +93,8 @@ import dev.jsjh.timebox.data.repository.RoomStatisticsRepository
 import dev.jsjh.timebox.data.repository.SyncedTaskRepository
 import dev.jsjh.timebox.data.repository.createTutorialSeedData
 import dev.jsjh.timebox.domain.repository.TaskRepository
+import dev.jsjh.timebox.diagnostics.StartupTrace
+import dev.jsjh.timebox.diagnostics.traceStep
 import dev.jsjh.timebox.feature.editor.TaskEditorDialog
 import dev.jsjh.timebox.feature.home.HomeScreen
 import dev.jsjh.timebox.feature.settings.AppLanguage
@@ -147,14 +149,31 @@ fun TimeBoxingApp(
     initialShowSystemNavigationBar: Boolean = false,
     onSystemNavigationBarPreferenceChange: (Boolean) -> Unit = {},
     widgetLaunchRequest: WidgetLaunchRequest? = null,
-    onWidgetLaunchRequestConsumed: () -> Unit = {}
+    onWidgetLaunchRequestConsumed: () -> Unit = {},
+    startupTrace: StartupTrace? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val migrationFailedMessage = stringResource(R.string.migration_failed)
-    LaunchedEffect(Unit) { AuthRepository.restoreSession(context) }
+    DisposableEffect(startupTrace) {
+        startupTrace?.event("compose.enter")
+        onDispose { startupTrace?.event("compose.dispose") }
+    }
+    LaunchedEffect(Unit) {
+        startupTrace.traceStep("auth.restore") { AuthRepository.restoreSession(context, startupTrace) }
+    }
 
     val authState by AuthRepository.authState.collectAsState()
+    LaunchedEffect(authState) {
+        val stateName = when (authState) {
+            AuthState.Loading -> "loading"
+            AuthState.SignedOut -> "signed_out"
+            AuthState.Guest -> "guest"
+            is AuthState.LoggedIn -> "logged_in"
+            is AuthState.Error -> "error"
+        }
+        startupTrace?.event("ui.auth_state state=$stateName")
+    }
     val tutorialOwnerKey = when (val state = authState) {
         AuthState.Guest -> "guest"
         is AuthState.LoggedIn -> "user:${state.userId}"
@@ -250,6 +269,7 @@ fun TimeBoxingApp(
 
         AuthState.Guest -> MainApp(
             context = context,
+            startupTrace = startupTrace,
             userId = "guest",
             isGuest = true,
             reloadKey = migrationReloadKey,
@@ -324,6 +344,7 @@ fun TimeBoxingApp(
 
             MainApp(
                 context = context,
+                startupTrace = startupTrace,
                 userId = state.userId,
                 isGuest = false,
                 reloadKey = migrationReloadKey,
@@ -380,6 +401,7 @@ fun TimeBoxingApp(
 @Composable
 private fun MainApp(
     context: android.content.Context,
+    startupTrace: StartupTrace?,
     userId: String,
     isGuest: Boolean,
     reloadKey: Int,
@@ -410,36 +432,44 @@ private fun MainApp(
     LaunchedEffect(userId, isGuest, reloadKey) {
         if (!isGuest) {
             seededThisLaunch = runCatching {
-                withContext(Dispatchers.IO) {
-                    var seeded = false
-                    val hadLocalDatabase = TaskDatabase.exists(context, userId)
-                    val database = TaskDatabase.get(context, userId)
-                    val templateDao = database.taskTemplateDao()
-                    val dailyTaskDao = database.dailyTaskDao()
-                    val remoteStatus = DurableSync.reconcile(userId, database)
-                    val hasDataAfterReconcile = templateDao.count() > 0 || dailyTaskDao.count() > 0
-                    if (!hadLocalDatabase && !hasDataAfterReconcile && remoteStatus.templateCount == 0 && remoteStatus.taskCount == 0) {
-                        val seededRepository = RoomTaskRepository(
-                            templateDao = templateDao,
-                            dailyTaskDao = dailyTaskDao,
-                            tutorialSeedCopy = tutorialSeedCopy(context),
-                            seedInitialData = true,
-                            onTutorialSeeded = TimeBoxAnalytics::tutorialSeeded
-                        )
-                        seededRepository.initialize()
-                        DurableSync.queueSeedData(userId, database)
-                        seeded = true
+                startupTrace.traceStep("restore.initial") {
+                    withContext(Dispatchers.IO) {
+                        var seeded = false
+                        val hadLocalDatabase = TaskDatabase.exists(context, userId)
+                        val database = startupTrace.traceStep("restore.open_database") { TaskDatabase.get(context, userId) }
+                        val templateDao = database.taskTemplateDao()
+                        val dailyTaskDao = database.dailyTaskDao()
+                        val remoteStatus = DurableSync.reconcile(userId, database, startupTrace)
+                        val hasDataAfterReconcile = templateDao.count() > 0 || dailyTaskDao.count() > 0
+                        if (!hadLocalDatabase && !hasDataAfterReconcile && remoteStatus.templateCount == 0 && remoteStatus.taskCount == 0) {
+                            val seededRepository = RoomTaskRepository(
+                                templateDao = templateDao,
+                                dailyTaskDao = dailyTaskDao,
+                                tutorialSeedCopy = tutorialSeedCopy(context),
+                                seedInitialData = true,
+                                onTutorialSeeded = TimeBoxAnalytics::tutorialSeeded
+                            )
+                            seededRepository.initialize()
+                            DurableSync.queueSeedData(userId, database)
+                            seeded = true
+                        }
+                        seeded
                     }
-                    seeded
                 }
             }.getOrDefault(false)
             restoreReady = true
+            startupTrace?.event("restore.ready")
         }
     }
 
     if (!restoreReady) {
         Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D0D)))
         return
+    }
+
+    DisposableEffect(startupTrace, userId, reloadKey) {
+        startupTrace?.event("ui.main_committed")
+        onDispose { startupTrace?.event("ui.main_disposed") }
     }
 
     val appLanguage = currentAppLanguage(context)
@@ -496,7 +526,7 @@ private fun MainApp(
     val todoOrderStore = remember(context, userId) {
         TodoTaskOrderStore(context, userId)
     }
-    val appState = rememberTimeBoxingAppState(repository, appToday, todoOrderStore)
+    val appState = rememberTimeBoxingAppState(repository, appToday, todoOrderStore, startupTrace)
     DisposableEffect(appState, appState.editorDraft != null) {
         onBlockingUiChange(appState.editorDraft != null)
         onDispose { onBlockingUiChange(false) }
@@ -611,16 +641,18 @@ private fun MainApp(
             else -> "todo"
         }
         TimeBoxAnalytics.widgetOpened(destination)
-        if (request.openTask) {
-            if (!appState.openWidgetTaskEditor(request.taskTarget, userId)) {
-                TodoWidgetUpdater.requestUpdate(context)
+        startupTrace.traceStep("widget.handle destination=$destination") {
+            if (request.openTask) {
+                if (!appState.openWidgetTaskEditor(request.taskTarget, userId)) {
+                    TodoWidgetUpdater.requestUpdate(context)
+                }
+            } else {
+                if (request.openTodo) appState.selectTab(AppTab.TODO)
+                if (request.openSettings) appState.selectTab(AppTab.SETTINGS)
+                if (request.openAddTask) appState.openNewTaskEditor(date = appState.today)
             }
-        } else {
-            if (request.openTodo) appState.selectTab(AppTab.TODO)
-            if (request.openSettings) appState.selectTab(AppTab.SETTINGS)
-            if (request.openAddTask) appState.openNewTaskEditor(date = appState.today)
+            onWidgetLaunchRequestConsumed()
         }
-        onWidgetLaunchRequestConsumed()
     }
     LaunchedEffect(appState.scheduleLimitMessage) {
         val message = appState.scheduleLimitMessage ?: return@LaunchedEffect

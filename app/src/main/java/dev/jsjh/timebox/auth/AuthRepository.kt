@@ -7,6 +7,8 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.data.remote.SyncScheduler
+import dev.jsjh.timebox.diagnostics.StartupTrace
+import dev.jsjh.timebox.diagnostics.traceStep
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.IDToken
@@ -38,30 +40,41 @@ object AuthRepository {
     var hadGuestSessionBeforeLogin: Boolean = false
         private set
 
-    suspend fun restoreSession(context: Context) {
+    suspend fun restoreSession(context: Context, startupTrace: StartupTrace? = null) {
         try {
-            supabase.auth.awaitInitialization()
-            val hasSession = supabase.auth.currentSessionOrNull() != null
-                    || supabase.auth.loadFromStorage()
+            startupTrace.traceStep("auth.initialize") { supabase.auth.awaitInitialization() }
+            val hasSession = startupTrace.traceStep("auth.load_session") {
+                supabase.auth.currentSessionOrNull() != null || supabase.auth.loadFromStorage()
+            }
 
             if (!hasSession) {
                 ActiveUserStore.clear(context)
                 _authState.value = AuthState.SignedOut
+                startupTrace?.event("auth.result state=signed_out")
                 return
             }
 
-            val user = supabase.auth.currentUserOrNull()
-                ?: runCatching { supabase.auth.retrieveUserForCurrentSession(updateSession = true) }.getOrNull()
+            val user = startupTrace.traceStep("auth.resolve_user") {
+                supabase.auth.currentUserOrNull()
+                    ?: runCatching {
+                        startupTrace.traceStep("auth.retrieve_user") {
+                            supabase.auth.retrieveUserForCurrentSession(updateSession = true)
+                        }
+                    }.getOrNull()
+            }
 
             val nextState = user?.toAuthState()
             if (nextState != null) {
                 ActiveUserStore.saveLoggedIn(context, nextState.userId)
                 _authState.value = nextState
+                startupTrace?.event("auth.result state=logged_in")
             } else {
                 ActiveUserStore.clear(context)
                 _authState.value = AuthState.SignedOut
+                startupTrace?.event("auth.result state=signed_out")
             }
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            startupTrace?.event("auth.restore_fallback errorType=${error.javaClass.simpleName}")
             ActiveUserStore.clear(context)
             _authState.value = AuthState.SignedOut
         }

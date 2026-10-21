@@ -12,6 +12,8 @@ import dev.jsjh.timebox.data.local.entity.SyncMetadataEntity
 import dev.jsjh.timebox.data.local.entity.SyncOutboxEntity
 import dev.jsjh.timebox.data.local.entity.SyncShadowEntity
 import dev.jsjh.timebox.data.local.entity.TaskTemplateEntity
+import dev.jsjh.timebox.diagnostics.StartupTrace
+import dev.jsjh.timebox.diagnostics.traceStep
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -41,25 +43,34 @@ data class DurableSyncResult(
  * - there is never an absence-based remote delete.
  */
 object DurableSync {
-    suspend fun reconcile(userId: String, database: TaskDatabase): RemoteSyncStatus =
+    suspend fun reconcile(
+        userId: String,
+        database: TaskDatabase,
+        startupTrace: StartupTrace? = null
+    ): RemoteSyncStatus =
         withContext(Dispatchers.IO) {
-            SyncWorkCoordinator.withUserLock(userId) {
-                SupabaseSync.requireMatchingAuthUser(userId)
-                val processor = processorFor(userId, database)
-                if (processor.pendingCount() > 0) {
-                    // Best effort: failures are recorded on the outbox row. We still fetch
-                    // other server changes, but the failed local row must remain protected.
-                    processor.drain(force = true)
+            startupTrace.traceStep("sync.account_lock") {
+                SyncWorkCoordinator.withUserLock(userId) {
+                    startupTrace?.event("sync.account_lock_acquired")
+                    startupTrace.traceStep("sync.verify_auth") { SupabaseSync.requireMatchingAuthUser(userId) }
+                    val processor = processorFor(userId, database)
+                    if (processor.pendingCount() > 0) {
+                        // Best effort: failures are recorded on the outbox row. We still fetch
+                        // other server changes, but the failed local row must remain protected.
+                        startupTrace.traceStep("sync.upload_pending") { processor.drain(force = true) }
+                    }
+                    val snapshot = startupTrace.traceStep("sync.fetch_snapshot") { SupabaseSync.fetchSnapshot(userId) }
+                    startupTrace.traceStep("sync.merge_snapshot") {
+                        database.withTransaction {
+                            SnapshotMerger(
+                                database = database,
+                                snapshot = snapshot,
+                                discardPendingRemoteRows = false
+                            ).merge()
+                        }
+                    }
+                    snapshot.status()
                 }
-                val snapshot = SupabaseSync.fetchSnapshot(userId)
-                database.withTransaction {
-                    SnapshotMerger(
-                        database = database,
-                        snapshot = snapshot,
-                        discardPendingRemoteRows = false
-                    ).merge()
-                }
-                snapshot.status()
             }
         }
 

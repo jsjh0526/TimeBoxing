@@ -19,6 +19,8 @@ import dev.jsjh.timebox.domain.model.TaskEditInput
 import dev.jsjh.timebox.domain.model.TaskTemplate
 import dev.jsjh.timebox.domain.model.occursOn
 import dev.jsjh.timebox.domain.repository.TaskRepository
+import dev.jsjh.timebox.diagnostics.StartupTrace
+import dev.jsjh.timebox.diagnostics.traceStep
 import dev.jsjh.timebox.feature.editor.TaskEditorDraft
 import dev.jsjh.timebox.feature.editor.newTaskDraft
 import dev.jsjh.timebox.feature.editor.parseTime
@@ -641,10 +643,13 @@ private fun formatEditorTime(totalMinutes: Int): String {
 
 @Composable
 fun rememberTimeBoxingAppState(
-    repository: TaskRepository, today: LocalDate, orderStore: TodoTaskOrderStore? = null
+    repository: TaskRepository, today: LocalDate, orderStore: TodoTaskOrderStore? = null,
+    startupTrace: StartupTrace? = null
 ): TimeBoxingAppState {
     val scope = rememberCoroutineScope()
     return remember(repository, orderStore) {
-        TimeBoxingAppState(repository = repository, initialTodayDate = today, scope = scope, orderStore = orderStore)
+        startupTrace.traceStep("ui.create_app_state") {
+            TimeBoxingAppState(repository = repository, initialTodayDate = today, scope = scope, orderStore = orderStore)
+        }
     }
 }

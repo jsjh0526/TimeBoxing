@@ -24,11 +24,14 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.lifecycleScope
 import dev.jsjh.timebox.ads.AdsConsentManager
 import dev.jsjh.timebox.ads.OpeningNativeAdGate
 import dev.jsjh.timebox.ads.OpeningNativeAdPreloader
 import dev.jsjh.timebox.analytics.TimeBoxAnalytics
 import dev.jsjh.timebox.auth.initSupabase
+import dev.jsjh.timebox.diagnostics.StartupTrace
+import dev.jsjh.timebox.diagnostics.traceStep
 import dev.jsjh.timebox.feature.root.TimeBoxingApp
 import dev.jsjh.timebox.feature.root.AppAnnouncementStore
 import dev.jsjh.timebox.feature.root.CurrentAppAnnouncement
@@ -47,6 +50,9 @@ import com.google.android.play.core.appupdate.AppUpdateOptions
 import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.android.gms.ads.MobileAds
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private companion object {
@@ -69,6 +75,8 @@ class MainActivity : ComponentActivity() {
     private var reviewRequestPending = false
     private var windowFocusGeneration = 0
     private var scheduledExternalFlowGeneration: Int? = null
+    private val startupTrace = StartupTrace()
+    private var startupWatchdog: Job? = null
 
     private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         TimeBoxAnalytics.notificationPermissionResult(granted)
@@ -84,15 +92,17 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(AppLanguage.wrap(newBase))
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState: Bundle?) = startupTrace.traceStep("activity.initialize") {
+        startupTrace.event("activity.create restored=${savedInstanceState != null}")
         setTheme(R.style.Theme_TimeBoxing)
         super.onCreate(savedInstanceState)
         appUpdateManager = AppUpdateManagerFactory.create(this)
-        initSupabase(this)
+        startupTrace.traceStep("supabase.initialize") { initSupabase(this) }
         TimeBoxAnalytics.initialize(this)
         recordNotificationOpen(intent)
         widgetLaunchRequest = WidgetLaunchRequest.from(intent)
         launchedFromWidget = widgetLaunchRequest != null
+        traceWidgetEntry("create")
         if (savedInstanceState == null) AppAnnouncementStore.beginLaunch()
         appAnnouncementEligible = AppAnnouncementStore.shouldShow(
             this,
@@ -115,9 +125,16 @@ class MainActivity : ComponentActivity() {
         setTimeBoxContent()
     }
 
-    private fun setTimeBoxContent() {
+    private fun setTimeBoxContent() = startupTrace.traceStep("content.install") {
         setContentView(
             ComposeView(this).apply {
+                var firstDrawRecorded = false
+                viewTreeObserver.addOnDrawListener {
+                    if (!firstDrawRecorded) {
+                        firstDrawRecorded = true
+                        startupTrace.event("compose_view.first_draw")
+                    }
+                }
                 setContent {
                     TimeBoxingTheme {
                         TimeBoxingApp(
@@ -145,7 +162,11 @@ class MainActivity : ComponentActivity() {
                                 updateSystemBarsVisibility()
                             },
                             widgetLaunchRequest = widgetLaunchRequest,
-                            onWidgetLaunchRequestConsumed = { widgetLaunchRequest = null }
+                            onWidgetLaunchRequestConsumed = {
+                                startupTrace.event("widget.request_consumed")
+                                widgetLaunchRequest = null
+                            },
+                            startupTrace = startupTrace
                         )
                     }
                 }
@@ -175,17 +196,44 @@ class MainActivity : ComponentActivity() {
         recordNotificationOpen(intent)
         widgetLaunchRequest = WidgetLaunchRequest.from(intent)
         launchedFromWidget = widgetLaunchRequest != null
+        traceWidgetEntry("new_intent")
     }
 
     override fun onResume() {
         super.onResume()
+        startupTrace.event("activity.resume")
+        startupWatchdog?.cancel()
+        startupWatchdog = lifecycleScope.launch {
+            delay(5_000L)
+            startupTrace.reportPending()
+            delay(10_000L)
+            startupTrace.reportPending()
+        }
         appUpdateCheckNeeded = true
         scheduleExternalFlowCheck()
     }
 
     override fun onPause() {
+        startupTrace.event("activity.pause")
+        startupWatchdog?.cancel()
         invalidateExternalFlowSchedule()
         super.onPause()
+    }
+
+    override fun onDestroy() {
+        startupTrace.event("activity.destroy changingConfigurations=$isChangingConfigurations")
+        super.onDestroy()
+    }
+
+    private fun traceWidgetEntry(source: String) {
+        val destination = when {
+            widgetLaunchRequest?.openTask == true -> "task"
+            widgetLaunchRequest?.openAddTask == true -> "add_task"
+            widgetLaunchRequest?.openSettings == true -> "settings"
+            widgetLaunchRequest != null -> "todo"
+            else -> "none"
+        }
+        startupTrace.event("activity.entry source=$source destination=$destination")
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
