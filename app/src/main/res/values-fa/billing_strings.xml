@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="billing_title">TimeBox بدون تبلیغات</string>
+    <string name="billing_benefits">بدون تبلیغات آغازین و بنری. استفاده نامحدود از ابزارک در مدت اشتراک.</string>
+    <string name="billing_price_month">ماهی %1$s</string>
+    <string name="billing_subscribe">اشتراک ماهانه</string>
+    <string name="billing_restore">بازیابی خریدها</string>
+    <string name="billing_manage">مدیریت اشتراک</string>
+    <string name="billing_active">اشتراک فعال است</string>
+    <string name="billing_renewal">هر ماه خودکار تمدید می‌شود. هر زمان در Google Play لغو کنید؛ دسترسی تا پایان دوره پرداخت‌شده ادامه دارد.</string>
+    <string name="billing_checking">در حال بررسی اشتراک…</string>
+    <string name="billing_unavailable">اشتراک در دسترس نیست. حساب Google Play را بررسی و بازیابی خریدها را دوباره امتحان کنید.</string>
+    <string name="billing_cancelled">خرید لغو شد.</string>
+    <string name="billing_pending">پرداخت در انتظار است. دسترسی پس از تأیید پرداخت آغاز می‌شود.</string>
+    <string name="billing_restored">اشتراک بازیابی شد.</string>
+    <string name="billing_nothing_to_restore">اشتراک فعالی برای این حساب Google Play پیدا نشد.</string>
+    <string name="billing_failed">خرید تکمیل نشد. دوباره امتحان کنید.</string>
+    <string name="billing_verification_failed">خرید تأیید نشد. بازیابی خریدها را دوباره امتحان کنید.</string>
+    <string name="billing_window_not_ready">پنجره‌های دیگر را ببندید و دوباره امتحان کنید.</string>
+    <string name="billing_widget_active">با اشتراک شما در دسترس است</string>
+    <string name="billing_widget_detail">در مدت اشتراک نیازی به تماشای تبلیغ یا تمدید زمان نیست.</string>
+    <string name="billing_test_title">آزمایش داخلی پرداخت</string>
+    <string name="billing_test_warning">پیش از تأیید، مطمئن شوید Google Play روش پرداخت آزمایشی نشان می‌دهد. روش پرداخت واقعی ممکن است هزینه داشته باشد.</string>
+    <string name="billing_continue">ادامه در Google Play</string>
+    <string name="billing_cancel">لغو</string>
+</resources>

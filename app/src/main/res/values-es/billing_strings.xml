@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="billing_title">TimeBox sin anuncios</string>
+    <string name="billing_benefits">Sin anuncios de inicio ni banners. Widget ilimitado durante la suscripción.</string>
+    <string name="billing_price_month">%1$s / mes</string>
+    <string name="billing_subscribe">Suscripción mensual</string>
+    <string name="billing_restore">Restaurar compras</string>
+    <string name="billing_manage">Gestionar suscripción</string>
+    <string name="billing_active">Suscripción activa</string>
+    <string name="billing_renewal">Se renueva automáticamente cada mes. Cancela cuando quieras en Google Play; el acceso continúa hasta que termine el período pagado.</string>
+    <string name="billing_checking">Comprobando la suscripción…</string>
+    <string name="billing_unavailable">Suscripción no disponible. Comprueba tu cuenta de Google Play e intenta restaurar las compras.</string>
+    <string name="billing_cancelled">Compra cancelada.</string>
+    <string name="billing_pending">Pago pendiente. El acceso comienza cuando se confirme el pago.</string>
+    <string name="billing_restored">Suscripción restaurada.</string>
+    <string name="billing_nothing_to_restore">No se encontró una suscripción activa en esta cuenta de Google Play.</string>
+    <string name="billing_failed">No se pudo completar la compra. Inténtalo de nuevo.</string>
+    <string name="billing_verification_failed">No se pudo confirmar la compra. Restaura las compras para reintentar.</string>
+    <string name="billing_window_not_ready">Cierra los otros cuadros de diálogo e inténtalo de nuevo.</string>
+    <string name="billing_widget_active">Disponible con tu suscripción</string>
+    <string name="billing_widget_detail">No necesitas ver anuncios ni ampliar el plazo mientras tu suscripción esté activa.</string>
+    <string name="billing_test_title">Prueba interna de pagos</string>
+    <string name="billing_test_warning">Antes de aceptar, confirma que Google Play muestra un método de pago de prueba. Los métodos reales pueden generar cargos.</string>
+    <string name="billing_continue">Continuar a Google Play</string>
+    <string name="billing_cancel">Cancelar</string>
+</resources>

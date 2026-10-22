@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="billing_title">TimeBox Isina Zviziviso</string>
+    <string name="billing_benefits">Hapana zviziviso pakuvhura kana mabhena. Shandisa widget pasina muganhu uchinyoresa.</string>
+    <string name="billing_price_month">%1$s / mwedzi</string>
+    <string name="billing_subscribe">Nyoresa pamwedzi</string>
+    <string name="billing_restore">Dzorera zvakatengwa</string>
+    <string name="billing_manage">Tonga kunyoresa</string>
+    <string name="billing_active">Kunyoresa kuri kushanda</string>
+    <string name="billing_renewal">Kunyoresa kunovandudzwa otomatiki pamwedzi. Kanzura chero nguva paGoogle Play; kushandisa kunoenderera kusvika nguva yakabhadharwa yapera.</string>
+    <string name="billing_checking">Tiri kuongorora kunyoresa…</string>
+    <string name="billing_unavailable">Kunyoresa hakuwanikwi. Tarisa akaundi yako yeGoogle Play woedza kudzorera zvakatengwa.</string>
+    <string name="billing_cancelled">Kutenga kwakanzurwa.</string>
+    <string name="billing_pending">Mubhadharo wakamirira. Kushandisa kunotanga kana wasimbiswa.</string>
+    <string name="billing_restored">Kunyoresa kwadzorerwa.</string>
+    <string name="billing_nothing_to_restore">Hapana kunyoresa kuri kushanda kwakawanikwa paakaundi iyi yeGoogle Play.</string>
+    <string name="billing_failed">Kutenga hakuna kupera. Edza zvakare.</string>
+    <string name="billing_verification_failed">Kutenga hakuna kusimbiswa. Edza kudzorera zvakatengwa zvakare.</string>
+    <string name="billing_window_not_ready">Vhara mamwe mahwindo woedza zvakare.</string>
+    <string name="billing_widget_active">Inowanikwa nekunyoresa kwako</string>
+    <string name="billing_widget_detail">Haufaniri kuona zviziviso kana kuwedzera nguva kunyoresa kuchiri kushanda.</string>
+    <string name="billing_test_title">Muedzo wemubhadharo wemukati</string>
+    <string name="billing_test_warning">Usati wabvuma, simbisa kuti Google Play iri kuratidza nzira yekubhadhara yekuedza. Nzira chaiyo inogona kubvisirwa mari.</string>
+    <string name="billing_continue">Enderera kuGoogle Play</string>
+    <string name="billing_cancel">Kanzura</string>
+</resources>

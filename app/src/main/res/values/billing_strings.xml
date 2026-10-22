@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="billing_title">TimeBox Ad-Free</string>
+    <string name="billing_benefits">No startup or banner ads. Unlimited widget access while subscribed.</string>
+    <string name="billing_price_month">%1$s / month</string>
+    <string name="billing_subscribe">Subscribe monthly</string>
+    <string name="billing_restore">Restore purchases</string>
+    <string name="billing_manage">Manage subscription</string>
+    <string name="billing_active">Subscription active</string>
+    <string name="billing_renewal">Renews automatically every month. Cancel in Google Play at any time; access continues until the paid period ends.</string>
+    <string name="billing_checking">Checking your subscription…</string>
+    <string name="billing_unavailable">Subscription unavailable. Check your Google Play account and try restoring purchases.</string>
+    <string name="billing_cancelled">Purchase canceled.</string>
+    <string name="billing_pending">Payment pending. Access begins after payment is confirmed.</string>
+    <string name="billing_restored">Subscription restored.</string>
+    <string name="billing_nothing_to_restore">No active subscription found for this Google Play account.</string>
+    <string name="billing_failed">Could not complete the purchase. Please try again.</string>
+    <string name="billing_verification_failed">Could not confirm the purchase. Restore purchases to retry.</string>
+    <string name="billing_window_not_ready">Close any other dialog and try again.</string>
+    <string name="billing_widget_active">Available with your subscription</string>
+    <string name="billing_widget_detail">No ads or time extensions are needed while your subscription is active.</string>
+    <string name="billing_test_title">Internal billing test</string>
+    <string name="billing_test_warning">Confirm that Google Play shows a test payment method before accepting. A real payment method may be charged.</string>
+    <string name="billing_continue">Continue to Google Play</string>
+    <string name="billing_cancel">Cancel</string>
+</resources>

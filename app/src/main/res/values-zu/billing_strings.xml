@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="billing_title">TimeBox Engenazikhangiso</string>
+    <string name="billing_benefits">Azikho izikhangiso zokuqala noma zamabhena. Iwijethi engenamkhawulo ngesikhathi sokubhalisa.</string>
+    <string name="billing_price_month">%1$s / inyanga</string>
+    <string name="billing_subscribe">Bhalisa nyanga zonke</string>
+    <string name="billing_restore">Buyisela okuthengiwe</string>
+    <string name="billing_manage">Phatha ukubhalisa</string>
+    <string name="billing_active">Ukubhalisa kuyasebenza</string>
+    <string name="billing_renewal">Kuvuselelwa ngokuzenzakalelayo njalo ngenyanga. Khansela noma nini kuGoogle Play; ukufinyelela kuqhubeka kuze kuphele isikhathi esikhokhelwe.</string>
+    <string name="billing_checking">Kuhlolwa ukubhalisa…</string>
+    <string name="billing_unavailable">Ukubhalisa akutholakali. Hlola i-akhawunti yeGoogle Play bese uzama ukubuyisela okuthengiwe.</string>
+    <string name="billing_cancelled">Ukuthenga kukhanseliwe.</string>
+    <string name="billing_pending">Inkokhelo isalindile. Ukufinyelela kuqala uma isiqinisekisiwe.</string>
+    <string name="billing_restored">Ukubhalisa kubuyiselwe.</string>
+    <string name="billing_nothing_to_restore">Akukho ukubhalisa okusebenzayo kule akhawunti yeGoogle Play.</string>
+    <string name="billing_failed">Ukuthenga akuphelanga. Sicela uzame futhi.</string>
+    <string name="billing_verification_failed">Ukuthenga akuqinisekiswanga. Zama ukubuyisela okuthengiwe futhi.</string>
+    <string name="billing_window_not_ready">Vala ezinye izingxoxo bese uzama futhi.</string>
+    <string name="billing_widget_active">Kufakiwe ekubhaliseni kwakho</string>
+    <string name="billing_widget_detail">Akudingeki ubuke izikhangiso noma wandise isikhathi ngesikhathi ukubhalisa kusasebenza.</string>
+    <string name="billing_test_title">Ukuhlolwa kwenkokhelo kwangaphakathi</string>
+    <string name="billing_test_warning">Ngaphambi kokwamukela, qinisekisa ukuthi iGoogle Play ibonisa indlela yokukhokha yokuhlola. Indlela yangempela ingakhokhiswa.</string>
+    <string name="billing_continue">Qhubeka kuGoogle Play</string>
+    <string name="billing_cancel">Khansela</string>
+</resources>

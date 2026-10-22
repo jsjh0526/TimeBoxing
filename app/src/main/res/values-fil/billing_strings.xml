@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="billing_title">TimeBox na Walang Ad</string>
+    <string name="billing_benefits">Walang panimulang ad o banner. Walang limitasyong widget habang may subscription.</string>
+    <string name="billing_price_month">%1$s / buwan</string>
+    <string name="billing_subscribe">Mag-subscribe buwan-buwan</string>
+    <string name="billing_restore">Ibalik ang mga pagbili</string>
+    <string name="billing_manage">Pamahalaan ang subscription</string>
+    <string name="billing_active">Aktibo ang subscription</string>
+    <string name="billing_renewal">Awtomatikong nire-renew bawat buwan. Maaaring kanselahin anumang oras sa Google Play; mananatili ang access hanggang matapos ang bayad na panahon.</string>
+    <string name="billing_checking">Sinusuri ang subscription…</string>
+    <string name="billing_unavailable">Hindi available ang subscription. Suriin ang Google Play account at subukang ibalik ang mga pagbili.</string>
+    <string name="billing_cancelled">Kinansela ang pagbili.</string>
+    <string name="billing_pending">Nakabinbin ang bayad. Magsisimula ang access kapag nakumpirma ito.</string>
+    <string name="billing_restored">Naibalik ang subscription.</string>
+    <string name="billing_nothing_to_restore">Walang aktibong subscription sa Google Play account na ito.</string>
+    <string name="billing_failed">Hindi natapos ang pagbili. Pakisubukang muli.</string>
+    <string name="billing_verification_failed">Hindi nakumpirma ang pagbili. Ibalik ang mga pagbili para subukang muli.</string>
+    <string name="billing_window_not_ready">Isara ang ibang dialog at subukang muli.</string>
+    <string name="billing_widget_active">Kasama sa iyong subscription</string>
+    <string name="billing_widget_detail">Hindi kailangang manood ng ad o magdagdag ng oras habang aktibo ang subscription.</string>
+    <string name="billing_test_title">Panloob na pagsubok sa pagbabayad</string>
+    <string name="billing_test_warning">Tiyaking test payment method ang ipinapakita ng Google Play bago kumpirmahin. Maaaring masingil ang tunay na payment method.</string>
+    <string name="billing_continue">Magpatuloy sa Google Play</string>
+    <string name="billing_cancel">Kanselahin</string>
+</resources>

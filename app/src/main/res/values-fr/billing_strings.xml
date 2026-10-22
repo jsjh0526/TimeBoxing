@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="billing_title">TimeBox sans publicité</string>
+    <string name="billing_benefits">Sans publicité au démarrage ni bannière. Widget illimité pendant votre abonnement.</string>
+    <string name="billing_price_month">%1$s / mois</string>
+    <string name="billing_subscribe">Abonnement mensuel</string>
+    <string name="billing_restore">Restaurer les achats</string>
+    <string name="billing_manage">Gérer mon abonnement</string>
+    <string name="billing_active">Abonnement actif</string>
+    <string name="billing_renewal">Renouvellement automatique chaque mois. Résiliation possible à tout moment sur Google Play ; accès maintenu pendant la période payée.</string>
+    <string name="billing_checking">Vérification de votre abonnement…</string>
+    <string name="billing_unavailable">Abonnement indisponible. Vérifiez votre compte Google Play et réessayez de restaurer les achats.</string>
+    <string name="billing_cancelled">Achat annulé.</string>
+    <string name="billing_pending">Paiement en attente. Accès activé après confirmation du paiement.</string>
+    <string name="billing_restored">Abonnement restauré.</string>
+    <string name="billing_nothing_to_restore">Aucun abonnement actif trouvé pour ce compte Google Play.</string>
+    <string name="billing_failed">Achat non effectué. Veuillez réessayer.</string>
+    <string name="billing_verification_failed">Achat non confirmé. Réessayez de restaurer les achats.</string>
+    <string name="billing_window_not_ready">Fermez les autres fenêtres de dialogue et réessayez.</string>
+    <string name="billing_widget_active">Inclus dans votre abonnement</string>
+    <string name="billing_widget_detail">Aucune publicité ni prolongation nécessaire pendant votre abonnement.</string>
+    <string name="billing_test_title">Test interne de paiement</string>
+    <string name="billing_test_warning">Avant de confirmer, vérifiez que Google Play propose un moyen de paiement de test. Un vrai moyen de paiement peut être débité.</string>
+    <string name="billing_continue">Continuer vers Google Play</string>
+    <string name="billing_cancel">Annuler</string>
+</resources>

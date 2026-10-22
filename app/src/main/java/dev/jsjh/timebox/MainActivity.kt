@@ -28,6 +28,7 @@ import androidx.lifecycle.lifecycleScope
 import dev.jsjh.timebox.ads.AdsConsentManager
 import dev.jsjh.timebox.ads.OpeningNativeAdGate
 import dev.jsjh.timebox.ads.OpeningNativeAdPreloader
+import dev.jsjh.timebox.billing.AdFreeBilling
 import dev.jsjh.timebox.analytics.TimeBoxAnalytics
 import dev.jsjh.timebox.auth.initSupabase
 import dev.jsjh.timebox.diagnostics.StartupTrace
@@ -64,6 +65,8 @@ class MainActivity : ComponentActivity() {
     private var showSystemNavigationBar = false
     private lateinit var appUpdateManager: AppUpdateManager
     private var mobileAdsInitialized = false
+    private var adsConsentRequested = false
+    private val adFreeBilling by lazy { AdFreeBilling.get(this) }
     private var widgetLaunchRequest by mutableStateOf<WidgetLaunchRequest?>(null)
     private var launchedFromWidget = false
     private var appAnnouncementEligible = false
@@ -77,6 +80,7 @@ class MainActivity : ComponentActivity() {
     private var scheduledExternalFlowGeneration: Int? = null
     private val startupTrace = StartupTrace()
     private var startupWatchdog: Job? = null
+    private var billingRefreshJob: Job? = null
 
     private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         TimeBoxAnalytics.notificationPermissionResult(granted)
@@ -122,11 +126,18 @@ class MainActivity : ComponentActivity() {
         showSystemNavigationBar = AppSettingsStore(this).read().showSystemNavigationBar
         enableEdgeToEdgeSafely()
         setTimeBoxContent()
-        startupTrace.traceStep("ads.request_consent") {
-            AdsConsentManager.gatherConsent(this) {
-                initializeMobileAdsIfNeeded()
+        lifecycleScope.launch {
+            adFreeBilling.state.collect { billing ->
+                if (billing.adsAllowed) {
+                    requestAdsConsentIfNeeded()
+                } else {
+                    OpeningNativeAdPreloader.clear()
+                    if (billing.hasAccess) OpeningNativeAdGate.disableForCurrentLaunch()
+                }
+                if (!billing.purchaseInProgress) scheduleExternalFlowCheck()
             }
         }
+        Unit
     }
 
     private fun setTimeBoxContent() = startupTrace.traceStep("content.install") {
@@ -210,6 +221,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        adFreeBilling.refresh()
+        billingRefreshJob?.cancel()
+        if (adFreeBilling.state.value.enabled) {
+            billingRefreshJob = lifecycleScope.launch {
+                while (true) {
+                    delay(60_000)
+                    val billing = adFreeBilling.state.value
+                    if (!billing.purchaseInProgress && (billing.hasAccess || billing.awaitingConfirmation)) {
+                        adFreeBilling.refresh(preserveNotice = true)
+                    }
+                }
+            }
+        }
         startupTrace.event("activity.resume")
         startupWatchdog?.cancel()
         startupWatchdog = lifecycleScope.launch {
@@ -224,6 +248,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         startupTrace.event("activity.pause")
+        billingRefreshJob?.cancel()
         startupWatchdog?.cancel()
         invalidateExternalFlowSchedule()
         super.onPause()
@@ -356,10 +381,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun isWindowReadyForExternalFlow(): Boolean = isReadyForExternalUi()
+    private fun isWindowReadyForExternalFlow(): Boolean =
+        isReadyForExternalUi() && !adFreeBilling.state.value.purchaseInProgress
+
+    private fun requestAdsConsentIfNeeded() {
+        if (adsConsentRequested || isFinishing || isDestroyed || !adFreeBilling.state.value.adsAllowed) return
+        adsConsentRequested = true
+        startupTrace.traceStep("ads.request_consent") {
+            AdsConsentManager.gatherConsent(this) { initializeMobileAdsIfNeeded() }
+        }
+    }
 
     private fun initializeMobileAdsIfNeeded() {
-        if (mobileAdsInitialized) return
+        if (mobileAdsInitialized || !adFreeBilling.state.value.adsAllowed) return
         mobileAdsInitialized = true
         MobileAds.initialize(this) {}
     }

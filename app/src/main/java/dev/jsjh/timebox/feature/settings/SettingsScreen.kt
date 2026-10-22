@@ -92,6 +92,7 @@ import dev.jsjh.timebox.BuildConfig
 import dev.jsjh.timebox.R
 import dev.jsjh.timebox.ads.AdsConsentManager
 import dev.jsjh.timebox.analytics.TimeBoxAnalytics
+import dev.jsjh.timebox.billing.AdFreeBilling
 import dev.jsjh.timebox.auth.AuthRepository
 import dev.jsjh.timebox.auth.AuthState
 import dev.jsjh.timebox.data.remote.SyncErrorType
@@ -138,6 +139,8 @@ fun SettingsScreen(
     val loggedInUserId = (authState as? AuthState.LoggedIn)?.userId
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
+    val billingManager = remember(context) { AdFreeBilling.get(context) }
+    val billing by billingManager.state.collectAsState()
     val contactMailSubject = stringResource(R.string.settings_mail_subject_contact)
     val feedbackMailSubject = stringResource(R.string.settings_mail_subject_feedback)
     val openSourceTitle = stringResource(R.string.settings_open_source)
@@ -225,12 +228,23 @@ fun SettingsScreen(
             }
         }
 
-        item {
-            WidgetAccessCard()
+        if (billing.enabled) {
+            item {
+                AdFreeSubscriptionSection(
+                    state = billing,
+                    onPurchase = { context.findActivity()?.let(billingManager::purchase) },
+                    onRestore = { billingManager.refresh(restore = true) },
+                    onManage = { context.findActivity()?.let(billingManager::manage) }
+                )
+            }
         }
 
         item {
-            SupportAdCard()
+            if (billing.hasAccess) SubscriptionWidgetAccessSection() else WidgetAccessCard()
+        }
+
+        if (billing.adsAllowed) {
+            item { SupportAdCard() }
         }
 
         item {
@@ -358,7 +372,7 @@ private fun SupportAdCard() {
     var isLoading by remember { mutableStateOf(false) }
 
     fun loadAd() {
-        if (!AdsConsentManager.canRequestAds || adUnitId.isBlank() || isLoading || rewardedAd != null) return
+        if (!AdFreeBilling.get(context).state.value.adsAllowed || !AdsConsentManager.canRequestAds || adUnitId.isBlank() || isLoading || rewardedAd != null) return
         isLoading = true
         RewardedAd.load(
             context,
@@ -397,7 +411,7 @@ private fun SupportAdCard() {
         loadAd()
     }
 
-    val buttonEnabled = adUnitId.isNotBlank() && AdsConsentManager.canRequestAds
+    val buttonEnabled = adUnitId.isNotBlank() && AdsConsentManager.canRequestAds && AdFreeBilling.get(context).state.value.adsAllowed
     val buttonLabel = stringResource(R.string.settings_support_ad_button)
     val buttonIconColor = if (buttonEnabled) Color.White else TextSecondary
 
@@ -418,6 +432,7 @@ private fun SupportAdCard() {
             enabled = buttonEnabled,
             icon = { MaterialSettingsIcon(SettingsIcon.Support, buttonIconColor, 18) },
             onClick = {
+                if (!AdFreeBilling.get(context).state.value.adsAllowed) return@ActionButton
                 val ad = rewardedAd
                 if (activity == null || !activity.isReadyForExternalUi() || AdsConsentManager.isConsentFlowActive(activity)) {
                     Toast.makeText(context, unavailableMessage, Toast.LENGTH_SHORT).show()
@@ -504,7 +519,7 @@ private fun WidgetAccessCard() {
     val isUnlocked = remainingMillis > 0L
 
     fun loadAd() {
-        if (!AdsConsentManager.canRequestAds || adUnitId.isBlank() || isLoading || rewardedAd != null || !WidgetAccessStore.canExtend(context)) return
+        if (!AdFreeBilling.get(context).state.value.adsAllowed || !AdsConsentManager.canRequestAds || adUnitId.isBlank() || isLoading || rewardedAd != null || !WidgetAccessStore.canExtend(context)) return
         isLoading = true
         RewardedAd.load(
             context,
@@ -549,6 +564,10 @@ private fun WidgetAccessCard() {
 
     LaunchedEffect(showWhenLoaded, rewardedAd, activity) {
         if (!showWhenLoaded) return@LaunchedEffect
+        if (!AdFreeBilling.get(context).state.value.adsAllowed) {
+            showWhenLoaded = false
+            return@LaunchedEffect
+        }
 
         val ad = rewardedAd ?: return@LaunchedEffect
         val hostActivity = activity
@@ -607,7 +626,7 @@ private fun WidgetAccessCard() {
         }
     }
 
-    val buttonEnabled = adUnitId.isNotBlank() && AdsConsentManager.canRequestAds && canExtend && !showWhenLoaded
+    val buttonEnabled = adUnitId.isNotBlank() && AdsConsentManager.canRequestAds && canExtend && !showWhenLoaded && AdFreeBilling.get(context).state.value.adsAllowed
     val buttonLabel = when {
         !canExtend -> stringResource(R.string.settings_widget_unlock_maxed)
         isUnlocked -> stringResource(R.string.settings_widget_unlock_extend)
@@ -774,13 +793,13 @@ private fun analyticsLanguageTag(languageTag: String): String =
         ?: "system"
 
 @Composable
-private fun SectionCard(title: String, icon: @Composable () -> Unit, content: @Composable () -> Unit) {
+internal fun SectionCard(title: String, icon: @Composable () -> Unit, content: @Composable () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CardBackground).border(0.7.dp, CardBorder, RoundedCornerShape(14.dp))) {
         Column {
-            Row(modifier = Modifier.fillMaxWidth().height(51.dp).border(0.7.dp, CardBorder).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.fillMaxWidth().heightIn(min = 51.dp).border(0.7.dp, CardBorder).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 icon()
                 Spacer(modifier = Modifier.width(10.dp))
-                Text(title, style = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.5.sp, fontWeight = FontWeight.SemiBold))
+                Text(title, modifier = Modifier.weight(1f), style = TextStyle(color = TextPrimary, fontSize = 15.sp, lineHeight = 22.5.sp, fontWeight = FontWeight.SemiBold))
             }
             Column(modifier = Modifier.padding(16.dp)) { content() }
         }

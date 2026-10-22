@@ -8,6 +8,7 @@ import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.OnPaidEventListener
 import com.google.android.gms.ads.nativead.NativeAd
 import dev.jsjh.timebox.analytics.TimeBoxAnalytics
+import dev.jsjh.timebox.billing.AdFreeBilling
 import java.util.concurrent.TimeUnit
 
 object OpeningNativeAdPreloader {
@@ -20,7 +21,7 @@ object OpeningNativeAdPreloader {
 
     fun preload(context: Context, adUnitId: String) {
         discardExpiredCache()
-        if (!AdsConsentManager.canRequestAds || adUnitId.isBlank() || loading || cachedAd != null) return
+        if (!AdFreeBilling.get(context).state.value.adsAllowed || !AdsConsentManager.canRequestAds || adUnitId.isBlank() || loading || cachedAd != null) return
 
         val requestGeneration = generation
         loading = true
@@ -38,7 +39,7 @@ object OpeningNativeAdPreloader {
                         precisionType = adValue.precisionType
                     )
                 })
-                if (requestGeneration != generation) {
+                if (requestGeneration != generation || !AdFreeBilling.get(context).state.value.adsAllowed) {
                     ad.destroy()
                 } else {
                     cachedAd?.destroy()

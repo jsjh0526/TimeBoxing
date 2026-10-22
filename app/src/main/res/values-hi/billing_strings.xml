@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="billing_title">TimeBox बिना विज्ञापन</string>
+    <string name="billing_benefits">शुरुआती और बैनर विज्ञापन नहीं। सदस्यता के दौरान विजेट का असीमित उपयोग।</string>
+    <string name="billing_price_month">%1$s / महीना</string>
+    <string name="billing_subscribe">मासिक सदस्यता लें</string>
+    <string name="billing_restore">खरीदारी बहाल करें</string>
+    <string name="billing_manage">सदस्यता प्रबंधित करें</string>
+    <string name="billing_active">सदस्यता चालू है</string>
+    <string name="billing_renewal">हर महीने अपने आप नवीनीकृत होती है। Google Play में कभी भी रद्द करें; भुगतान की गई अवधि समाप्त होने तक उपयोग जारी रहेगा।</string>
+    <string name="billing_checking">सदस्यता जाँची जा रही है…</string>
+    <string name="billing_unavailable">सदस्यता उपलब्ध नहीं है। Google Play खाता जाँचें और खरीदारी बहाल करने का फिर प्रयास करें।</string>
+    <string name="billing_cancelled">खरीदारी रद्द कर दी गई।</string>
+    <string name="billing_pending">भुगतान लंबित है। पुष्टि के बाद लाभ मिलेंगे।</string>
+    <string name="billing_restored">सदस्यता बहाल हो गई।</string>
+    <string name="billing_nothing_to_restore">इस Google Play खाते में कोई चालू सदस्यता नहीं मिली।</string>
+    <string name="billing_failed">खरीदारी पूरी नहीं हुई। फिर प्रयास करें।</string>
+    <string name="billing_verification_failed">खरीदारी की पुष्टि नहीं हुई। खरीदारी बहाल करके फिर प्रयास करें।</string>
+    <string name="billing_window_not_ready">अन्य संवाद बंद करके फिर प्रयास करें।</string>
+    <string name="billing_widget_active">आपकी सदस्यता में उपलब्ध</string>
+    <string name="billing_widget_detail">सदस्यता चालू रहने तक विज्ञापन देखने या समय बढ़ाने की ज़रूरत नहीं है।</string>
+    <string name="billing_test_title">आंतरिक भुगतान परीक्षण</string>
+    <string name="billing_test_warning">आगे बढ़ने से पहले जाँचें कि Google Play में परीक्षण भुगतान विधि दिखाई दे रही है। वास्तविक भुगतान विधि से शुल्क लग सकता है।</string>
+    <string name="billing_continue">Google Play पर जारी रखें</string>
+    <string name="billing_cancel">रद्द करें</string>
+</resources>

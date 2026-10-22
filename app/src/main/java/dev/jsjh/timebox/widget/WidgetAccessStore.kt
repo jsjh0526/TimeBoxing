@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import dev.jsjh.timebox.auth.ActiveUserStore
+import dev.jsjh.timebox.billing.AdFreeAccessStore
 import java.util.concurrent.TimeUnit
 import kotlin.math.max
 import kotlin.math.min
@@ -24,7 +25,7 @@ object WidgetAccessStore {
         max(0L, unlockedUntilMillis(context) - System.currentTimeMillis())
 
     fun isUnlocked(context: Context): Boolean =
-        remainingMillis(context) > 0L
+        AdFreeAccessStore(context).hasAccess() || remainingMillis(context) > 0L
 
     fun canExtend(context: Context): Boolean =
         remainingMillis(context) <= MAX_EXTENSION_MS - REWARD_DURATION_MS
@@ -40,9 +41,10 @@ object WidgetAccessStore {
 
     fun scheduleExpiryRefresh(context: Context, unlockedUntilMillis: Long = unlockedUntilMillis(context)) {
         val appContext = context.applicationContext
+        val accessUntil = max(unlockedUntilMillis, AdFreeAccessStore(appContext).cacheExpiresAtMillis())
         val alarmManager = appContext.getSystemService(AlarmManager::class.java) ?: return
         val pendingIntent = expiryPendingIntent(appContext)
-        if (unlockedUntilMillis <= System.currentTimeMillis()) {
+        if (accessUntil <= System.currentTimeMillis()) {
             alarmManager.cancel(pendingIntent)
             TodoWidgetUpdater.requestUpdate(appContext)
             return
@@ -53,14 +55,14 @@ object WidgetAccessStore {
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
                     alarmManager.setAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
-                        unlockedUntilMillis,
+                        accessUntil,
                         pendingIntent
                     )
                 }
-                else -> alarmManager.set(AlarmManager.RTC_WAKEUP, unlockedUntilMillis, pendingIntent)
+                else -> alarmManager.set(AlarmManager.RTC_WAKEUP, accessUntil, pendingIntent)
             }
         }.onFailure {
-            alarmManager.set(AlarmManager.RTC_WAKEUP, unlockedUntilMillis, pendingIntent)
+            alarmManager.set(AlarmManager.RTC_WAKEUP, accessUntil, pendingIntent)
         }
     }
 

@@ -80,6 +80,7 @@ import dev.jsjh.timebox.ads.AdsConsentManager
 import dev.jsjh.timebox.ads.OpeningNativeAdGate
 import dev.jsjh.timebox.ads.OpeningNativeAdPreloader
 import dev.jsjh.timebox.analytics.TimeBoxAnalytics
+import dev.jsjh.timebox.billing.AdFreeBilling
 import dev.jsjh.timebox.auth.AuthRepository
 import dev.jsjh.timebox.auth.AuthState
 import dev.jsjh.timebox.auth.LoginScreen
@@ -187,13 +188,15 @@ fun TimeBoxingApp(
     val tutorialGateResolved = tutorialGateResolvedFor == tutorialOwnerKey
     val loginScreenVisible = authState is AuthState.SignedOut || authState is AuthState.Error
     val canRequestAds = AdsConsentManager.canRequestAds
+    val billing by remember(context) { AdFreeBilling.get(context) }.state.collectAsState()
 
-    LaunchedEffect(authState, canRequestAds, tutorialGateResolved, tutorialSession) {
+    LaunchedEffect(authState, canRequestAds, tutorialGateResolved, tutorialSession, billing.adsAllowed) {
         val authReady = authState is AuthState.Guest || authState is AuthState.LoggedIn
         if (
             authReady &&
             tutorialGateResolved &&
             tutorialSession == null &&
+            billing.adsAllowed &&
             canRequestAds &&
             OpeningNativeAdGate.canPreloadForCurrentLaunch()
         ) {
@@ -421,6 +424,7 @@ private fun MainApp(
 ) {
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val billing by remember(context) { AdFreeBilling.get(context) }.state.collectAsState()
     val guestNeedsInitialSeed = remember(userId, isGuest, reloadKey) {
         isGuest && !TaskDatabase.exists(context, userId)
     }
@@ -912,7 +916,7 @@ private fun MainApp(
             Big3LimitNotice()
         }
 
-        if (allowOpeningAd && tutorialGateResolved && tutorialSession == null) {
+        if (allowOpeningAd && tutorialGateResolved && tutorialSession == null && billing.adsAllowed) {
             OpeningNativeAdOverlay()
         }
 
@@ -1008,7 +1012,8 @@ private fun rememberBannerAdView(
 ): AdView? {
     val context = LocalContext.current
     val canRequestAds = AdsConsentManager.canRequestAds
-    if (adUnitId.isBlank()) return null
+    val billing by remember(context) { AdFreeBilling.get(context) }.state.collectAsState()
+    if (adUnitId.isBlank() || !billing.adsAllowed) return null
 
     val adView = remember(adUnitId, placement) {
         AdView(context).apply {
